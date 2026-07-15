@@ -31,6 +31,7 @@ metadata:
 - 用户要**获取文档评论列表**时，优先使用 `lark-cli drive +list-comments --url '<url>'`，不要优先手写 `drive file.comments list`；支持妙搭 apps 的 `/page/<token>` URL；具体使用方式先阅读 [`references/lark-drive-list-comments.md`](references/lark-drive-list-comments.md)。
 - 妙搭 apps 评论场景：除新增全文/局部评论不支持外，评论列表、批量查询、解决/恢复、回复创建/读取/更新/删除、reaction 添加/删除等评论管理能力已支持；使用原生命令时文档类型传 `apps`（`file_type=apps`），裸 token 调 shortcut 时传 `--type apps`。
 - 用户要**根据文档评论定位正文位置**，例如 根据评论 review 文档、根据评论内容回看文档、区分多处相同引用文本时，对于 docx 类型（`file_type=docx`）的文档支持通过 `drive +list-comments --need-relation` 返回评论位置，其他类型会静默忽略该参数；具体用法需要先阅读 [`references/lark-drive-comment-location.md`](references/lark-drive-comment-location.md) 了解。
+- 用户要**解决/恢复评论、回复评论、删除回复，或按评论 ID 批量取评论**时，优先使用 `drive +resolve-comment`、`drive +add-reply`、`drive +delete-reply`、`drive +batch-query-comments`，不要优先手写 `drive file.comments patch/batch_query` 或 `drive file.comment.replys create/delete`；四个命令都支持 `--url` / `--token + --type`，wiki URL/token 自动解包。回复与解决/恢复的产品限制见 [`references/lark-drive-comments-guide.md`](references/lark-drive-comments-guide.md)。
 - 用户给出 doubao.com 的云空间资源 URL/token，或明确提到豆包里的 file/folder/docx/sheet/bitable/wiki 资源时，仍按资源类型、URL 路径和 token 路由到本 skill；不要因为域名不是飞书而回退到 WebFetch。
 - 用户要把本地 `.xlsx` / `.csv` / `.base` 导入成 Base / 多维表格 / bitable，第一步必须使用 `lark-cli drive +import --type bitable`。
 - 用户要把本地 `.md` / `.docx` / `.doc` / `.txt` / `.html` 导入成在线文档，使用 `lark-cli drive +import --type docx`。
@@ -92,13 +93,18 @@ lark-cli drive +inspect --url 'https://xxx.feishu.cn/wiki/wikcnXXX'
 
 - 添加评论优先使用 [`+add-comment`](references/lark-drive-add-comment.md)：review / 审阅 / 校对场景默认尽量创建局部评论，不要把多个可定位问题合并为一条全文评论。
 - 获取评论列表优先使用 [`+list-comments`](references/lark-drive-list-comments.md)：推荐传 `--url`，支持 wiki 自动解包；参数细节见 reference。
+- 已知评论 ID 的批量查询用 `+batch-query-comments --comment-ids <id1,id2,...>`（单次最多 100 个，支持 `--need-reaction`）。
+- 解决/恢复评论用 `+resolve-comment --comment-id <id> --action resolve|restore`（resolve → `is_solved=true`，restore → `is_solved=false`）。
+- 回复评论用 `+add-reply --comment-id <id> --content '<reply_elements JSON>'`：支持 doc/docx/sheet/file/slides/base(bitable)/apps；全文评论（`is_whole=true`）和已解决评论（`is_solved=true`）不可回复。
+- 删除回复用 `+delete-reply --comment-id <id> --reply-id <id>`：高风险写操作，真实执行需要 `--yes`，删除不可恢复；删除评论卡片的首条（根）回复会删除整张评论卡片。
+- 四个评论操作命令均支持 Base（`/base/` URL、`--type bitable`，`base` 为兼容别名）和妙搭 apps（`/page/<token>` URL 或裸 token + `--type apps`）。
 - 评论查询、统计、排序、回复限制，先读 [`lark-drive-comments-guide.md`](references/lark-drive-comments-guide.md)。
 - 需要根据评论定位正文位置时，先确认目标是 `file_type=docx`，再读 [`lark-drive-comment-location.md`](references/lark-drive-comment-location.md)，并使用 `drive +list-comments --need-relation`；其他文档类型会静默忽略该参数。
 - reaction / 表情相关操作先读 [`lark-drive-reactions.md`](references/lark-drive-reactions.md)；只有用户明确需要 reaction 信息时才带 `need_reaction=true`。
 - `drive +add-comment` 的 `--content` 需要传 `reply_elements` JSON 数组字符串，例如 `--content '[{"type":"text","text":"正文"}]'`。
 - `slides` 评论要求显式传 `--block-id <slide-block-type>!<xml-id>`；CLI 会将其拆分后写入 `anchor.block_id` 和 `anchor.slide_block_type`。其中 `<xml-id>` 是 PPT XML 协议中的元素 `id`；不支持 `--selection-with-ellipsis` 和 `--full-comment`。
 - 评论写入内容（添加评论、回复评论、编辑回复）里的文本不能直接出现 `<`、`>`；提交前必须先转义：`<` -> `&lt;`，`>` -> `&gt;`。
-- 使用 `drive +add-comment` 时，shortcut 会对 `type=text` 的文本元素自动做上述转义兜底；如果直接调用 `drive file.comments create_v2`、`drive file.comment.replys create`、`drive file.comment.replys update`，则需要在请求里自行传入已转义的内容。
+- 使用 `drive +add-comment` / `drive +add-reply` 时，shortcut 会对 `type=text` 的文本元素自动做上述转义兜底；如果直接调用 `drive file.comments create_v2`、`drive file.comment.replys update`，则需要在请求里自行传入已转义的内容。
 - Base 记录局部评论使用 `--type bitable` / `--type base` 或 `/base/`、`/bitable/`、wiki Base 链接；`bitable` 和 Base 是同一概念，`bitable` 是内部代号、Base 是产品名，裸 token 推荐传 `bitable`，`base` 仅作为兼容别名兜底。
 - Base 不支持全局评论，所有评论都挂在记录上；定位信息必须是 file token（base token）+ `--block-id <table-id>!<record-id>!<view-id>`，其中 table/record/view ID 通常分别以 `tbl`/`rec`/`vew` 开头。view_id 只决定被提及时点击通知打开哪个视图，不影响评论挂载点；只要在同一记录上都能看到评论，但必须传，否则通知无法确定跳转视图。ID 可通过 [`lark-base`](../lark-base/SKILL.md) 获取。
 - 如果 wiki 解析后不是 `doc`/`docx`/`file`/`sheet`/`slides`/`bitable`/`base`，不要用 `+add-comment`。
@@ -147,6 +153,10 @@ Shortcut 是对常用操作的高级封装（`lark-cli drive +<verb> [flags]`）
 | [`+create-shortcut`](references/lark-drive-create-shortcut.md) | 在另一个文件夹里创建现有 Drive 文件的快捷方式。 |
 | [`+add-comment`](references/lark-drive-add-comment.md) | 给 doc/docx/file/sheet/slides/base(bitable) 添加评论，也支持解析到这些类型的 wiki URL；评论统计、回复和 reaction 细则见 [`lark-drive-comments-guide.md`](references/lark-drive-comments-guide.md)。 |
 | [`+list-comments`](references/lark-drive-list-comments.md) | 获取 doc/docx/sheet/file/slides/base(bitable)/apps 评论列表；优先传 URL，支持 wiki 自动解包和妙搭 `/page/<token>` URL。 |
+| `+batch-query-comments` | 按评论 ID 批量获取 doc/docx/sheet/file/slides/base(bitable)/apps 评论（`--comment-ids` 逗号分隔或重复传，单次最多 100 个，`--need-reaction` 附带 reaction）；支持 URL（含妙搭 `/page/<token>`）与 wiki 自动解包。 |
+| `+resolve-comment` | 解决或恢复 doc/docx/sheet/file/slides/base(bitable)/apps 上的评论：`--comment-id` + `--action resolve\|restore`；支持 URL（含妙搭 `/page/<token>`）与 wiki 自动解包。 |
+| `+add-reply` | 给已有评论添加回复：`--comment-id` + `--content`（与 `+add-comment` 相同的 reply_elements JSON，text 自动转义）；支持 doc/docx/sheet/file/slides/base(bitable)/apps 及解析到它们的 wiki；全文评论和已解决评论不可回复。 |
+| `+delete-reply` | 删除评论下的某条回复：`--comment-id` + `--reply-id`；高风险写操作，真实执行需 `--yes`；支持 doc/docx/sheet/file/slides/base(bitable)/apps 的 URL（含妙搭 `/page/<token>`）与 wiki 自动解包。 |
 | [`+export`](references/lark-drive-export.md) | 将 doc/docx/sheet/bitable/slides 导出为本地文件。 |
 | [`+export-download`](references/lark-drive-export-download.md) | 根据导出产物的 file_token 下载文件。 |
 | [`+import`](references/lark-drive-import.md) | 将本地文件导入为飞书在线文档、表格、多维表格或幻灯片。 |
@@ -183,15 +193,15 @@ lark-cli drive <resource> <method> [flags] # 调用 API
 
 ### file.comments
 
-  - `batch_query` — 批量获取评论
-  - `create_v2` — 添加全文/局部（划词）评论
-  - `list` — 分页获取文档评论
-  - `patch` — 解决/恢复 评论
+  - `batch_query` — 批量获取评论；优先使用 `drive +batch-query-comments`
+  - `create_v2` — 添加全文/局部（划词）评论；优先使用 `drive +add-comment`
+  - `list` — 分页获取文档评论；优先使用 `drive +list-comments`
+  - `patch` — 解决/恢复 评论；优先使用 `drive +resolve-comment`
 
 ### file.comment.replys
 
-  - `create` — 添加回复
-  - `delete` — 删除回复
+  - `create` — 添加回复；优先使用 `drive +add-reply`
+  - `delete` — 删除回复；优先使用 `drive +delete-reply`
   - `list` — 获取回复
   - `update` — 更新回复
 
