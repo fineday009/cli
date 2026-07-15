@@ -10,6 +10,7 @@ import (
 
 	"github.com/larksuite/cli/errs"
 	"github.com/larksuite/cli/internal/keychain"
+	"github.com/larksuite/cli/internal/vfs"
 )
 
 // stubKeychain is a minimal KeychainAccess that always returns ErrNotFound.
@@ -60,7 +61,9 @@ func TestAppConfig_LangOmitEmpty(t *testing.T) {
 }
 
 func TestMultiAppConfig_RoundTrip(t *testing.T) {
+	disabled := false
 	config := &MultiAppConfig{
+		DeviceInfoCollection: &disabled,
 		Apps: []AppConfig{{
 			AppId: "cli_test", AppSecret: PlainSecret("s"),
 			Brand: BrandLark, Lang: "zh", Users: []AppUser{},
@@ -83,6 +86,51 @@ func TestMultiAppConfig_RoundTrip(t *testing.T) {
 	}
 	if got.Apps[0].Brand != BrandLark {
 		t.Errorf("Brand = %q, want %q", got.Apps[0].Brand, BrandLark)
+	}
+	if got.DeviceInfoCollection == nil || *got.DeviceInfoCollection {
+		t.Errorf("DeviceInfoCollection = %v, want explicit false", got.DeviceInfoCollection)
+	}
+}
+
+func TestLoadMultiAppConfig_AllowsExplicitEmptyApps(t *testing.T) {
+	t.Setenv("LARKSUITE_CLI_CONFIG_DIR", t.TempDir())
+	if err := vfs.WriteFile(GetConfigPath(), []byte(`{"apps":[]}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	config, err := LoadMultiAppConfig()
+	if err != nil {
+		t.Fatalf("LoadMultiAppConfig() error = %v", err)
+	}
+	if config.Apps == nil || len(config.Apps) != 0 {
+		t.Fatalf("Apps = %#v, want explicit empty list", config.Apps)
+	}
+}
+
+func TestLoadMultiAppConfig_AllowsDeviceSettingWithoutApps(t *testing.T) {
+	t.Setenv("LARKSUITE_CLI_CONFIG_DIR", t.TempDir())
+	if err := vfs.WriteFile(GetConfigPath(), []byte(`{"deviceInfoCollection":false,"apps":[]}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	config, err := LoadMultiAppConfig()
+	if err != nil {
+		t.Fatalf("LoadMultiAppConfig() error = %v", err)
+	}
+	if config.DeviceInfoCollection == nil || *config.DeviceInfoCollection {
+		t.Fatalf("DeviceInfoCollection = %v, want explicit false", config.DeviceInfoCollection)
+	}
+}
+
+func TestLoadMultiAppConfig_RejectsStructurallyEmptyObject(t *testing.T) {
+	t.Setenv("LARKSUITE_CLI_CONFIG_DIR", t.TempDir())
+	if err := vfs.WriteFile(GetConfigPath(), []byte(`{}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadMultiAppConfig()
+	if !errors.Is(err, ErrMalformedConfig) {
+		t.Fatalf("LoadMultiAppConfig() error = %v, want ErrMalformedConfig", err)
 	}
 }
 

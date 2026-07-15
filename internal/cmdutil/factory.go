@@ -19,6 +19,7 @@ import (
 	"github.com/larksuite/cli/internal/client"
 	"github.com/larksuite/cli/internal/core"
 	"github.com/larksuite/cli/internal/credential"
+	"github.com/larksuite/cli/internal/deviceinfo"
 	"github.com/larksuite/cli/internal/keychain"
 )
 
@@ -30,10 +31,11 @@ type InvocationContext struct {
 }
 
 type Factory struct {
-	Config     func() (*core.CliConfig, error) // lazily loads app config from Credential
-	HttpClient func() (*http.Client, error)    // HTTP client for non-Lark API calls (with retry and security headers)
-	LarkClient func() (*lark.Client, error)    // Lark SDK client for all Open API calls
-	IOStreams  *IOStreams                      // stdin/stdout/stderr streams
+	Config               func() (*core.CliConfig, error)                         // lazily loads app config from Credential
+	HttpClient           func() (*http.Client, error)                            // HTTP client for non-Lark API calls (with retry and security headers)
+	LarkClient           func() (*lark.Client, error)                            // Lark SDK client for all Open API calls
+	DeviceInfoCollection func() (deviceinfo.DeviceInfoCollectionDecision, error) // global device information collection preference
+	IOStreams            *IOStreams                                              // stdin/stdout/stderr streams
 
 	Invocation           InvocationContext       // Immutable call context; do not mutate after Factory construction.
 	Keychain             keychain.KeychainAccess // secret storage (real keychain in prod, mock in tests)
@@ -46,6 +48,19 @@ type Factory struct {
 	FileIOProvider fileio.Provider // file transfer provider (default: local filesystem)
 
 	SkillContent fs.FS // embedded skill tree (rooted at the skill list); nil when the build embeds no skills
+}
+
+// ResolveDeviceInfoCollection returns the effective global device information
+// collection preference. A nil resolver preserves the enabled-by-default
+// behavior for custom and test factories.
+func (f *Factory) ResolveDeviceInfoCollection() (deviceinfo.DeviceInfoCollectionDecision, error) {
+	if f == nil || f.DeviceInfoCollection == nil {
+		return deviceinfo.DeviceInfoCollectionDecision{
+			Enabled: true,
+			Source:  deviceinfo.DeviceInfoCollectionSourceDefault,
+		}, nil
+	}
+	return f.DeviceInfoCollection()
 }
 
 // ResolveFileIO resolves a FileIO instance using the current execution context.

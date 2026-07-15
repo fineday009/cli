@@ -48,7 +48,10 @@ func configRemoveRun(opts *ConfigRemoveOptions) error {
 
 	// Save empty config first. If this fails, keep secrets and tokens intact so the
 	// existing config can still be retried instead of ending up half-removed.
-	empty := &core.MultiAppConfig{Apps: []core.AppConfig{}}
+	empty := &core.MultiAppConfig{
+		DeviceInfoCollection: config.DeviceInfoCollection,
+		Apps:                 []core.AppConfig{},
+	}
 	if err := core.SaveMultiAppConfig(empty); err != nil {
 		return errs.NewInternalError(errs.SubtypeStorage, "failed to save config: %v", err).WithCause(err)
 	}

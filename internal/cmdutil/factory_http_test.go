@@ -4,8 +4,13 @@
 package cmdutil
 
 import (
+	"errors"
 	"io"
 	"testing"
+
+	exttransport "github.com/larksuite/cli/extension/transport"
+	internalauth "github.com/larksuite/cli/internal/auth"
+	"github.com/larksuite/cli/internal/deviceinfo"
 )
 
 func TestCachedHttpClientFunc_ReturnsSameInstance(t *testing.T) {
@@ -28,6 +33,63 @@ func TestCachedHttpClientFunc_ReturnsSameInstance(t *testing.T) {
 	}
 }
 
+func TestCachedHttpClientFunc_PropagatesDisabledDeviceCollection(t *testing.T) {
+	f := &Factory{
+		IOStreams: &IOStreams{ErrOut: io.Discard},
+		DeviceInfoCollection: func() (deviceinfo.DeviceInfoCollectionDecision, error) {
+			return deviceinfo.DeviceInfoCollectionDecision{Enabled: false, Source: deviceinfo.DeviceInfoCollectionSourceConfig}, nil
+		},
+	}
+	client, err := cachedHttpClientFunc(f)()
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy := client.Transport.(*internalauth.SecurityPolicyTransport)
+	security := policy.Base.(*SecurityHeaderTransport)
+	if security.DeviceInfoCollection {
+		t.Fatal("SecurityHeaderTransport device collection = true, want false")
+	}
+}
+
+func TestCachedHttpClientFunc_PropagatesTTYState(t *testing.T) {
+	tests := []struct {
+		name  string
+		isTTY bool
+	}{
+		{name: "terminal", isTTY: true},
+		{name: "non terminal", isTTY: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &Factory{IOStreams: &IOStreams{ErrOut: io.Discard, IsTerminal: tt.isTTY}}
+			client, err := cachedHttpClientFunc(f)()
+			if err != nil {
+				t.Fatal(err)
+			}
+			policy := client.Transport.(*internalauth.SecurityPolicyTransport)
+			security := policy.Base.(*SecurityHeaderTransport)
+			if security.IsTTY != tt.isTTY {
+				t.Fatalf("SecurityHeaderTransport IsTTY = %t, want %t", security.IsTTY, tt.isTTY)
+			}
+		})
+	}
+}
+
+func TestCachedHttpClientFunc_DeviceCollectionErrorStopsConstruction(t *testing.T) {
+	sentinel := errors.New("invalid device collection setting")
+	f := &Factory{
+		IOStreams: &IOStreams{ErrOut: io.Discard},
+		DeviceInfoCollection: func() (deviceinfo.DeviceInfoCollectionDecision, error) {
+			return deviceinfo.DeviceInfoCollectionDecision{}, sentinel
+		},
+	}
+	client, err := cachedHttpClientFunc(f)()
+	if client != nil || !errors.Is(err, sentinel) {
+		t.Fatalf("cachedHttpClientFunc() = %v, %v; want nil client and sentinel", client, err)
+	}
+}
+
 func TestCachedHttpClientFunc_HasTimeout(t *testing.T) {
 	fn := cachedHttpClientFunc(&Factory{IOStreams: &IOStreams{ErrOut: io.Discard}})
 	c, _ := fn()
@@ -41,5 +103,34 @@ func TestCachedHttpClientFunc_HasRedirectPolicy(t *testing.T) {
 	c, _ := fn()
 	if c.CheckRedirect == nil {
 		t.Error("expected CheckRedirect to be set (safeRedirectPolicy)")
+	}
+}
+
+func TestCachedHttpClientFunc_AgentHeaderTransportOrder(t *testing.T) {
+	exttransport.Register(nil)
+	t.Cleanup(func() { exttransport.Register(nil) })
+
+	fn := cachedHttpClientFunc(&Factory{IOStreams: &IOStreams{ErrOut: io.Discard}})
+	client, err := fn()
+	if err != nil {
+		t.Fatalf("cachedHttpClientFunc() error = %v", err)
+	}
+	policy, ok := client.Transport.(*internalauth.SecurityPolicyTransport)
+	if !ok {
+		t.Fatalf("outer transport = %T, want *auth.SecurityPolicyTransport", client.Transport)
+	}
+	security, ok := policy.Base.(*SecurityHeaderTransport)
+	if !ok {
+		t.Fatalf("layer after SecurityPolicy = %T, want *SecurityHeaderTransport", policy.Base)
+	}
+	if !security.DeviceInfoCollection {
+		t.Fatal("default SecurityHeaderTransport device collection = false, want enabled")
+	}
+	agentPolicy, ok := security.Base.(*AgentHeaderPolicyTransport)
+	if !ok {
+		t.Fatalf("layer after SecurityHeader = %T, want *AgentHeaderPolicyTransport", security.Base)
+	}
+	if _, ok := agentPolicy.Base.(*RetryTransport); !ok {
+		t.Fatalf("layer after AgentHeaderPolicy has type %T, want *RetryTransport", agentPolicy.Base)
 	}
 }

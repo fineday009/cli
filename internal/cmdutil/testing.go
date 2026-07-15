@@ -40,7 +40,7 @@ func TestFactory(t *testing.T, config *core.CliConfig) (*Factory, *bytes.Buffer,
 
 	mockClient := httpmock.NewClient(reg)
 	sdkMockClient := &http.Client{
-		Transport: &UserAgentTransport{Base: reg},
+		Transport: &UserAgentTransport{Base: reg, DeviceInfoCollection: true, IsTTY: false},
 	}
 
 	var testLarkClient *lark.Client
@@ -49,7 +49,7 @@ func TestFactory(t *testing.T, config *core.CliConfig) (*Factory, *bytes.Buffer,
 			lark.WithEnableTokenCache(false),
 			lark.WithLogLevel(larkcore.LogLevelError),
 			lark.WithHttpClient(sdkMockClient),
-			lark.WithHeaders(BaseSecurityHeaders()),
+			lark.WithHeaders(BaseSecurityHeaders(true, false)),
 		}
 		if config.Brand != "" {
 			opts = append(opts, lark.WithOpenBaseUrl(core.ResolveOpenBaseURL(config.Brand)))

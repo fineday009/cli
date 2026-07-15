@@ -15,17 +15,22 @@ import (
 	"github.com/larksuite/cli/extension/fileio"
 	exttransport "github.com/larksuite/cli/extension/transport"
 	"github.com/larksuite/cli/internal/build"
+	internalcore "github.com/larksuite/cli/internal/core"
+	"github.com/larksuite/cli/internal/deviceinfo"
 	"github.com/larksuite/cli/internal/envvars"
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
 )
 
 const (
-	HeaderSource      = "X-Cli-Source"
-	HeaderVersion     = "X-Cli-Version"
-	HeaderBuild       = "X-Cli-Build"
-	HeaderShortcut    = "X-Cli-Shortcut"
-	HeaderExecutionId = "X-Cli-Execution-Id"
-	HeaderAgentTrace  = "X-Agent-Trace"
+	HeaderSource            = "X-Cli-Source"
+	HeaderVersion           = "X-Cli-Version"
+	HeaderBuild             = "X-Cli-Build"
+	HeaderShortcut          = "X-Cli-Shortcut"
+	HeaderExecutionId       = "X-Cli-Execution-Id"
+	HeaderAgentTrace        = "X-Agent-Trace"
+	HeaderAgentTerminalType = "X-Agent-Terminal-Type"
+	HeaderAgentDeviceType   = "X-Agent-Device-Type"
+	HeaderAgentOSType       = "X-Agent-Os-Type"
 
 	SourceValue = "lark-cli"
 
@@ -40,22 +45,104 @@ const (
 	officialModulePath = "github.com/larksuite/cli"
 )
 
-// UserAgentValue returns the User-Agent value: "lark-cli/{version}".
-func UserAgentValue() string {
-	return SourceValue + "/" + build.Version
+var (
+	buildDeviceUserAgent = deviceinfo.BuildUserAgent
+	collectDeviceModel   = deviceinfo.Get
+	collectDeviceOSName  = deviceinfo.OSName
+)
+
+// UserAgentValue returns the CLI User-Agent. Detailed OS information and the
+// terminal surface are only appended when device information collection is
+// enabled.
+func UserAgentValue(deviceInfoCollection, isTTY bool) string {
+	value := SourceValue + "/" + build.Version
+	if deviceInfoCollection {
+		value += " " + buildDeviceUserAgent(isTTY)
+	}
+	return value
 }
 
-// BaseSecurityHeaders returns headers that every request must carry.
-func BaseSecurityHeaders() http.Header {
+// requestUserAgentValue returns the enhanced User-Agent only for approved
+// Feishu/Lark service hosts. Requests to other hosts keep the product/version
+// identifier without exposing operating-system, architecture, or terminal
+// details.
+func requestUserAgentValue(req *http.Request, deviceInfoCollection, isTTY bool) string {
+	return UserAgentValue(deviceInfoCollection && requestAllowsAgentHeaders(req), isTTY)
+}
+
+// BaseSecurityHeaders returns the common CLI headers and candidate device
+// metadata. Request transports remove domain-restricted X-Agent headers and
+// downgrade the User-Agent before sending to any host outside the exact
+// Feishu/Lark endpoint allowlist.
+func BaseSecurityHeaders(deviceInfoCollection, isTTY bool) http.Header {
 	h := make(http.Header)
 	h.Set(HeaderSource, SourceValue)
 	h.Set(HeaderVersion, build.Version)
 	h.Set(HeaderBuild, DetectBuildKind())
-	h.Set(HeaderUserAgent, UserAgentValue())
+	h.Set(HeaderUserAgent, UserAgentValue(deviceInfoCollection, isTTY))
 	if v := envvars.AgentTrace(); v != "" {
 		h.Set(HeaderAgentTrace, v)
 	}
+	if deviceInfoCollection {
+		h.Set(HeaderAgentTerminalType, deviceinfo.TerminalTypePC)
+		h.Set(HeaderAgentDeviceType, collectDeviceModel())
+		h.Set(HeaderAgentOSType, deviceinfo.GetOSType(collectDeviceOSName()))
+	}
 	return h
+}
+
+var domainRestrictedAgentHeaders = [...]string{
+	HeaderAgentTerminalType,
+	HeaderAgentDeviceType,
+	HeaderAgentOSType,
+}
+
+// isAgentHeaderAllowedHost reports whether host is one of the exact service
+// hosts returned by core.ResolveEndpoints for the Feishu or Lark brand.
+// Subdomains and lookalike suffixes are deliberately rejected.
+func isAgentHeaderAllowedHost(host string) bool {
+	host = strings.ToLower(strings.TrimSpace(host))
+	for _, brand := range [...]internalcore.LarkBrand{internalcore.BrandFeishu, internalcore.BrandLark} {
+		endpoints := internalcore.ResolveEndpoints(brand)
+		for _, endpoint := range [...]string{endpoints.Open, endpoints.Accounts, endpoints.MCP, endpoints.AppLink} {
+			if host == strings.TrimPrefix(endpoint, "https://") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func requestAllowsAgentHeaders(req *http.Request) bool {
+	return req != nil && req.URL != nil && isAgentHeaderAllowedHost(req.URL.Hostname())
+}
+
+func isDomainRestrictedAgentHeader(name string) bool {
+	name = http.CanonicalHeaderKey(name)
+	for _, restricted := range domainRestrictedAgentHeaders {
+		if name == restricted {
+			return true
+		}
+	}
+	return false
+}
+
+func stripDomainRestrictedAgentHeaders(h http.Header) {
+	for name := range h {
+		if isDomainRestrictedAgentHeader(name) {
+			delete(h, name)
+		}
+	}
+}
+
+func applyAgentHeaderPolicy(req *http.Request) {
+	if req == nil || req.Header == nil {
+		return
+	}
+	if !requestAllowsAgentHeaders(req) {
+		stripDomainRestrictedAgentHeaders(req.Header)
+		req.Header.Set(HeaderUserAgent, UserAgentValue(false, false))
+	}
 }
 
 var (

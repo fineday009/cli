@@ -286,6 +286,32 @@ lark-cli schema im.messages.delete
 
 我们建议您将对接本工具的飞书机器人作为私人对话助手使用，请勿将其拉入群聊或允许其他用户与其交互，以避免权限被滥用或数据泄露。
 
+为了进行风险控制和安全监控，我们可能会在请求头中包含以下设备信息：
+
+- 设备型号
+- 操作系统类型和版本
+- 终端类型
+
+可以使用以下命令全局关闭此设备信息收集：
+
+```bash
+lark-cli config device-info-collection off
+```
+
+您还可以使用 `LARKSUITE_CLI_DEVICE_INFO_COLLECTION` 环境变量配置此行为。
+
+```bash
+
+Windows CMD：
+set LARKSUITE_CLI_DEVICE_INFO_COLLECTION=off
+
+Windows PowerShell：
+$env:LARKSUITE_CLI_DEVICE_INFO_COLLECTION="off"
+
+Linux/macOS：
+export LARKSUITE_CLI_DEVICE_INFO_COLLECTION=off
+```
+
 请您充分知悉全部使用风险，使用本工具即视为您自愿承担相关所有责任。
 
 ## Star History

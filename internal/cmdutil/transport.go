@@ -58,14 +58,17 @@ func (t *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 // UserAgentTransport is an http.RoundTripper that sets the User-Agent header.
-// Used in the SDK transport chain to override the SDK's default User-Agent.
+// Used in the SDK transport chain to override the SDK's default User-Agent;
+// device details are included only for approved Feishu/Lark service hosts.
 type UserAgentTransport struct {
-	Base http.RoundTripper
+	Base                 http.RoundTripper
+	DeviceInfoCollection bool
+	IsTTY                bool
 }
 
 func (t *UserAgentTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req = req.Clone(req.Context())
-	req.Header.Set(HeaderUserAgent, UserAgentValue())
+	req.Header.Set(HeaderUserAgent, requestUserAgentValue(req, t.DeviceInfoCollection, t.IsTTY))
 	if t.Base != nil {
 		return t.Base.RoundTrip(req)
 	}
@@ -90,10 +93,35 @@ func (t *BuildHeaderTransport) RoundTrip(req *http.Request) (*http.Response, err
 	return transport.Fallback().RoundTrip(req)
 }
 
-// SecurityHeaderTransport is an http.RoundTripper that injects CLI security
-// headers into every request. Shortcut headers are read from the request context.
-type SecurityHeaderTransport struct {
+// AgentHeaderPolicyTransport enforces the domain restriction for sensitive
+// X-Agent headers and enhanced User-Agent device details. It is shared by the
+// direct HTTP and SDK clients so both paths apply identical protection.
+type AgentHeaderPolicyTransport struct {
 	Base http.RoundTripper
+}
+
+func (t *AgentHeaderPolicyTransport) base() http.RoundTripper {
+	if t.Base != nil {
+		return t.Base
+	}
+	return transport.Fallback()
+}
+
+// RoundTrip implements http.RoundTripper.
+func (t *AgentHeaderPolicyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = req.Clone(req.Context())
+	applyAgentHeaderPolicy(req)
+	return t.base().RoundTrip(req)
+}
+
+// SecurityHeaderTransport is an http.RoundTripper that injects CLI security
+// headers into requests. AgentHeaderPolicyTransport, which is the next layer
+// in the production chain, enforces the sensitive X-Agent header policy.
+// Shortcut headers are read from the request context.
+type SecurityHeaderTransport struct {
+	Base                 http.RoundTripper
+	DeviceInfoCollection bool
+	IsTTY                bool
 }
 
 func (t *SecurityHeaderTransport) base() http.RoundTripper {
@@ -106,7 +134,7 @@ func (t *SecurityHeaderTransport) base() http.RoundTripper {
 // RoundTrip implements http.RoundTripper.
 func (t *SecurityHeaderTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req = req.Clone(req.Context())
-	for k, vs := range BaseSecurityHeaders() {
+	for k, vs := range BaseSecurityHeaders(t.DeviceInfoCollection, t.IsTTY) {
 		for _, v := range vs {
 			req.Header.Set(k, v)
 		}

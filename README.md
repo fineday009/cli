@@ -285,6 +285,29 @@ To reduce these risks, the tool enables default security protections at multiple
 
 We recommend using the Lark/Feishu bot integrated with this tool as a private conversational assistant. Do not add it to group chats or allow other users to interact with it, to avoid abuse of permissions or data leakage.
 
+For risk control and security monitoring, we may include the following device information in request headers:
+
+- Device model
+- Operating system type and version
+- Terminal type
+
+This device information collection can be disabled globally using the following command:
+```bash
+lark-cli config device-info-collection off
+```
+
+You can also configure this behavior using the `LARKSUITE_CLI_DEVICE_INFO_COLLECTION` environment variable.
+```bash
+Windows CMD:
+set LARKSUITE_CLI_DEVICE_INFO_COLLECTION=off
+
+Windows PowerShell:
+$env:LARKSUITE_CLI_DEVICE_INFO_COLLECTION="off"
+
+Linux/macOS:
+export LARKSUITE_CLI_DEVICE_INFO_COLLECTION=off
+```
+
 Please fully understand all usage risks. By using this tool, you are deemed to voluntarily assume all related responsibilities.
 
 ## Star History

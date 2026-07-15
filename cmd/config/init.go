@@ -152,8 +152,9 @@ func cleanupOldConfig(existing *core.MultiAppConfig, f *cmdutil.Factory, skipApp
 }
 
 // saveAsOnlyApp overwrites config.json with a single-app config.
-func saveAsOnlyApp(appId string, secret core.SecretInput, brand core.LarkBrand, lang string) error {
+func saveAsOnlyApp(appId string, secret core.SecretInput, brand core.LarkBrand, lang string, deviceInfoCollection *bool) error {
 	config := &core.MultiAppConfig{
+		DeviceInfoCollection: deviceInfoCollection,
 		Apps: []core.AppConfig{{
 			AppId: appId, AppSecret: secret, Brand: brand, Lang: i18n.Lang(lang), Users: []core.AppUser{},
 		}},
@@ -175,7 +176,11 @@ func saveInitConfig(profileName string, existing *core.MultiAppConfig, f *cmduti
 			prior = app.Lang
 		}
 	}
-	return saveAsOnlyApp(appId, secret, brand, string(preferredLang(i18n.Lang(lang), prior)))
+	var deviceInfoCollection *bool
+	if existing != nil {
+		deviceInfoCollection = existing.DeviceInfoCollection
+	}
+	return saveAsOnlyApp(appId, secret, brand, string(preferredLang(i18n.Lang(lang), prior)), deviceInfoCollection)
 }
 
 // wrapSaveConfigError passes an already-typed error (e.g. the --name conflict

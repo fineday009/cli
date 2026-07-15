@@ -10,6 +10,8 @@ import (
 
 	"github.com/larksuite/cli/extension/credential"
 	envcred "github.com/larksuite/cli/extension/credential/env"
+	"github.com/larksuite/cli/internal/build"
+	"github.com/larksuite/cli/internal/deviceinfo"
 	"github.com/larksuite/cli/internal/envvars"
 	"github.com/larksuite/cli/internal/vfs/localfileio"
 )
@@ -241,7 +243,7 @@ func TestDetectBuildKind_StableAcrossCalls(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestBaseSecurityHeaders_IncludesBuildHeader(t *testing.T) {
-	h := BaseSecurityHeaders()
+	h := BaseSecurityHeaders(true, true)
 	v := h.Get(HeaderBuild)
 	if v == "" {
 		t.Fatal("BaseSecurityHeaders missing X-Cli-Build header")
@@ -253,11 +255,95 @@ func TestBaseSecurityHeaders_IncludesBuildHeader(t *testing.T) {
 	}
 }
 
+func TestUserAgentValueUsesEnhancedDeviceSuffix(t *testing.T) {
+	originalUserAgent := buildDeviceUserAgent
+	t.Cleanup(func() { buildDeviceUserAgent = originalUserAgent })
+	buildDeviceUserAgent = func(isTTY bool) string {
+		if isTTY {
+			return "(macOS 26.0.4; arm64; terminal)"
+		}
+		return "(macOS 26.0.4; arm64; non-terminal)"
+	}
+
+	tests := []struct {
+		name    string
+		isTTY   bool
+		surface string
+	}{
+		{name: "terminal", isTTY: true, surface: "terminal"},
+		{name: "non terminal", isTTY: false, surface: "non-terminal"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			want := SourceValue + "/" + build.Version + " (macOS 26.0.4; arm64; " + tt.surface + ")"
+			if got := UserAgentValue(true, tt.isTTY); got != want {
+				t.Fatalf("UserAgentValue(true, %t) = %q, want %q", tt.isTTY, got, want)
+			}
+		})
+	}
+}
+
 func TestBaseSecurityHeaders_AllRequiredHeaders(t *testing.T) {
-	h := BaseSecurityHeaders()
-	for _, key := range []string{HeaderSource, HeaderVersion, HeaderBuild, HeaderUserAgent} {
+	h := BaseSecurityHeaders(true, true)
+	for _, key := range []string{
+		HeaderSource,
+		HeaderVersion,
+		HeaderBuild,
+		HeaderUserAgent,
+		HeaderAgentTerminalType,
+		HeaderAgentDeviceType,
+		HeaderAgentOSType,
+	} {
 		if h.Get(key) == "" {
 			t.Errorf("BaseSecurityHeaders missing %s", key)
+		}
+	}
+	if got := h.Get(HeaderAgentTerminalType); got != deviceinfo.TerminalTypePC {
+		t.Errorf("%s = %q, want %q", HeaderAgentTerminalType, got, deviceinfo.TerminalTypePC)
+	}
+	if got := h.Get(HeaderAgentDeviceType); got != deviceinfo.Get() {
+		t.Errorf("%s = %q, want %q", HeaderAgentDeviceType, got, deviceinfo.Get())
+	}
+	wantOSType := deviceinfo.GetOSType(deviceinfo.OSName())
+	if got := h.Get(HeaderAgentOSType); got != wantOSType {
+		t.Errorf("%s = %q, want %q", HeaderAgentOSType, got, wantOSType)
+	}
+}
+
+func TestBaseSecurityHeaders_DeviceCollectionDisabled(t *testing.T) {
+	originalUserAgent := buildDeviceUserAgent
+	originalModel := collectDeviceModel
+	originalOSName := collectDeviceOSName
+	t.Cleanup(func() {
+		buildDeviceUserAgent = originalUserAgent
+		collectDeviceModel = originalModel
+		collectDeviceOSName = originalOSName
+	})
+	probes := 0
+	buildDeviceUserAgent = func(bool) string { probes++; return "unexpected-user-agent" }
+	collectDeviceModel = func() string { probes++; return "unexpected-model" }
+	collectDeviceOSName = func() string { probes++; return "unexpected-os" }
+
+	h := BaseSecurityHeaders(false, false)
+	if probes != 0 {
+		t.Fatalf("device information probes called %d times while collection disabled", probes)
+	}
+	for _, key := range []string{
+		HeaderAgentTerminalType,
+		HeaderAgentDeviceType,
+		HeaderAgentOSType,
+	} {
+		if got := h.Get(key); got != "" {
+			t.Errorf("BaseSecurityHeaders(false)[%s] = %q, want omitted", key, got)
+		}
+	}
+	wantUserAgent := SourceValue + "/" + build.Version
+	if got := h.Get(HeaderUserAgent); got != wantUserAgent {
+		t.Errorf("User-Agent = %q, want privacy fallback %q", got, wantUserAgent)
+	}
+	for _, key := range []string{HeaderSource, HeaderVersion, HeaderBuild} {
+		if h.Get(key) == "" {
+			t.Errorf("BaseSecurityHeaders(false) removed non-device header %s", key)
 		}
 	}
 }
@@ -268,7 +354,7 @@ func TestBaseSecurityHeaders_AllRequiredHeaders(t *testing.T) {
 
 func TestBaseSecurityHeaders_NoAgentTraceHeaderWhenEnvUnset(t *testing.T) {
 	t.Setenv(envvars.CliAgentTrace, "")
-	h := BaseSecurityHeaders()
+	h := BaseSecurityHeaders(true, true)
 	if v := h.Get(HeaderAgentTrace); v != "" {
 		t.Fatalf("BaseSecurityHeaders() included %s = %q, want absent when env unset", HeaderAgentTrace, v)
 	}
@@ -276,7 +362,7 @@ func TestBaseSecurityHeaders_NoAgentTraceHeaderWhenEnvUnset(t *testing.T) {
 
 func TestBaseSecurityHeaders_IncludesAgentTraceHeaderWhenEnvSet(t *testing.T) {
 	t.Setenv(envvars.CliAgentTrace, "trace-xyz-789")
-	h := BaseSecurityHeaders()
+	h := BaseSecurityHeaders(true, true)
 	if v := h.Get(HeaderAgentTrace); v != "trace-xyz-789" {
 		t.Fatalf("BaseSecurityHeaders()[%s] = %q, want %q", HeaderAgentTrace, v, "trace-xyz-789")
 	}
@@ -284,7 +370,7 @@ func TestBaseSecurityHeaders_IncludesAgentTraceHeaderWhenEnvSet(t *testing.T) {
 
 func TestBaseSecurityHeaders_AgentTraceTrimmedWhitespace(t *testing.T) {
 	t.Setenv(envvars.CliAgentTrace, "  trace-trim  ")
-	h := BaseSecurityHeaders()
+	h := BaseSecurityHeaders(true, true)
 	if v := h.Get(HeaderAgentTrace); v != "trace-trim" {
 		t.Fatalf("BaseSecurityHeaders()[%s] = %q, want %q (whitespace trimmed)", HeaderAgentTrace, v, "trace-trim")
 	}
@@ -292,7 +378,7 @@ func TestBaseSecurityHeaders_AgentTraceTrimmedWhitespace(t *testing.T) {
 
 func TestBaseSecurityHeaders_AgentTraceOnlyWhitespace_Skipped(t *testing.T) {
 	t.Setenv(envvars.CliAgentTrace, "   ")
-	h := BaseSecurityHeaders()
+	h := BaseSecurityHeaders(true, true)
 	if v := h.Get(HeaderAgentTrace); v != "" {
 		t.Fatalf("BaseSecurityHeaders()[%s] = %q, want absent for whitespace-only value", HeaderAgentTrace, v)
 	}
@@ -300,7 +386,7 @@ func TestBaseSecurityHeaders_AgentTraceOnlyWhitespace_Skipped(t *testing.T) {
 
 func TestBaseSecurityHeaders_AgentTraceRejectsCRLFInjection(t *testing.T) {
 	t.Setenv(envvars.CliAgentTrace, "val\r\nX-Evil: attack")
-	h := BaseSecurityHeaders()
+	h := BaseSecurityHeaders(true, true)
 	if v := h.Get(HeaderAgentTrace); v != "" {
 		t.Fatalf("BaseSecurityHeaders()[%s] = %q, want absent for CR/LF value", HeaderAgentTrace, v)
 	}
@@ -308,8 +394,40 @@ func TestBaseSecurityHeaders_AgentTraceRejectsCRLFInjection(t *testing.T) {
 
 func TestBaseSecurityHeaders_AgentTraceRejectsLFInjection(t *testing.T) {
 	t.Setenv(envvars.CliAgentTrace, "val\nX-Evil: attack")
-	h := BaseSecurityHeaders()
+	h := BaseSecurityHeaders(true, true)
 	if v := h.Get(HeaderAgentTrace); v != "" {
 		t.Fatalf("BaseSecurityHeaders()[%s] = %q, want absent for LF value", HeaderAgentTrace, v)
+	}
+}
+
+func TestIsAgentHeaderAllowedHost(t *testing.T) {
+	tests := []struct {
+		host string
+		want bool
+	}{
+		{host: "open.feishu.cn", want: true},
+		{host: "accounts.feishu.cn", want: true},
+		{host: "mcp.feishu.cn", want: true},
+		{host: "applink.feishu.cn", want: true},
+		{host: "open.larksuite.com", want: true},
+		{host: "accounts.larksuite.com", want: true},
+		{host: "mcp.larksuite.com", want: true},
+		{host: "applink.larksuite.com", want: true},
+		{host: "OPEN.LARKSUITE.COM", want: true},
+		{host: "example.com"},
+		{host: "feishu.cn"},
+		{host: "api.open.feishu.cn"},
+		{host: "open.feishu.cn.evil.example"},
+		{host: "open.feishu-boe.cn"},
+		{host: "open.larksuite-pre.com"},
+		{host: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.host, func(t *testing.T) {
+			if got := isAgentHeaderAllowedHost(tt.host); got != tt.want {
+				t.Fatalf("isAgentHeaderAllowedHost(%q) = %t, want %t", tt.host, got, tt.want)
+			}
+		})
 	}
 }

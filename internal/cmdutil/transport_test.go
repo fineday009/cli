@@ -15,6 +15,7 @@ import (
 
 	exttransport "github.com/larksuite/cli/extension/transport"
 	internalauth "github.com/larksuite/cli/internal/auth"
+	"github.com/larksuite/cli/internal/envvars"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -95,23 +96,47 @@ func TestRetryTransport_DefaultNoRetry(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestBuildSDKTransport_IncludesRetryTransport(t *testing.T) {
-	transport := buildSDKTransport()
+	transport := buildSDKTransport(true, true)
 
-	// Chain: SecurityPolicy → BuildHeader → UserAgent → Retry → Base
+	// Chain: SecurityPolicy → AgentHeaderPolicy → BuildHeader → UserAgent → Retry → Base
 	sec, ok := transport.(*internalauth.SecurityPolicyTransport)
 	if !ok {
 		t.Fatalf("outer transport type = %T, want *auth.SecurityPolicyTransport", transport)
 	}
-	bh, ok := sec.Base.(*BuildHeaderTransport)
+	agentPolicy, ok := sec.Base.(*AgentHeaderPolicyTransport)
 	if !ok {
-		t.Fatalf("layer after SecurityPolicy = %T, want *BuildHeaderTransport", sec.Base)
+		t.Fatalf("layer after SecurityPolicy = %T, want *AgentHeaderPolicyTransport", sec.Base)
+	}
+	bh, ok := agentPolicy.Base.(*BuildHeaderTransport)
+	if !ok {
+		t.Fatalf("layer after AgentHeaderPolicy has type %T, want *BuildHeaderTransport", agentPolicy.Base)
 	}
 	ua, ok := bh.Base.(*UserAgentTransport)
 	if !ok {
 		t.Fatalf("layer after BuildHeader = %T, want *UserAgentTransport", bh.Base)
 	}
+	if !ua.DeviceInfoCollection {
+		t.Fatal("UserAgentTransport device collection = false, want enabled")
+	}
+	if !ua.IsTTY {
+		t.Fatal("UserAgentTransport IsTTY = false, want true")
+	}
 	if _, ok := ua.Base.(*RetryTransport); !ok {
 		t.Fatalf("inner transport type = %T, want *RetryTransport", ua.Base)
+	}
+}
+
+func TestBuildSDKTransport_PropagatesDisabledDeviceCollection(t *testing.T) {
+	transport := buildSDKTransport(false, false)
+	sec := transport.(*internalauth.SecurityPolicyTransport)
+	agentPolicy := sec.Base.(*AgentHeaderPolicyTransport)
+	buildHeader := agentPolicy.Base.(*BuildHeaderTransport)
+	userAgent := buildHeader.Base.(*UserAgentTransport)
+	if userAgent.DeviceInfoCollection {
+		t.Fatal("UserAgentTransport device collection = true, want false")
+	}
+	if userAgent.IsTTY {
+		t.Fatal("UserAgentTransport IsTTY = true, want false")
 	}
 }
 
@@ -119,9 +144,9 @@ func TestBuildSDKTransport_WithExtension(t *testing.T) {
 	exttransport.Register(&stubTransportProvider{})
 	t.Cleanup(func() { exttransport.Register(nil) })
 
-	transport := buildSDKTransport()
+	transport := buildSDKTransport(true, true)
 
-	// Chain: extensionMiddleware → SecurityPolicy → BuildHeader → UserAgent → Retry → Base
+	// Chain: extensionMiddleware → SecurityPolicy → AgentHeaderPolicy → BuildHeader → UserAgent → Retry → Base
 	mid, ok := transport.(*extensionMiddleware)
 	if !ok {
 		t.Fatalf("outer transport type = %T, want *extensionMiddleware", transport)
@@ -130,9 +155,13 @@ func TestBuildSDKTransport_WithExtension(t *testing.T) {
 	if !ok {
 		t.Fatalf("transport type = %T, want *auth.SecurityPolicyTransport", mid.Base)
 	}
-	bh, ok := sec.Base.(*BuildHeaderTransport)
+	agentPolicy, ok := sec.Base.(*AgentHeaderPolicyTransport)
 	if !ok {
-		t.Fatalf("layer after SecurityPolicy = %T, want *BuildHeaderTransport", sec.Base)
+		t.Fatalf("layer after SecurityPolicy = %T, want *AgentHeaderPolicyTransport", sec.Base)
+	}
+	bh, ok := agentPolicy.Base.(*BuildHeaderTransport)
+	if !ok {
+		t.Fatalf("layer after AgentHeaderPolicy has type %T, want *BuildHeaderTransport", agentPolicy.Base)
 	}
 	ua, ok := bh.Base.(*UserAgentTransport)
 	if !ok {
@@ -146,16 +175,20 @@ func TestBuildSDKTransport_WithExtension(t *testing.T) {
 func TestBuildSDKTransport_WithoutExtension(t *testing.T) {
 	exttransport.Register(nil)
 
-	transport := buildSDKTransport()
+	transport := buildSDKTransport(true, true)
 
-	// Chain: SecurityPolicy → BuildHeader → UserAgent → Retry → Base
+	// Chain: SecurityPolicy → AgentHeaderPolicy → BuildHeader → UserAgent → Retry → Base
 	sec, ok := transport.(*internalauth.SecurityPolicyTransport)
 	if !ok {
 		t.Fatalf("outer transport type = %T, want *auth.SecurityPolicyTransport", transport)
 	}
-	bh, ok := sec.Base.(*BuildHeaderTransport)
+	agentPolicy, ok := sec.Base.(*AgentHeaderPolicyTransport)
 	if !ok {
-		t.Fatalf("layer after SecurityPolicy = %T, want *BuildHeaderTransport", sec.Base)
+		t.Fatalf("layer after SecurityPolicy = %T, want *AgentHeaderPolicyTransport", sec.Base)
+	}
+	bh, ok := agentPolicy.Base.(*BuildHeaderTransport)
+	if !ok {
+		t.Fatalf("layer after AgentHeaderPolicy has type %T, want *BuildHeaderTransport", agentPolicy.Base)
 	}
 	ua, ok := bh.Base.(*UserAgentTransport)
 	if !ok {
@@ -163,6 +196,53 @@ func TestBuildSDKTransport_WithoutExtension(t *testing.T) {
 	}
 	if _, ok := ua.Base.(*RetryTransport); !ok {
 		t.Fatalf("inner transport type = %T, want *RetryTransport", ua.Base)
+	}
+}
+
+func TestUserAgentTransport_RestrictsDeviceSuffixByRequestHost(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+		want string
+	}{
+		{
+			name: "Lark endpoint keeps enhanced user agent",
+			url:  "https://open.larksuite.com/open-apis/test",
+			want: UserAgentValue(true, true),
+		},
+		{
+			name: "external endpoint gets product user agent",
+			url:  "https://example.com/resource",
+			want: UserAgentValue(false, false),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var received string
+			base := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				received = req.Header.Get(HeaderUserAgent)
+				return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
+			})
+			req, err := http.NewRequest(http.MethodGet, tt.url, nil)
+			if err != nil {
+				t.Fatalf("new request: %v", err)
+			}
+
+			resp, err := (&UserAgentTransport{
+				Base:                 base,
+				DeviceInfoCollection: true,
+				IsTTY:                true,
+			}).RoundTrip(req)
+			if err != nil {
+				t.Fatalf("RoundTrip() error = %v", err)
+			}
+			resp.Body.Close()
+
+			if received != tt.want {
+				t.Fatalf("User-Agent = %q, want %q", received, tt.want)
+			}
+		})
 	}
 }
 
@@ -221,7 +301,7 @@ func TestExtensionInterceptor_ExecutionOrder(t *testing.T) {
 	// Use HTTP transport chain (has SecurityHeaderTransport)
 	var base http.RoundTripper = http.DefaultTransport
 	base = &RetryTransport{Base: base}
-	base = &SecurityHeaderTransport{Base: base}
+	base = &SecurityHeaderTransport{Base: base, DeviceInfoCollection: true}
 	transport := wrapWithExtension(base)
 	client := &http.Client{Transport: transport}
 
@@ -280,7 +360,7 @@ func TestBuildHeaderTransport_SDKChain_OverridesTamperedHeader(t *testing.T) {
 	// Replicate the SDK chain layering used by buildSDKTransport.
 	var base http.RoundTripper = http.DefaultTransport
 	base = &RetryTransport{Base: base}
-	base = &UserAgentTransport{Base: base}
+	base = &UserAgentTransport{Base: base, DeviceInfoCollection: true}
 	base = &BuildHeaderTransport{Base: base}
 	transport := wrapWithExtension(base)
 	client := &http.Client{Transport: transport}
@@ -356,6 +436,117 @@ func TestBuildHeaderTransport_NilBase_UsesFallback(t *testing.T) {
 	if receivedBuild != want {
 		t.Fatalf("%s = %q, want %q (header must be set even on nil-Base path)",
 			HeaderBuild, receivedBuild, want)
+	}
+}
+
+func TestAgentHeaderPolicyTransport_StripsRestrictedAgentHeadersOffDomain(t *testing.T) {
+	var received http.Header
+	base := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		received = req.Header.Clone()
+		return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
+	})
+	req, err := http.NewRequest(http.MethodGet, "https://example.com/test", nil)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	for _, header := range domainRestrictedAgentHeaders {
+		req.Header.Set(header, "sensitive-value")
+	}
+	req.Header.Set(HeaderAgentTrace, "trace-kept")
+	req.Header.Set(HeaderUserAgent, UserAgentValue(true, true))
+
+	resp, err := (&AgentHeaderPolicyTransport{Base: base}).RoundTrip(req)
+	if err != nil {
+		t.Fatalf("RoundTrip() error = %v", err)
+	}
+	resp.Body.Close()
+
+	for _, header := range domainRestrictedAgentHeaders {
+		if got := received.Get(header); got != "" {
+			t.Errorf("%s leaked to disallowed host: %q", header, got)
+		}
+	}
+	if got := received.Get(HeaderAgentTrace); got != "trace-kept" {
+		t.Errorf("%s = %q, want %q", HeaderAgentTrace, got, "trace-kept")
+	}
+	if got := received.Get(HeaderUserAgent); got != UserAgentValue(false, false) {
+		t.Errorf("%s = %q, want product-only value %q", HeaderUserAgent, got, UserAgentValue(false, false))
+	}
+}
+
+func TestAgentHeadersRestrictedByRequestHost(t *testing.T) {
+	t.Setenv(envvars.CliAgentTrace, "trace-allowed-everywhere")
+
+	tests := []struct {
+		name    string
+		host    string
+		allowed bool
+	}{
+		{name: "Feishu endpoint", host: "open.feishu.cn:443", allowed: true},
+		{name: "Lark endpoint", host: "mcp.larksuite.com", allowed: true},
+		{name: "external endpoint", host: "example.com", allowed: false},
+		{name: "lookalike endpoint", host: "open.feishu.cn.evil.example", allowed: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var received http.Header
+			base := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				received = req.Header.Clone()
+				return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
+			})
+
+			var rt http.RoundTripper = base
+			rt = &RetryTransport{Base: rt}
+			rt = &AgentHeaderPolicyTransport{Base: rt}
+			rt = &SecurityHeaderTransport{Base: rt, DeviceInfoCollection: true}
+
+			req, err := http.NewRequest(http.MethodGet, "https://"+tt.host+"/test", nil)
+			if err != nil {
+				t.Fatalf("new request: %v", err)
+			}
+			req.Header.Set("Authorization", "Bearer t-real-tat")
+			for _, header := range domainRestrictedAgentHeaders {
+				req.Header.Set(header, "preset-sensitive-value")
+			}
+			// A non-canonical key must not bypass the off-domain scrubber.
+			req.Header["x-agent-device-type"] = []string{"lowercase-sensitive-value"}
+
+			resp, err := rt.RoundTrip(req)
+			if err != nil {
+				t.Fatalf("RoundTrip() error = %v", err)
+			}
+			resp.Body.Close()
+
+			if got := received.Get(HeaderAgentTrace); got != "trace-allowed-everywhere" {
+				t.Errorf("%s = %q, want trace on every domain", HeaderAgentTrace, got)
+			}
+			if tt.allowed {
+				if got := received.Get(HeaderUserAgent); got != UserAgentValue(true, false) {
+					t.Errorf("%s = %q, want enhanced value %q", HeaderUserAgent, got, UserAgentValue(true, false))
+				}
+				for _, header := range []string{HeaderAgentTerminalType, HeaderAgentDeviceType, HeaderAgentOSType} {
+					if got := received.Get(header); got == "" {
+						t.Errorf("%s missing on allowed host", header)
+					}
+				}
+				return
+			}
+
+			for _, header := range domainRestrictedAgentHeaders {
+				if got := received.Get(header); got != "" {
+					t.Errorf("%s leaked to disallowed host: %q", header, got)
+				}
+			}
+			if got := received.Get(HeaderUserAgent); got != UserAgentValue(false, false) {
+				t.Errorf("%s = %q, want product-only value %q", HeaderUserAgent, got, UserAgentValue(false, false))
+			}
+			for header := range received {
+				if isDomainRestrictedAgentHeader(header) {
+					t.Errorf("non-canonical restricted header leaked to disallowed host: %s", header)
+				}
+			}
+		})
 	}
 }
 

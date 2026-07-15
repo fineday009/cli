@@ -483,8 +483,13 @@ func (ctx *RuntimeContext) DoAPIStream(callCtx context.Context, req *larkcore.Ap
 	if err != nil {
 		return nil, err
 	}
+	deviceInfo, err := ctx.Factory.ResolveDeviceInfoCollection()
+	if err != nil {
+		return nil, err
+	}
+	isTTY := ctx.Factory.IOStreams != nil && ctx.Factory.IOStreams.IsTerminal
 	base := []client.Option{
-		client.WithHeaders(cmdutil.BaseSecurityHeaders()),
+		client.WithHeaders(cmdutil.BaseSecurityHeaders(deviceInfo.Enabled, isTTY)),
 	}
 	if h := cmdutil.ShortcutHeaders(ctx.ctx); h != nil {
 		base = append(base, client.WithHeaders(h))

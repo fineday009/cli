@@ -26,12 +26,12 @@ func TestScanCommentAllowsMermaidCredentialTerminology(t *testing.T) {
 		"```mermaid",
 		"sequenceDiagram",
 		"  participant Client",
-		"  participant AccessTokenHashTransport",
+		"  participant AgentHeaderPolicyTransport",
 		"  participant SecurityPolicyTransport",
-		"  Client->>AccessTokenHashTransport: Send request with bearer token",
-		"  AccessTokenHashTransport->>AccessTokenHashTransport: Clone request and inject token hash",
+		"  Client->>AgentHeaderPolicyTransport: Send request with bearer token",
+		"  AgentHeaderPolicyTransport->>AgentHeaderPolicyTransport: Clone request and apply header policy",
 		"  Client -> ClientSecret: Resolve configured credential",
-		"  AccessTokenHashTransport->>SecurityPolicyTransport: Forward enriched request",
+		"  AgentHeaderPolicyTransport->>SecurityPolicyTransport: Forward filtered request",
 		"```",
 	}, "\n")
 

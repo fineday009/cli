@@ -59,10 +59,11 @@ func (a *AppConfig) ProfileName() string {
 
 // MultiAppConfig is the multi-app config file format.
 type MultiAppConfig struct {
-	StrictMode  StrictMode  `json:"strictMode,omitempty"`
-	CurrentApp  string      `json:"currentApp,omitempty"`
-	PreviousApp string      `json:"previousApp,omitempty"`
-	Apps        []AppConfig `json:"apps"`
+	StrictMode           StrictMode  `json:"strictMode,omitempty"`
+	DeviceInfoCollection *bool       `json:"deviceInfoCollection,omitempty"`
+	CurrentApp           string      `json:"currentApp,omitempty"`
+	PreviousApp          string      `json:"previousApp,omitempty"`
+	Apps                 []AppConfig `json:"apps"`
 }
 
 // CurrentAppConfig returns the currently active app config.
@@ -187,6 +188,13 @@ func GetConfigPath() string {
 	return filepath.Join(GetConfigDir(), "config.json")
 }
 
+// GetBaseConfigPath returns the global config file path, ignoring workspace.
+// Settings that control process-wide behavior belong here rather than in a
+// workspace-specific runtime subtree.
+func GetBaseConfigPath() string {
+	return filepath.Join(GetBaseConfigDir(), "config.json")
+}
+
 // ErrMalformedConfig marks a config-load failure caused by malformed file
 // content (unparseable JSON, structurally empty) rather than a missing or
 // unreadable file. Callers classify with errors.Is rather than sniffing the
@@ -195,7 +203,16 @@ var ErrMalformedConfig = errors.New("malformed config")
 
 // LoadMultiAppConfig loads multi-app config from disk.
 func LoadMultiAppConfig() (*MultiAppConfig, error) {
-	data, err := vfs.ReadFile(GetConfigPath())
+	return loadMultiAppConfig(GetConfigPath())
+}
+
+// LoadBaseMultiAppConfig loads the global config, ignoring workspace.
+func LoadBaseMultiAppConfig() (*MultiAppConfig, error) {
+	return loadMultiAppConfig(GetBaseConfigPath())
+}
+
+func loadMultiAppConfig(path string) (*MultiAppConfig, error) {
+	data, err := vfs.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +221,7 @@ func LoadMultiAppConfig() (*MultiAppConfig, error) {
 	if err := json.Unmarshal(data, &multi); err != nil {
 		return nil, fmt.Errorf("invalid config format: %w: %w", ErrMalformedConfig, err)
 	}
-	if len(multi.Apps) == 0 {
+	if multi.Apps == nil && multi.DeviceInfoCollection == nil {
 		return nil, fmt.Errorf("invalid config format: no apps: %w", ErrMalformedConfig)
 	}
 	return &multi, nil
@@ -212,7 +229,16 @@ func LoadMultiAppConfig() (*MultiAppConfig, error) {
 
 // SaveMultiAppConfig saves config to disk.
 func SaveMultiAppConfig(config *MultiAppConfig) error {
-	dir := GetConfigDir()
+	return saveMultiAppConfig(GetConfigPath(), config)
+}
+
+// SaveBaseMultiAppConfig saves the global config, ignoring workspace.
+func SaveBaseMultiAppConfig(config *MultiAppConfig) error {
+	return saveMultiAppConfig(GetBaseConfigPath(), config)
+}
+
+func saveMultiAppConfig(path string, config *MultiAppConfig) error {
+	dir := filepath.Dir(path)
 	if err := vfs.MkdirAll(dir, 0700); err != nil {
 		return err
 	}
@@ -220,7 +246,7 @@ func SaveMultiAppConfig(config *MultiAppConfig) error {
 	if err != nil {
 		return err
 	}
-	return validate.AtomicWrite(GetConfigPath(), append(data, '\n'), 0600)
+	return validate.AtomicWrite(path, append(data, '\n'), 0600)
 }
 
 // RequireConfig loads the single-app config using the default profile resolution.

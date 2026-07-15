@@ -20,6 +20,7 @@ import (
 	"github.com/larksuite/cli/internal/auth"
 	"github.com/larksuite/cli/internal/core"
 	"github.com/larksuite/cli/internal/credential"
+	"github.com/larksuite/cli/internal/deviceinfo"
 	"github.com/larksuite/cli/internal/keychain"
 	"github.com/larksuite/cli/internal/registry"
 	_ "github.com/larksuite/cli/internal/security/contentsafety" // register content safety provider
@@ -54,6 +55,7 @@ func NewDefault(streams *IOStreams, inv InvocationContext) *Factory {
 
 	// Phase 0: FileIO provider (no dependency)
 	f.FileIOProvider = fileio.GetProvider()
+	f.DeviceInfoCollection = sync.OnceValues(deviceinfo.ResolveDeviceInfoCollection)
 
 	// Phase 1: HttpClient (no credential dependency)
 	f.HttpClient = cachedHttpClientFunc(f)
@@ -110,13 +112,22 @@ var warnIfProxied = transport.WarnIfProxied
 
 func cachedHttpClientFunc(f *Factory) func() (*http.Client, error) {
 	return sync.OnceValues(func() (*http.Client, error) {
+		deviceInfo, err := f.ResolveDeviceInfoCollection()
+		if err != nil {
+			return nil, err
+		}
 		if f.IOStreams.StderrIsTerminal {
 			warnIfProxied(f.IOStreams.ErrOut)
 		}
 
 		var rt http.RoundTripper = transport.Shared()
 		rt = &RetryTransport{Base: rt}
-		rt = &SecurityHeaderTransport{Base: rt}
+		rt = &AgentHeaderPolicyTransport{Base: rt}
+		rt = &SecurityHeaderTransport{
+			Base:                 rt,
+			DeviceInfoCollection: deviceInfo.Enabled,
+			IsTTY:                f.IOStreams.IsTerminal,
+		}
 		rt = &auth.SecurityPolicyTransport{Base: rt} // Add our global response interceptor
 		rt = wrapWithExtension(rt)
 		client := &http.Client{
@@ -130,6 +141,10 @@ func cachedHttpClientFunc(f *Factory) func() (*http.Client, error) {
 
 func cachedLarkClientFunc(f *Factory) func() (*lark.Client, error) {
 	return sync.OnceValues(func() (*lark.Client, error) {
+		deviceInfo, err := f.ResolveDeviceInfoCollection()
+		if err != nil {
+			return nil, err
+		}
 		acct, err := f.Credential.ResolveAccount(context.Background())
 		if err != nil {
 			return nil, err
@@ -137,13 +152,13 @@ func cachedLarkClientFunc(f *Factory) func() (*lark.Client, error) {
 		opts := []lark.ClientOptionFunc{
 			lark.WithEnableTokenCache(false),
 			lark.WithLogLevel(larkcore.LogLevelError),
-			lark.WithHeaders(BaseSecurityHeaders()),
+			lark.WithHeaders(BaseSecurityHeaders(deviceInfo.Enabled, f.IOStreams.IsTerminal)),
 		}
 		if f.IOStreams.StderrIsTerminal {
 			warnIfProxied(f.IOStreams.ErrOut)
 		}
 		opts = append(opts, lark.WithHttpClient(&http.Client{
-			Transport:     buildSDKTransport(),
+			Transport:     buildSDKTransport(deviceInfo.Enabled, f.IOStreams.IsTerminal),
 			CheckRedirect: safeRedirectPolicy,
 		}))
 		ep := core.ResolveEndpoints(acct.Brand)
@@ -152,11 +167,16 @@ func cachedLarkClientFunc(f *Factory) func() (*lark.Client, error) {
 	})
 }
 
-func buildSDKTransport() http.RoundTripper {
+func buildSDKTransport(deviceInfoCollection, isTTY bool) http.RoundTripper {
 	var sdkTransport http.RoundTripper = transport.Shared()
 	sdkTransport = &RetryTransport{Base: sdkTransport}
-	sdkTransport = &UserAgentTransport{Base: sdkTransport}
+	sdkTransport = &UserAgentTransport{
+		Base:                 sdkTransport,
+		DeviceInfoCollection: deviceInfoCollection,
+		IsTTY:                isTTY,
+	}
 	sdkTransport = &BuildHeaderTransport{Base: sdkTransport}
+	sdkTransport = &AgentHeaderPolicyTransport{Base: sdkTransport}
 	sdkTransport = &auth.SecurityPolicyTransport{Base: sdkTransport}
 	return wrapWithExtension(sdkTransport)
 }

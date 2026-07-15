@@ -258,4 +258,8 @@ func TestGetConfigPath(t *testing.T) {
 	if got := GetConfigPath(); got != want {
 		t.Errorf("openclaw: GetConfigPath() = %q, want %q", got, want)
 	}
+	baseWant := filepath.Join(tmp, "config.json")
+	if got := GetBaseConfigPath(); got != baseWant {
+		t.Errorf("openclaw: GetBaseConfigPath() = %q, want global %q", got, baseWant)
+	}
 }
