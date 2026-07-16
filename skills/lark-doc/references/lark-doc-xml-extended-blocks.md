@@ -2,7 +2,19 @@
 
 本文件用于补充说明 block XML 扩展能力。常用标签和通用规则见 [`lark-doc-xml.md`](lark-doc-xml.md)；后续新增其他 block 说明时可继续追加到本文件。
 
+## 拓展标签
+- `<figure view-type>视图容器</figure>`
+- `<bookmark name href="网络链接"></bookmark>`
+- `<button action=OpenLink|DuplicatePage|FollowPage>操作按钮；可选 background-color、src</button>`
+- `<time expire-time notify-time should-notify=bool>提醒；使用毫秒时间戳。</time>`
+- `<sheet type=blank>创建空白表格</sheet>`、`<sheet sheet-id token>复制已有表格。</sheet>`
+- `<task task-id>挂载任务；task-id 为任务 GUID。</task>`
+- `<chat_card chat-id>挂载聊天卡片。</chat_card>`
+- `<sub-page-list>子页面列表块；仅 wiki 文档可插入。</sub-page-list>`
+- `<okr cycle-id>挂载已有 OKR。</okr>`
+
 ## OKR block
+`<okr cycle-id>挂载已有 OKR。</okr>`：创建时仅支持 root-only
 
 OKR block 可用 XML 格式完整表达。创建前先参考 [`lark-okr`](../../lark-okr/SKILL.md) 确认可用周期；创建时只写 root-only `<okr cycle-id="..."/>` 挂载已有 OKR，不构造 Objective/KR/Progress 子树。
 
