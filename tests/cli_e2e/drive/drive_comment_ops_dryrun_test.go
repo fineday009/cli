@@ -14,7 +14,7 @@ import (
 
 // TestDrive_CommentOpsDryRun pins the request contracts of the comment
 // operation shortcuts (+batch-query-comments, +resolve-comment, +add-reply,
-// +delete-reply) without hitting live APIs.
+// +list-replies, +update-reply, +delete-reply) without hitting live APIs.
 func TestDrive_CommentOpsDryRun(t *testing.T) {
 	setDriveDryRunConfigEnv(t)
 
@@ -166,6 +166,78 @@ func TestDrive_CommentOpsDryRun(t *testing.T) {
 				}
 				if got := clie2e.DryRunGet(out, "api.0.body.content.elements.0.text_run.text").String(); got != "e2e reply" {
 					t.Fatalf("element text = %q, want e2e reply\nstdout:\n%s", got, out)
+				}
+			},
+		},
+		{
+			name: "list replies on docx url",
+			args: []string{
+				"drive", "+list-replies",
+				"--url", "https://example.feishu.cn/docx/doxcnE2EComment",
+				"--comment-id", "7457001",
+				"--page-size", "20",
+				"--need-reaction",
+				"--user-id-type", "union_id",
+				"--dry-run",
+			},
+			wantMethod: "GET",
+			wantURL:    "/open-apis/drive/v1/files/doxcnE2EComment/comments/7457001/replies",
+			assert: func(t *testing.T, out string) {
+				if got := clie2e.DryRunGet(out, "api.0.params.file_type").String(); got != "docx" {
+					t.Fatalf("file_type = %q, want docx\nstdout:\n%s", got, out)
+				}
+				if got := clie2e.DryRunGet(out, "api.0.params.page_size").Int(); got != 20 {
+					t.Fatalf("page_size = %d, want 20\nstdout:\n%s", got, out)
+				}
+				if got := clie2e.DryRunGet(out, "api.0.params.need_reaction").Bool(); !got {
+					t.Fatalf("need_reaction = %v, want true\nstdout:\n%s", got, out)
+				}
+				if got := clie2e.DryRunGet(out, "api.0.params.user_id_type").String(); got != "union_id" {
+					t.Fatalf("user_id_type = %q, want union_id\nstdout:\n%s", got, out)
+				}
+			},
+		},
+		{
+			name: "list replies by wiki token plans resolve first",
+			args: []string{
+				"drive", "+list-replies",
+				"--token", "wikcnE2EComment",
+				"--type", "wiki",
+				"--comment-id", "7457001",
+				"--dry-run",
+			},
+			wantMethod: "GET",
+			wantURL:    "/open-apis/wiki/v2/spaces/get_node",
+			assert: func(t *testing.T, out string) {
+				if got := clie2e.DryRunGet(out, "api.1.method").String(); got != "GET" {
+					t.Fatalf("api.1.method = %q, want GET\nstdout:\n%s", got, out)
+				}
+				if got := clie2e.DryRunGet(out, "api.1.url").String(); got != "/open-apis/drive/v1/files/<obj_token from step 1>/comments/7457001/replies" {
+					t.Fatalf("api.1.url = %q, want placeholder replies URL\nstdout:\n%s", got, out)
+				}
+			},
+		},
+		{
+			name: "update reply on base url",
+			args: []string{
+				"drive", "+update-reply",
+				"--url", "https://example.feishu.cn/base/bascnE2EComment",
+				"--comment-id", "7457001",
+				"--reply-id", "7457002",
+				"--content", `[{"type":"text","text":"e2e updated reply"}]`,
+				"--dry-run",
+			},
+			wantMethod: "PUT",
+			wantURL:    "/open-apis/drive/v1/files/bascnE2EComment/comments/7457001/replies/7457002",
+			assert: func(t *testing.T, out string) {
+				if got := clie2e.DryRunGet(out, "api.0.params.file_type").String(); got != "bitable" {
+					t.Fatalf("file_type = %q, want bitable\nstdout:\n%s", got, out)
+				}
+				if got := clie2e.DryRunGet(out, "api.0.body.content.elements.0.type").String(); got != "text_run" {
+					t.Fatalf("element type = %q, want text_run\nstdout:\n%s", got, out)
+				}
+				if got := clie2e.DryRunGet(out, "api.0.body.content.elements.0.text_run.text").String(); got != "e2e updated reply" {
+					t.Fatalf("element text = %q, want e2e updated reply\nstdout:\n%s", got, out)
 				}
 			},
 		},

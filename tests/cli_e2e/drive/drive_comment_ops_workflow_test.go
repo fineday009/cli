@@ -14,13 +14,13 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// TestDriveCommentOpsWorkflow proves the comment-operation shortcuts against
-// the live API in one self-contained flow: create a Markdown file and a file
-// comment as the fixture, then batch-query it, reply to it, resolve/restore
-// it, delete the reply, and clean the file up.
+// TestDriveCommentOpsWorkflow proves the comment-operation shortcuts
+// (+batch-query-comments, +add-reply, +list-replies, +update-reply,
+// +resolve-comment, +delete-reply) against the live API in one
+// self-contained flow, sharing the LARK_DRIVE_MD_COMMENT_E2E gate with the
+// file-comment workflow in drive_add_comment_workflow_test.go (both write
+// comments on a temporary supported file).
 //
-// It shares the LARK_DRIVE_MD_COMMENT_E2E gate with the file-comment
-// workflow above: both write comments on a temporary supported file.
 // Sequencing matters: the reply is created before resolving because solved
 // comments reject replies, and state flips are separated by polling reads
 // because back-to-back PATCHes on one comment can hit rate limiting.
@@ -123,6 +123,51 @@ func TestDriveCommentOpsWorkflow(t *testing.T) {
 
 	driveCommentOpsAwaitReplies(t, ctx, batchArgs, commentID, baseReplies+1)
 
+	// --- Use: +list-replies surfaces the created reply ---
+	listRepliesArgs := []string{
+		"drive", "+list-replies",
+		"--token", fileToken,
+		"--type", "file",
+		"--comment-id", commentID,
+	}
+	listResult, err := clie2e.RunCmdWithRetry(ctx, clie2e.Request{
+		Args:      listRepliesArgs,
+		DefaultAs: "bot",
+	}, clie2e.RetryOptions{
+		ShouldRetry: func(result *clie2e.Result) bool {
+			return result == nil || result.ExitCode != 0 || !driveCommentOpsReplyItem(result.Stdout, replyID).Exists()
+		},
+	})
+	require.NoError(t, err)
+	listResult.AssertExitCode(t, 0)
+	require.True(t, driveCommentOpsReplyItem(listResult.Stdout, replyID).Exists(), "stdout:\n%s", listResult.Stdout)
+	if got := gjson.Get(listResult.Stdout, "data.comment_id").String(); got != commentID {
+		t.Fatalf("list data.comment_id=%q, want %s\nstdout:\n%s", got, commentID, listResult.Stdout)
+	}
+
+	// --- Use: +update-reply rewrites the created reply's content ---
+	updatedText := "comment ops reply updated " + suffix
+	updateResult, err := clie2e.RunCmdWithRetry(ctx, clie2e.Request{
+		Args: []string{
+			"drive", "+update-reply",
+			"--token", fileToken,
+			"--type", "file",
+			"--comment-id", commentID,
+			"--reply-id", replyID,
+			"--content", `[{"type":"text","text":"` + updatedText + `"}]`,
+		},
+		DefaultAs: "bot",
+	}, clie2e.RetryOptions{
+		ShouldRetry: func(result *clie2e.Result) bool {
+			return result == nil || result.ExitCode != 0
+		},
+	})
+	require.NoError(t, err)
+	updateResult.AssertExitCode(t, 0)
+	require.True(t, gjson.Get(updateResult.Stdout, "data.updated").Bool(), "stdout:\n%s", updateResult.Stdout)
+
+	driveCommentOpsAwaitReplyText(t, ctx, listRepliesArgs, replyID, updatedText)
+
 	// --- Use: +resolve-comment flips is_solved both ways ---
 	driveCommentOpsPatchSolved(t, ctx, fileToken, commentID, "resolve")
 	driveCommentOpsAwaitSolved(t, ctx, batchArgs, commentID, true)
@@ -158,6 +203,37 @@ func driveCommentOpsItem(stdout, commentID string) gjson.Result {
 		}
 	}
 	return gjson.Result{}
+}
+
+// driveCommentOpsReplyItem returns the +list-replies item for replyID (zero
+// Result if absent).
+func driveCommentOpsReplyItem(stdout, replyID string) gjson.Result {
+	for _, item := range gjson.Get(stdout, "data.items").Array() {
+		if item.Get("reply_id").String() == replyID {
+			return item
+		}
+	}
+	return gjson.Result{}
+}
+
+// driveCommentOpsAwaitReplyText polls +list-replies until replyID carries the
+// wanted text_run text.
+func driveCommentOpsAwaitReplyText(t *testing.T, ctx context.Context, listArgs []string, replyID, wantText string) {
+	t.Helper()
+	replyText := func(stdout string) string {
+		return driveCommentOpsReplyItem(stdout, replyID).Get("content.elements.0.text_run.text").String()
+	}
+	result, err := clie2e.RunCmdWithRetry(ctx, clie2e.Request{
+		Args:      listArgs,
+		DefaultAs: "bot",
+	}, clie2e.RetryOptions{
+		ShouldRetry: func(result *clie2e.Result) bool {
+			return result == nil || result.ExitCode != 0 || replyText(result.Stdout) != wantText
+		},
+	})
+	require.NoError(t, err)
+	result.AssertExitCode(t, 0)
+	require.Equal(t, wantText, replyText(result.Stdout), "stdout:\n%s", result.Stdout)
 }
 
 // driveCommentOpsPatchSolved runs +resolve-comment with the given action,

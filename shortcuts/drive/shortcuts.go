@@ -19,6 +19,8 @@ func Shortcuts() []common.Shortcut {
 		DriveBatchQueryComments,
 		DriveResolveComment,
 		DriveAddReply,
+		DriveListReplies,
+		DriveUpdateReply,
 		DriveDeleteReply,
 		DriveExport,
 		DriveExportDownload,
