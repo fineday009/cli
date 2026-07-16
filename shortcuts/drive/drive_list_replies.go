@@ -89,7 +89,7 @@ var DriveListReplies = common.Shortcut{
 			return err
 		}
 
-		items := common.GetSlice(data, "items")
+		items := driveCommentItems(data)
 		runtime.Out(driveCommentTargetOutput(target, map[string]interface{}{
 			"comment_id": spec.CommentID,
 			"items":      items,

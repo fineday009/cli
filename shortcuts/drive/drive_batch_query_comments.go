@@ -92,7 +92,7 @@ var DriveBatchQueryComments = common.Shortcut{
 			return err
 		}
 
-		items := common.GetSlice(data, "items")
+		items := driveCommentItems(data)
 		runtime.Out(driveCommentTargetOutput(target, map[string]interface{}{
 			"items": items,
 			"count": len(items),

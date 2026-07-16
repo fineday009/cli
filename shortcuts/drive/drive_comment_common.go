@@ -219,6 +219,16 @@ func validateDriveCommentPathID(value, flagName string) error {
 	return nil
 }
 
+// driveCommentItems extracts data.items for output, normalizing a missing or
+// null field to an empty slice: emitting the server's shape verbatim would
+// surface "items": null, which breaks jq consumers iterating .data.items[].
+func driveCommentItems(data map[string]interface{}) []interface{} {
+	if items := common.GetSlice(data, "items"); items != nil {
+		return items
+	}
+	return []interface{}{}
+}
+
 // driveCommentTargetOutput assembles the output fields shared by the
 // comment-family shortcuts: the resolved target plus the wiki origin, if any.
 func driveCommentTargetOutput(target driveCommentTarget, extra map[string]interface{}) map[string]interface{} {
