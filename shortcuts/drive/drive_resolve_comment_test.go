@@ -13,7 +13,7 @@ import (
 	"github.com/larksuite/cli/internal/httpmock"
 )
 
-func TestDriveResolveCommentExecuteResolve(t *testing.T) {
+func TestDriveResolveCommentExecute(t *testing.T) {
 	f, stdout, _, reg := cmdutil.TestFactory(t, driveTestConfig())
 	stub := &httpmock.Stub{
 		Method: "PATCH",
@@ -35,7 +35,6 @@ func TestDriveResolveCommentExecuteResolve(t *testing.T) {
 		"+resolve-comment",
 		"--url", "https://example.larksuite.com/docx/docxResource",
 		"--comment-id", "comment_1",
-		"--action", "resolve",
 		"--as", "user",
 	}, f, stdout)
 	if err != nil {
@@ -66,7 +65,7 @@ func TestDriveResolveCommentExecuteResolve(t *testing.T) {
 	}
 }
 
-func TestDriveResolveCommentExecuteRestoreViaWiki(t *testing.T) {
+func TestDriveRestoreCommentExecuteViaWiki(t *testing.T) {
 	f, stdout, _, reg := cmdutil.TestFactory(t, driveTestConfig())
 	reg.Register(&httpmock.Stub{
 		Method: "GET",
@@ -93,12 +92,11 @@ func TestDriveResolveCommentExecuteRestoreViaWiki(t *testing.T) {
 	}
 	reg.Register(stub)
 
-	err := mountAndRunDrive(t, DriveResolveComment, []string{
-		"+resolve-comment",
+	err := mountAndRunDrive(t, DriveRestoreComment, []string{
+		"+restore-comment",
 		"--token", "wikiResource",
 		"--type", "wiki",
 		"--comment-id", "comment_9",
-		"--action", "restore",
 		"--as", "user",
 	}, f, stdout)
 	if err != nil {
@@ -115,6 +113,9 @@ func TestDriveResolveCommentExecuteRestoreViaWiki(t *testing.T) {
 
 	out := decodeJSONMap(t, stdout.String())
 	data := mustMapValue(t, out["data"], "data")
+	if got := mustStringField(t, data, "action", "data.action"); got != "restore" {
+		t.Fatalf("action = %q, want restore", got)
+	}
 	if got := data["is_solved"]; got != false {
 		t.Fatalf("is_solved = %#v, want false", got)
 	}
@@ -159,7 +160,6 @@ func TestDriveResolveCommentExecuteWikiResolvesToBitable(t *testing.T) {
 		"+resolve-comment",
 		"--url", "https://example.larksuite.com/wiki/wikiResource",
 		"--comment-id", "comment_3",
-		"--action", "resolve",
 		"--as", "user",
 	}, f, stdout)
 	if err != nil {
@@ -176,75 +176,63 @@ func TestDriveResolveCommentExecuteWikiResolvesToBitable(t *testing.T) {
 	}
 }
 
-func TestDriveResolveCommentValidation(t *testing.T) {
+func TestDriveCommentSolvedValidation(t *testing.T) {
 	tests := []struct {
 		name      string
+		shortcut  string
 		args      []string
 		wantErr   string
 		wantParam string
 	}{
 		{
-			name: "invalid action",
-			args: []string{
-				"+resolve-comment",
-				"--url", "https://example.larksuite.com/docx/docxResource",
-				"--comment-id", "comment_1",
-				"--action", "close",
-			},
-			wantErr: `invalid value "close" for --action`,
-		},
-		{
-			name: "unsafe comment id",
+			name:     "unsafe comment id",
+			shortcut: "resolve",
 			args: []string{
 				"+resolve-comment",
 				"--url", "https://example.larksuite.com/docx/docxResource",
 				"--comment-id", "../admin",
-				"--action", "resolve",
 			},
 			wantErr:   "path traversal",
 			wantParam: "--comment-id",
 		},
 		{
-			name: "empty comment id",
+			name:     "empty comment id",
+			shortcut: "resolve",
 			args: []string{
 				"+resolve-comment",
 				"--url", "https://example.larksuite.com/docx/docxResource",
 				"--comment-id", "  ",
-				"--action", "resolve",
 			},
 			wantErr:   "must not be empty",
 			wantParam: "--comment-id",
+		},
+		{
+			name:     "restore rejects unsupported url type",
+			shortcut: "restore",
+			args: []string{
+				"+restore-comment",
+				"--url", "https://example.larksuite.com/drive/folder/folderResource",
+				"--comment-id", "comment_1",
+			},
+			wantErr:   "comment restore supports doc, docx, sheet, file, slides, bitable, base, apps, wiki",
+			wantParam: "--url",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f, stdout, _, _ := cmdutil.TestFactory(t, driveTestConfig())
-			err := mountAndRunDrive(t, DriveResolveComment, append(tt.args, "--as", "user"), f, stdout)
+			shortcut := DriveResolveComment
+			if tt.shortcut == "restore" {
+				shortcut = DriveRestoreComment
+			}
+			err := mountAndRunDrive(t, shortcut, append(tt.args, "--as", "user"), f, stdout)
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 				t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
 			}
-			if tt.wantParam != "" {
-				assertDriveCommentValidationError(t, err, tt.wantParam)
-			}
+			assertDriveCommentValidationError(t, err, tt.wantParam)
 		})
 	}
-}
-
-func TestParseDriveResolveCommentAction(t *testing.T) {
-	t.Parallel()
-
-	if got, err := parseDriveResolveCommentAction(" Resolve "); err != nil || got != "resolve" {
-		t.Fatalf("parseDriveResolveCommentAction(Resolve) = (%q, %v), want (resolve, nil)", got, err)
-	}
-	if got, err := parseDriveResolveCommentAction("restore"); err != nil || got != "restore" {
-		t.Fatalf("parseDriveResolveCommentAction(restore) = (%q, %v), want (restore, nil)", got, err)
-	}
-	_, err := parseDriveResolveCommentAction("close")
-	if err == nil || !strings.Contains(err.Error(), `invalid --action "close"`) {
-		t.Fatalf("expected invalid-action error, got %v", err)
-	}
-	assertDriveCommentValidationError(t, err, "--action")
 }
 
 func TestDriveResolveCommentInputConflict(t *testing.T) {
@@ -254,7 +242,6 @@ func TestDriveResolveCommentInputConflict(t *testing.T) {
 		"--url", "https://example.larksuite.com/docx/docxResource",
 		"--token", "docxResource",
 		"--comment-id", "comment_1",
-		"--action", "resolve",
 		"--as", "user",
 	}, f, stdout)
 	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
@@ -278,7 +265,6 @@ func TestDriveResolveCommentPropagatesAPIError(t *testing.T) {
 		"+resolve-comment",
 		"--url", "https://example.larksuite.com/docx/docxResource",
 		"--comment-id", "comment_1",
-		"--action", "resolve",
 		"--as", "user",
 	}, f, stdout)
 	if err == nil || !strings.Contains(err.Error(), "no comment permission") {
@@ -301,7 +287,6 @@ func TestDriveResolveCommentPropagatesWikiResolveError(t *testing.T) {
 		"+resolve-comment",
 		"--url", "https://example.larksuite.com/wiki/wikiResource",
 		"--comment-id", "comment_1",
-		"--action", "resolve",
 		"--as", "user",
 	}, f, stdout)
 	if err == nil || !strings.Contains(err.Error(), "wiki node not found") {
@@ -315,7 +300,6 @@ func TestDriveResolveCommentDryRunWiki(t *testing.T) {
 		"+resolve-comment",
 		"--url", "https://example.larksuite.com/wiki/wikiResource",
 		"--comment-id", "comment_1",
-		"--action", "resolve",
 		"--dry-run", "--as", "user",
 	}, f, stdout)
 	if err != nil {
@@ -337,13 +321,12 @@ func TestDriveResolveCommentDryRunWiki(t *testing.T) {
 	}
 }
 
-func TestDriveResolveCommentDryRunDirect(t *testing.T) {
+func TestDriveRestoreCommentDryRunDirect(t *testing.T) {
 	f, stdout, _, _ := cmdutil.TestFactory(t, driveTestConfig())
-	err := mountAndRunDrive(t, DriveResolveComment, []string{
-		"+resolve-comment",
+	err := mountAndRunDrive(t, DriveRestoreComment, []string{
+		"+restore-comment",
 		"--url", "https://example.larksuite.com/sheets/sheetResource",
 		"--comment-id", "comment_1",
-		"--action", "restore",
 		"--dry-run", "--as", "user",
 	}, f, stdout)
 	if err != nil {
@@ -365,5 +348,29 @@ func TestDriveResolveCommentDryRunDirect(t *testing.T) {
 	body := mustMapValue(t, call["body"], "api[0].body")
 	if got := body["is_solved"]; got != false {
 		t.Fatalf("api[0].body.is_solved = %#v, want false", got)
+	}
+}
+
+func TestDriveRestoreCommentDryRunWiki(t *testing.T) {
+	f, stdout, _, _ := cmdutil.TestFactory(t, driveTestConfig())
+	err := mountAndRunDrive(t, DriveRestoreComment, []string{
+		"+restore-comment",
+		"--url", "https://example.larksuite.com/wiki/wikiResource",
+		"--comment-id", "comment_1",
+		"--dry-run", "--as", "user",
+	}, f, stdout)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := dryRunDataMap(t, stdout.String())
+	api := mustSliceValue(t, out["api"], "data.api")
+	if len(api) != 2 {
+		t.Fatalf("dry-run api call count = %d, want 2\nstdout:\n%s", len(api), stdout.String())
+	}
+	step2 := mustMapValue(t, api[1], "api[1]")
+	body := mustMapValue(t, step2["body"], "api[1].body")
+	if got := body["is_solved"]; got != false {
+		t.Fatalf("api[1].body.is_solved = %#v, want false", got)
 	}
 }

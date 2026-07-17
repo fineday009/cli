@@ -1,6 +1,6 @@
 # Drive 评论查询、统计与回复指南
 
-> 前置条件：先阅读 [`../SKILL.md`](../SKILL.md) 的“评论能力入口”，添加评论参数细节见 [`lark-drive-add-comment.md`](lark-drive-add-comment.md)，获取评论列表优先使用 [`lark-drive-list-comments.md`](lark-drive-list-comments.md)，reaction 见 [`lark-drive-reactions.md`](lark-drive-reactions.md)。批量取评论、解决/恢复评论、回复评论、获取回复、更新回复、删除回复分别使用 `drive +batch-query-comments`、`drive +resolve-comment`、`drive +add-reply`、`drive +list-replies`、`drive +update-reply`、`drive +delete-reply`。
+> 前置条件：先阅读 [`../SKILL.md`](../SKILL.md) 的“评论能力入口”，添加评论参数细节见 [`lark-drive-add-comment.md`](lark-drive-add-comment.md)，获取评论列表优先使用 [`lark-drive-list-comments.md`](lark-drive-list-comments.md)，reaction 见 [`lark-drive-reactions.md`](lark-drive-reactions.md)。批量取评论、解决评论、恢复评论、回复评论、获取回复、更新回复、删除回复分别使用 `drive +batch-query-comments`、`drive +resolve-comment`、`drive +restore-comment`、`drive +add-reply`、`drive +list-replies`、`drive +update-reply`、`drive +delete-reply`。
 
 ## 评论模式
 
@@ -75,9 +75,9 @@ lark-cli drive +list-comments --token '<WIKI_TOKEN>' --type wiki
 
 ## 解决 / 恢复评论
 
-- 使用 `drive +resolve-comment --url '<DOC_URL>' --comment-id <id> --action resolve|restore`：`resolve` 将评论标记为已解决（`is_solved=true`），`restore` 重新打开已解决评论（`is_solved=false`）。
+- 解决评论使用 `drive +resolve-comment --url '<DOC_URL>' --comment-id <id>`（发送 `is_solved=true`）；恢复/重新打开已解决评论使用 `drive +restore-comment --url '<DOC_URL>' --comment-id <id>`（发送 `is_solved=false`）。两个命令共享同一个 patch 端点，只是方向相反。
 - 支持 `doc`/`docx`/`sheet`/`file`/`slides`/`bitable`/`apps` 与解析到它们的 wiki URL/token。
-- 用户说“把这条评论标记为已处理/已完成/关闭”对应 `resolve`；“重新打开/取消解决”对应 `restore`。
+- 用户说“把这条评论标记为已处理/已完成/关闭”对应 `+resolve-comment`；“重新打开/取消解决/恢复”对应 `+restore-comment`。
 
 ## 删除回复
 

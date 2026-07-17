@@ -24,6 +24,7 @@ func TestShortcutsIncludesExpectedCommands(t *testing.T) {
 		"+list-comments",
 		"+batch-query-comments",
 		"+resolve-comment",
+		"+restore-comment",
 		"+add-reply",
 		"+list-replies",
 		"+update-reply",

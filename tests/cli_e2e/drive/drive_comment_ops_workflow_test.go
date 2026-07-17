@@ -16,10 +16,11 @@ import (
 
 // TestDriveCommentOpsWorkflow proves the comment-operation shortcuts
 // (+batch-query-comments, +add-reply, +list-replies, +update-reply,
-// +react-reply, +resolve-comment, +delete-reply) against the live API in one
-// self-contained flow, sharing the LARK_DRIVE_MD_COMMENT_E2E gate with the
-// file-comment workflow in drive_add_comment_workflow_test.go (both write
-// comments on a temporary supported file).
+// +react-reply, +resolve-comment, +restore-comment, +delete-reply) against
+// the live API in one self-contained flow, sharing the
+// LARK_DRIVE_MD_COMMENT_E2E gate with the file-comment workflow in
+// drive_add_comment_workflow_test.go (both write comments on a temporary
+// supported file).
 //
 // Sequencing matters: the reply is created before resolving because solved
 // comments reject replies, and state flips are separated by polling reads
@@ -294,18 +295,21 @@ func driveCommentOpsAwaitReplyText(t *testing.T, ctx context.Context, listArgs [
 	require.Equal(t, wantText, replyText(result.Stdout), "stdout:\n%s", result.Stdout)
 }
 
-// driveCommentOpsPatchSolved runs +resolve-comment with the given action,
+// driveCommentOpsPatchSolved runs +resolve-comment or +restore-comment,
 // retrying on non-zero exits (consecutive PATCHes on one comment can be rate
 // limited).
 func driveCommentOpsPatchSolved(t *testing.T, ctx context.Context, fileToken, commentID, action string) {
 	t.Helper()
+	command := "+resolve-comment"
+	if action == "restore" {
+		command = "+restore-comment"
+	}
 	result, err := clie2e.RunCmdWithRetry(ctx, clie2e.Request{
 		Args: []string{
-			"drive", "+resolve-comment",
+			"drive", command,
 			"--token", fileToken,
 			"--type", "file",
 			"--comment-id", commentID,
-			"--action", action,
 		},
 		DefaultAs: "bot",
 	}, clie2e.RetryOptions{

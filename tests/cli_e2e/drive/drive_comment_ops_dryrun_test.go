@@ -13,9 +13,9 @@ import (
 )
 
 // TestDrive_CommentOpsDryRun pins the request contracts of the comment
-// operation shortcuts (+batch-query-comments, +resolve-comment, +add-reply,
-// +list-replies, +update-reply, +delete-reply, +react-reply) without hitting
-// live APIs.
+// operation shortcuts (+batch-query-comments, +resolve-comment,
+// +restore-comment, +add-reply, +list-replies, +update-reply, +delete-reply,
+// +react-reply) without hitting live APIs.
 func TestDrive_CommentOpsDryRun(t *testing.T) {
 	setDriveDryRunConfigEnv(t)
 
@@ -111,7 +111,6 @@ func TestDrive_CommentOpsDryRun(t *testing.T) {
 				"drive", "+resolve-comment",
 				"--url", "https://example.feishu.cn/sheets/shtcnE2EComment",
 				"--comment-id", "7457001",
-				"--action", "resolve",
 				"--dry-run",
 			},
 			wantMethod: "PATCH",
@@ -129,10 +128,9 @@ func TestDrive_CommentOpsDryRun(t *testing.T) {
 		{
 			name: "restore comment sends is_solved false",
 			args: []string{
-				"drive", "+resolve-comment",
+				"drive", "+restore-comment",
 				"--url", "https://example.feishu.cn/docx/doxcnE2EComment",
 				"--comment-id", "7457001",
-				"--action", "restore",
 				"--dry-run",
 			},
 			wantMethod: "PATCH",
