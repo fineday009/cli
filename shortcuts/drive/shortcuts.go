@@ -22,6 +22,7 @@ func Shortcuts() []common.Shortcut {
 		DriveListReplies,
 		DriveUpdateReply,
 		DriveDeleteReply,
+		DriveReactReply,
 		DriveExport,
 		DriveExportDownload,
 		DriveImport,

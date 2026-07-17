@@ -26,6 +26,27 @@ func assertDriveCommentValidationError(t *testing.T, err error, wantParam string
 	}
 }
 
+// assertDriveCommentAPIError asserts the error kept the typed API contract:
+// CallAPITyped errors must reach the caller unchanged, message-only checks
+// would still pass if a refactor wrapped them into untyped errors.
+func assertDriveCommentAPIError(t *testing.T, err error, wantCode int) {
+	t.Helper()
+
+	problem, ok := errs.ProblemOf(err)
+	if !ok {
+		t.Fatalf("expected typed error, got %T: %v", err, err)
+	}
+	if problem.Category != errs.CategoryAPI {
+		t.Fatalf("category = %q, want %q", problem.Category, errs.CategoryAPI)
+	}
+	if problem.Subtype == "" {
+		t.Fatalf("subtype is empty, want populated")
+	}
+	if problem.Code != wantCode {
+		t.Fatalf("code = %d, want %d", problem.Code, wantCode)
+	}
+}
+
 func TestResolveDriveCommentInput(t *testing.T) {
 	t.Parallel()
 

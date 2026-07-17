@@ -28,6 +28,7 @@ func TestShortcutsIncludesExpectedCommands(t *testing.T) {
 		"+list-replies",
 		"+update-reply",
 		"+delete-reply",
+		"+react-reply",
 		"+export",
 		"+export-download",
 		"+import",

@@ -16,7 +16,7 @@ import (
 
 // TestDriveCommentOpsWorkflow proves the comment-operation shortcuts
 // (+batch-query-comments, +add-reply, +list-replies, +update-reply,
-// +resolve-comment, +delete-reply) against the live API in one
+// +react-reply, +resolve-comment, +delete-reply) against the live API in one
 // self-contained flow, sharing the LARK_DRIVE_MD_COMMENT_E2E gate with the
 // file-comment workflow in drive_add_comment_workflow_test.go (both write
 // comments on a temporary supported file).
@@ -168,6 +168,13 @@ func TestDriveCommentOpsWorkflow(t *testing.T) {
 
 	driveCommentOpsAwaitReplyText(t, ctx, listRepliesArgs, replyID, updatedText)
 
+	// --- Use: +react-reply attaches and removes an emoji reaction ---
+	driveCommentOpsReact(t, ctx, fileToken, replyID, "add")
+	driveCommentOpsAwaitReaction(t, ctx, listRepliesArgs, replyID, "THUMBSUP", true)
+
+	driveCommentOpsReact(t, ctx, fileToken, replyID, "delete")
+	driveCommentOpsAwaitReaction(t, ctx, listRepliesArgs, replyID, "THUMBSUP", false)
+
 	// --- Use: +resolve-comment flips is_solved both ways ---
 	driveCommentOpsPatchSolved(t, ctx, fileToken, commentID, "resolve")
 	driveCommentOpsAwaitSolved(t, ctx, batchArgs, commentID, true)
@@ -214,6 +221,57 @@ func driveCommentOpsReplyItem(stdout, replyID string) gjson.Result {
 		}
 	}
 	return gjson.Result{}
+}
+
+// driveCommentOpsReact runs +react-reply with the given action, retrying on
+// non-zero exits (writes on one comment card can be rate limited).
+func driveCommentOpsReact(t *testing.T, ctx context.Context, fileToken, replyID, action string) {
+	t.Helper()
+	result, err := clie2e.RunCmdWithRetry(ctx, clie2e.Request{
+		Args: []string{
+			"drive", "+react-reply",
+			"--token", fileToken,
+			"--type", "file",
+			"--reply-id", replyID,
+			"--emoji", "THUMBSUP",
+			"--action", action,
+		},
+		DefaultAs: "bot",
+	}, clie2e.RetryOptions{
+		ShouldRetry: func(result *clie2e.Result) bool {
+			return result == nil || result.ExitCode != 0
+		},
+	})
+	require.NoError(t, err)
+	result.AssertExitCode(t, 0)
+	require.True(t, gjson.Get(result.Stdout, "data.updated").Bool(), "stdout:\n%s", result.Stdout)
+}
+
+// driveCommentOpsAwaitReaction polls +list-replies --need-reaction until the
+// reply's reaction of the given key is present (count>0) or gone. Entries
+// with count=0 linger after deletion, so presence is judged by count.
+func driveCommentOpsAwaitReaction(t *testing.T, ctx context.Context, listArgs []string, replyID, reactionKey string, want bool) {
+	t.Helper()
+	args := append(append([]string{}, listArgs...), "--need-reaction")
+	hasReaction := func(stdout string) bool {
+		for _, reaction := range driveCommentOpsReplyItem(stdout, replyID).Get("reactions").Array() {
+			if reaction.Get("reaction_key").String() == reactionKey && reaction.Get("count").Int() > 0 {
+				return true
+			}
+		}
+		return false
+	}
+	result, err := clie2e.RunCmdWithRetry(ctx, clie2e.Request{
+		Args:      args,
+		DefaultAs: "bot",
+	}, clie2e.RetryOptions{
+		ShouldRetry: func(result *clie2e.Result) bool {
+			return result == nil || result.ExitCode != 0 || hasReaction(result.Stdout) != want
+		},
+	})
+	require.NoError(t, err)
+	result.AssertExitCode(t, 0)
+	require.Equal(t, want, hasReaction(result.Stdout), "stdout:\n%s", result.Stdout)
 }
 
 // driveCommentOpsAwaitReplyText polls +list-replies until replyID carries the

@@ -14,7 +14,8 @@ import (
 
 // TestDrive_CommentOpsDryRun pins the request contracts of the comment
 // operation shortcuts (+batch-query-comments, +resolve-comment, +add-reply,
-// +list-replies, +update-reply, +delete-reply) without hitting live APIs.
+// +list-replies, +update-reply, +delete-reply, +react-reply) without hitting
+// live APIs.
 func TestDrive_CommentOpsDryRun(t *testing.T) {
 	setDriveDryRunConfigEnv(t)
 
@@ -238,6 +239,58 @@ func TestDrive_CommentOpsDryRun(t *testing.T) {
 				}
 				if got := clie2e.DryRunGet(out, "api.0.body.content.elements.0.text_run.text").String(); got != "e2e updated reply" {
 					t.Fatalf("element text = %q, want e2e updated reply\nstdout:\n%s", got, out)
+				}
+			},
+		},
+		{
+			name: "react reply add on docx url",
+			args: []string{
+				"drive", "+react-reply",
+				"--url", "https://example.feishu.cn/docx/doxcnE2EComment",
+				"--reply-id", "7457002",
+				"--emoji", "THUMBSUP",
+				"--action", "add",
+				"--dry-run",
+			},
+			wantMethod: "POST",
+			wantURL:    "/open-apis/drive/v2/files/doxcnE2EComment/comments/reaction",
+			assert: func(t *testing.T, out string) {
+				if got := clie2e.DryRunGet(out, "api.0.params.file_type").String(); got != "docx" {
+					t.Fatalf("file_type = %q, want docx\nstdout:\n%s", got, out)
+				}
+				if got := clie2e.DryRunGet(out, "api.0.body.action").String(); got != "add" {
+					t.Fatalf("body.action = %q, want add\nstdout:\n%s", got, out)
+				}
+				if got := clie2e.DryRunGet(out, "api.0.body.reaction_type").String(); got != "THUMBSUP" {
+					t.Fatalf("body.reaction_type = %q, want THUMBSUP\nstdout:\n%s", got, out)
+				}
+				if got := clie2e.DryRunGet(out, "api.0.body.reply_id").String(); got != "7457002" {
+					t.Fatalf("body.reply_id = %q, want 7457002\nstdout:\n%s", got, out)
+				}
+			},
+		},
+		{
+			name: "react reply delete by wiki token plans resolve first",
+			args: []string{
+				"drive", "+react-reply",
+				"--token", "wikcnE2EComment",
+				"--type", "wiki",
+				"--reply-id", "7457002",
+				"--emoji", "OK",
+				"--action", "delete",
+				"--dry-run",
+			},
+			wantMethod: "GET",
+			wantURL:    "/open-apis/wiki/v2/spaces/get_node",
+			assert: func(t *testing.T, out string) {
+				if got := clie2e.DryRunGet(out, "api.1.method").String(); got != "POST" {
+					t.Fatalf("api.1.method = %q, want POST\nstdout:\n%s", got, out)
+				}
+				if got := clie2e.DryRunGet(out, "api.1.url").String(); got != "/open-apis/drive/v2/files/<obj_token from step 1>/comments/reaction" {
+					t.Fatalf("api.1.url = %q, want placeholder reaction URL\nstdout:\n%s", got, out)
+				}
+				if got := clie2e.DryRunGet(out, "api.1.body.action").String(); got != "delete" {
+					t.Fatalf("api.1.body.action = %q, want delete\nstdout:\n%s", got, out)
 				}
 			},
 		},
