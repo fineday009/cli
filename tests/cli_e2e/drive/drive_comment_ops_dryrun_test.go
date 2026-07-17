@@ -33,6 +33,7 @@ func TestDrive_CommentOpsDryRun(t *testing.T) {
 				"--url", "https://example.feishu.cn/docx/doxcnE2EComment?from=share",
 				"--comment-ids", "7457001,7457002",
 				"--need-reaction",
+				"--need-relation",
 				"--dry-run",
 			},
 			wantMethod: "POST",
@@ -47,6 +48,9 @@ func TestDrive_CommentOpsDryRun(t *testing.T) {
 				}
 				if got := clie2e.DryRunGet(out, "api.0.body.need_reaction").Bool(); !got {
 					t.Fatalf("need_reaction = %v, want true\nstdout:\n%s", got, out)
+				}
+				if got := clie2e.DryRunGet(out, "api.0.body.need_relation").Bool(); !got {
+					t.Fatalf("need_relation = %v, want true for docx\nstdout:\n%s", got, out)
 				}
 			},
 		},
@@ -95,6 +99,7 @@ func TestDrive_CommentOpsDryRun(t *testing.T) {
 				"drive", "+batch-query-comments",
 				"--url", "https://example.feishu.cn/base/bascnE2EComment",
 				"--comment-ids", "7457001",
+				"--need-relation",
 				"--dry-run",
 			},
 			wantMethod: "POST",
@@ -102,6 +107,9 @@ func TestDrive_CommentOpsDryRun(t *testing.T) {
 			assert: func(t *testing.T, out string) {
 				if got := clie2e.DryRunGet(out, "api.0.params.file_type").String(); got != "bitable" {
 					t.Fatalf("file_type = %q, want bitable\nstdout:\n%s", got, out)
+				}
+				if clie2e.DryRunGet(out, "api.0.body.need_relation").Exists() {
+					t.Fatalf("need_relation must be omitted for non-docx targets\nstdout:\n%s", out)
 				}
 			},
 		},

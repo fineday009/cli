@@ -87,7 +87,7 @@ lark-cli drive +list-comments --token '<WIKI_TOKEN>' --type wiki
 
 ## batch_query 与 list
 
-- 已知评论 ID 后的批量查询优先使用 `drive +batch-query-comments --url '<DOC_URL>' --comment-ids <id1,id2,...>`；单次最多 100 个 ID，需要 reaction 数据时加 `--need-reaction`，wiki URL/token 自动解包，妙搭 apps 传 `/page/<token>` URL 或 `--type apps`。
+- 已知评论 ID 后的批量查询优先使用 `drive +batch-query-comments --url '<DOC_URL>' --comment-ids <id1,id2,...>`；单次最多 100 个 ID，需要 reaction 数据时加 `--need-reaction`，docx 需要评论定位时加 `--need-relation`（非 docx 静默忽略），wiki URL/token 自动解包，妙搭 apps 传 `/page/<token>` URL 或 `--type apps`。
 - `drive +list-comments` 用于分页获取评论列表；如果要统计全量评论数、遍历包含已解决评论在内的所有评论、获取全量最新评论或最后 N 条评论，请先传 `--solved-status all` 并拉完所有分页。它会处理 URL、wiki token 和 token/type 匹配问题。
 - `drive file.comments list` / `drive file.comments batch_query` 是原生命令。需要 shortcut 未暴露的字段时才使用。
 

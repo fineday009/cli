@@ -26,14 +26,22 @@ type driveBatchQueryCommentsSpec struct {
 	Ref          driveCommentRef
 	CommentIDs   []string
 	NeedReaction bool
+	NeedRelation bool
 }
 
-func (s driveBatchQueryCommentsSpec) RequestBody() map[string]interface{} {
+// RequestBody assembles the batch_query body for the resolved fileType.
+// need_relation is absent from the platform metadata for this endpoint but
+// honored live (same undocumented parameter +list-comments already uses);
+// only docx returns relation data, so it is sent for docx targets only.
+func (s driveBatchQueryCommentsSpec) RequestBody(fileType string) map[string]interface{} {
 	body := map[string]interface{}{
 		"comment_ids": s.CommentIDs,
 	}
 	if s.NeedReaction {
 		body["need_reaction"] = true
+	}
+	if s.NeedRelation && fileType == "docx" {
+		body["need_relation"] = true
 	}
 	return body
 }
@@ -52,10 +60,12 @@ var DriveBatchQueryComments = common.Shortcut{
 	Flags: append(driveCommentTargetFlags(driveBatchQueryCommentsOp),
 		common.Flag{Name: "comment-ids", Type: "string_slice", Desc: fmt.Sprintf("comment IDs to fetch (comma-separated or repeated flag, max %d)", driveBatchQueryCommentsMaxIDs), Required: true},
 		common.Flag{Name: "need-reaction", Type: "bool", Desc: "include reaction data on comment cards"},
+		common.Flag{Name: "need-relation", Type: "bool", Desc: "include docx comment relation data; ignored for non-docx targets"},
 	),
 	Tips: []string{
 		"Comment IDs come from `drive +list-comments` (items[].comment_id).",
 		"--comment-ids accepts comma-separated values and repeated flags, up to 100 IDs per call.",
+		"--need-relation returns the docx comment anchor (items[].relation with the block position); see the lark-drive comment-location guide.",
 		"Wiki URLs/tokens are resolved to the underlying document automatically.",
 	},
 	Validate: func(ctx context.Context, runtime *common.RuntimeContext) error {
@@ -86,7 +96,7 @@ var DriveBatchQueryComments = common.Shortcut{
 			"POST",
 			path,
 			map[string]interface{}{"file_type": target.FileType},
-			spec.RequestBody(),
+			spec.RequestBody(target.FileType),
 		)
 		if err != nil {
 			return err
@@ -114,6 +124,7 @@ func readDriveBatchQueryCommentsSpec(runtime *common.RuntimeContext) (driveBatch
 		Ref:          ref,
 		CommentIDs:   ids,
 		NeedReaction: runtime.Bool("need-reaction"),
+		NeedRelation: runtime.Bool("need-relation"),
 	}, nil
 }
 
@@ -145,13 +156,13 @@ func buildDriveBatchQueryCommentsDryRun(spec driveBatchQueryCommentsSpec) *commo
 			POST("/open-apis/drive/v1/files/<obj_token from step 1>/comments/batch_query").
 			Desc("[2] Batch query comments on resolved document").
 			Params(map[string]interface{}{"file_type": "<obj_type from step 1>"}).
-			Body(spec.RequestBody())
+			Body(spec.RequestBody("<obj_type from step 1>"))
 	}
 
 	return common.NewDryRunAPI().
 		Desc("1-step request: batch query comments").
 		POST("/open-apis/drive/v1/files/:file_token/comments/batch_query").
 		Params(map[string]interface{}{"file_type": spec.Ref.Type}).
-		Body(spec.RequestBody()).
+		Body(spec.RequestBody(spec.Ref.Type)).
 		Set("file_token", spec.Ref.Token)
 }

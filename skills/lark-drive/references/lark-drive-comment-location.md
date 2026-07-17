@@ -1,11 +1,12 @@
 # 文档评论定位字段
 
-当用户需要根据评论定位文档正文位置、对文档做 review、区分多处相同引用文本，或把评论落点映射到 `docs +fetch --detail with-ids` 的内容时，优先使用 `drive +list-comments --need-relation` 查询 docx 评论位置。
+当用户需要根据评论定位文档正文位置、对文档做 review、区分多处相同引用文本，或把评论落点映射到 `docs +fetch --detail with-ids` 的内容时，优先使用 `drive +list-comments --need-relation` 查询 docx 评论位置；已知评论 ID 时用 `drive +batch-query-comments --need-relation`。
 
 ## 适用范围
 
 - 当前只有 `file_type=docx` 支持通过 `need_relation=true` 查询评论的位置，并返回可用于定位正文 block 的 `relation`、`parent_type`、`parent_token` 等字段。
-- `drive +list-comments` 会在目标不是 docx 时静默忽略 `--need-relation`，避免把无效参数传给 OpenAPI。遇到 sheet、bitable、slides、普通文件等类型的评论时，不要承诺可以用 `need_relation` 精确定位正文位置，应退回普通评论字段、对应资源能力下钻或人工确认。
+- `drive +list-comments` 和 `drive +batch-query-comments` 都会在目标不是 docx 时静默忽略 `--need-relation`，避免把无效参数传给 OpenAPI。遇到 sheet、bitable、slides、普通文件等类型的评论时，不要承诺可以用 `need_relation` 精确定位正文位置，应退回普通评论字段、对应资源能力下钻或人工确认。
+- 注意参数位置差异：list 的 `need_relation` 在 query params，batch_query 的在请求 body（直接调 raw OpenAPI 时才需要关心；两个 shortcut 已各自处理）。
 
 ## 调用方式
 

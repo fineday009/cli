@@ -467,3 +467,69 @@ func TestDriveBatchQueryCommentsOmittedItemsNormalized(t *testing.T) {
 		t.Fatalf("count = %#v, want 0", got)
 	}
 }
+
+func TestDriveBatchQueryCommentsNeedRelationDocx(t *testing.T) {
+	f, stdout, _, reg := cmdutil.TestFactory(t, driveTestConfig())
+	stub := &httpmock.Stub{
+		Method: "POST",
+		URL:    "/open-apis/drive/v1/files/docxResource/comments/batch_query",
+		Body: map[string]interface{}{
+			"code": 0,
+			"msg":  "success",
+			"data": map[string]interface{}{"items": []interface{}{}},
+		},
+	}
+	reg.Register(stub)
+
+	err := mountAndRunDrive(t, DriveBatchQueryComments, []string{
+		"+batch-query-comments",
+		"--url", "https://example.larksuite.com/docx/docxResource",
+		"--comment-ids", "comment_1",
+		"--need-relation",
+		"--as", "user",
+	}, f, stdout)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var body map[string]interface{}
+	if err := json.Unmarshal(stub.CapturedBody, &body); err != nil {
+		t.Fatalf("failed to decode captured request body: %v", err)
+	}
+	if got := body["need_relation"]; got != true {
+		t.Fatalf("request need_relation = %#v, want true", got)
+	}
+}
+
+func TestDriveBatchQueryCommentsNeedRelationIgnoredForNonDocx(t *testing.T) {
+	f, stdout, _, reg := cmdutil.TestFactory(t, driveTestConfig())
+	stub := &httpmock.Stub{
+		Method: "POST",
+		URL:    "/open-apis/drive/v1/files/sheetResource/comments/batch_query",
+		Body: map[string]interface{}{
+			"code": 0,
+			"msg":  "success",
+			"data": map[string]interface{}{"items": []interface{}{}},
+		},
+	}
+	reg.Register(stub)
+
+	err := mountAndRunDrive(t, DriveBatchQueryComments, []string{
+		"+batch-query-comments",
+		"--url", "https://example.larksuite.com/sheets/sheetResource",
+		"--comment-ids", "comment_1",
+		"--need-relation",
+		"--as", "user",
+	}, f, stdout)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var body map[string]interface{}
+	if err := json.Unmarshal(stub.CapturedBody, &body); err != nil {
+		t.Fatalf("failed to decode captured request body: %v", err)
+	}
+	if _, ok := body["need_relation"]; ok {
+		t.Fatalf("need_relation must be omitted for non-docx targets: %v", body)
+	}
+}
