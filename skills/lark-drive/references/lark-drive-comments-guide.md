@@ -52,8 +52,8 @@ lark-cli drive +list-comments --token '<WIKI_TOKEN>' --type wiki
 
 ## 回复评论
 
-- 回复评论优先使用 `drive +add-reply --url '<DOC_URL>' --comment-id <id> --content '[{"type":"text","text":"回复内容"}]'`；`--content` 与 `+add-comment` 同格式（text / mention_user / link），支持 `doc`/`docx`/`sheet`/`file`/`slides`/`bitable`/`apps` 及解析到它们的 wiki URL/token；妙搭 apps 传 `/page/<token>` URL 或裸 token + `--type apps`。
-- 该 shortcut 走 `POST .../comments/:comment_id/replies` 回复端点。不要试图用"添加评论"接口（`POST .../comments`）传 body `comment_id` 来回复——尽管官方文档如此描述，实测该写法不会挂到目标评论下，而是创建一条新的独立评论。
+- 回复评论优先使用 `drive +add-reply --url '<DOC_URL>' --comment-id <id> --content '[{"type":"text","text":"回复内容"}]'`；`--content` 与 `+add-comment` 同格式（text / mention_user / link）。目标传 `--url`（包括 wiki URL）或 `--token` + `--type`；wiki 场景内部会自动解析出真实资源的 type 和 token。支持 `doc`/`docx`/`sheet`/`file`/`slides`/`bitable`/`apps`，妙搭 apps 传 `/page/<token>` URL 或裸 token + `--type apps`。
+- 该 shortcut 走 `POST .../comments/:comment_id/replies` 回复端点。不要试图用"添加评论"接口（`POST .../comments`）传 body `comment_id` 来回复——尽管官方文档如此描述，该写法实际不会挂到目标评论下，而是创建一条新的独立评论。
 - 回复前先检查目标评论状态。
 - `is_whole=true` 的全文评论不支持回复；遇到时提示“全文评论不支持回复”。
 - `is_solved=true` 的已解决评论不支持回复；遇到时提示“该评论已被解决，无法回复”。
@@ -61,8 +61,8 @@ lark-cli drive +list-comments --token '<WIKI_TOKEN>' --type wiki
 
 ## 获取回复
 
-- 获取某条评论下的回复优先使用 `drive +list-replies --url '<DOC_URL>' --comment-id <id>`，不要优先手写 `drive file.comment.replys list`；支持 `doc`/`docx`/`sheet`/`file`/`slides`/`bitable`/`apps` 及解析到它们的 wiki URL/token。
-- 分页：`--page-size`（1-100，默认 50）+ `--page-token`（取上次输出的 `page_token`，`has_more=true` 时继续拉）；需要 reaction 数据时加 `--need-reaction`；`--user-id-type open_id|union_id|user_id` 控制 `items[].user_id` 的返回形态（不传时服务端默认 open_id；`user_id` 形态额外要求 `contact:user.employee_id:readonly` scope，缺失时报 99991679）。
+- 获取某条评论下的回复优先使用 `drive +list-replies --url '<DOC_URL>' --comment-id <id>`，不要优先手写 `drive file.comment.replys list`。目标传 `--url`（包括 wiki URL）或 `--token` + `--type`；wiki 场景内部会自动解析出真实资源的 type 和 token。支持 `doc`/`docx`/`sheet`/`file`/`slides`/`bitable`/`apps`。
+- 分页：`--page-size`（1-100，默认 50）+ `--page-token`（取上次输出的 `page_token`，`has_more=true` 时继续拉）；需要 reaction 数据时加 `--need-reaction`；`--user-id-type open_id|union_id` 控制 `items[].user_id` 的返回形态（不传时服务端默认 open_id）。
 - 根回复承载评论正文本身，是回复列表中创建最早的一条：仅第一页（未传 `--page-token`）的 `items[0]` 是根回复；翻页后（传了 `--page-token`）返回的 `items[0]` 只是普通回复，不要按位置当作根回复去更新或删除。
 - 输出字段：`items[].reply_id` / `user_id` / `create_time` / `update_time` / `content.elements`，供 `+update-reply`、`+delete-reply` 使用。
 
@@ -70,20 +70,20 @@ lark-cli drive +list-comments --token '<WIKI_TOKEN>' --type wiki
 
 - 更新回复内容使用 `drive +update-reply --url '<DOC_URL>' --comment-id <id> --reply-id <id> --content '[{"type":"text","text":"新内容"}]'`；`--content` 与 `+add-comment` 同格式（text / mention_user / link），`type=text` 自动转义 `<`、`>`。
 - 更新是整体替换：新 `content` 完全覆盖旧内容，没有局部修改语义。
-- 只能更新当前身份自己创建的回复；更新他人回复会返回 API 错误 `1069303 forbidden`（已实测确认）。执行前先用 `+list-replies` 核对 `items[].user_id`（默认返回 open_id，持有 union_id/user_id 时传 `--user-id-type` 对齐后再比对）。
-- 更新评论卡片的根回复（第一页 `items[0]`，即创建最早的一条 reply）等价于改写这条评论的正文本身（已实测确认）；改写前先和用户确认改的是回复还是评论正文。
+- 只能更新当前身份自己创建的回复；更新他人回复会返回 API 错误 `1069303 forbidden`。执行前先用 `+list-replies` 核对 `items[].user_id`（默认返回 open_id，持有 union_id 时传 `--user-id-type union_id` 对齐后再比对）。
+- 更新评论卡片的根回复（第一页 `items[0]`，即创建最早的一条 reply）等价于改写这条评论的正文本身；改写前先和用户确认改的是回复还是评论正文。
 
 ## 解决 / 恢复评论
 
 - 解决评论使用 `drive +resolve-comment --url '<DOC_URL>' --comment-id <id>`（发送 `is_solved=true`）；恢复/重新打开已解决评论使用 `drive +restore-comment --url '<DOC_URL>' --comment-id <id>`（发送 `is_solved=false`）。两个命令共享同一个 patch 端点，只是方向相反。
-- 支持 `doc`/`docx`/`sheet`/`file`/`slides`/`bitable`/`apps` 与解析到它们的 wiki URL/token。
+- 目标传 `--url`（包括 wiki URL）或 `--token` + `--type`；wiki 场景内部会自动解析出真实资源的 type 和 token。支持 `doc`/`docx`/`sheet`/`file`/`slides`/`bitable`/`apps`。
 - 用户说“把这条评论标记为已处理/已完成/关闭”对应 `+resolve-comment`；“重新打开/取消解决/恢复”对应 `+restore-comment`。
 
 ## 删除回复
 
 - 使用 `drive +delete-reply --url '<DOC_URL>' --comment-id <id> --reply-id <id>`；回复 ID 来自 `+list-replies` 输出的 `items[].reply_id`，或 `+list-comments` 输出的 `items[].reply_list.replies[].reply_id`。
 - 高风险写操作：真实执行需要按 `lark-shared` 高风险审批协议确认后追加 `--yes`；删除不可恢复。
-- 评论卡片的首条（根）reply 就是“评论本身”，删除根 reply 会删除整张评论卡片（已实测确认）；删除前先和用户确认删的是回复还是整条评论。这也是删除整条评论的唯一 API 途径。
+- 评论卡片的首条（根）reply 就是“评论本身”，删除根 reply 会删除整张评论卡片；删除前先和用户确认删的是回复还是整条评论。这也是删除整条评论的唯一 API 途径。
 
 ## batch_query 与 list
 

@@ -21,7 +21,7 @@
 - 遍历评论卡片并顺带拿 reaction：使用 `drive +list-comments --need-reaction`。
 - 已知评论 ID，批量查看 reaction：使用 `drive +batch-query-comments --need-reaction`。
 - 某张评论卡片下继续翻页拉 reply reaction：使用 `drive +list-replies --need-reaction`，每一页都要持续带。
-- 返回形状：`items[].reactions[]` 为 `{reaction_key, count, ahead_users[]}`；**`count=0` 的条目是已删除 reaction 的残留（已实测确认），统计与判断是否存在都要按 `count>0` 过滤**。
+- 返回形状：`items[].reactions[]` 为 `{reaction_key, count, ahead_users[]}`；**`count=0` 的条目是已删除 reaction 的残留，统计与判断是否存在都要按 `count>0` 过滤**。
 
 ## 查询示例
 
@@ -42,11 +42,11 @@ lark-cli drive file.comment.replys list \
 
 ## 写入规则
 
-- 添加 / 删除 reaction 优先使用 `drive +react-reply --url '<DOC_URL>' --reply-id <id> --emoji <TYPE> --action add|delete`；支持 `doc`/`docx`/`sheet`/`file`/`slides`/`bitable`/`apps` 及解析到它们的 wiki URL/token，妙搭 apps 传 `/page/<token>` URL 或裸 token + `--type apps`。
+- 添加 / 删除 reaction 优先使用 `drive +react-reply --url '<DOC_URL>' --reply-id <id> --emoji <TYPE> --action add|delete`。目标传 `--url`（包括 wiki URL）或 `--token` + `--type`；wiki 场景内部会自动解析出真实资源的 type 和 token。支持 `doc`/`docx`/`sheet`/`file`/`slides`/`bitable`/`apps`，妙搭 apps 传 `/page/<token>` URL 或裸 token + `--type apps`。
 - 操作对象是 `reply_id`（来自 `drive +list-replies` 的 `items[].reply_id`），不是 `comment_id`。
 - 如果用户说要给"这条评论"加 / 删 reaction，取该评论卡片根回复（第一页 `items[0]`）的 `reply_id` 再操作。
-- add / delete 幂等：重复添加已有 reaction、删除不存在的 reaction 都会成功返回且无副作用（已实测确认）；delete 只取消当前身份自己加的 reaction。
-- **服务端不校验 `reaction_type`：任意字符串都会被接受并持久化成一条损坏的 reaction（已实测确认）**；`+react-reply --emoji` 会按平台枚举做本地校验兜底，直接调原生命令时必须自行保证取值合法。
+- add / delete 幂等：重复添加已有 reaction、删除不存在的 reaction 都会成功返回且无副作用；delete 只取消当前身份自己加的 reaction。
+- **服务端不校验 `reaction_type`：任意字符串都会被接受并持久化成一条损坏的 reaction**；`+react-reply --emoji` 会按平台枚举做本地校验兜底，直接调原生命令时必须自行保证取值合法。
 - 原生兜底：`drive file.comment.reply.reactions update_reaction`，`--params` 带 `file_token`/`file_type`，`--data` 传 `action=add|delete`、`reply_id`、`reaction_type`。
 
 ## 写入示例

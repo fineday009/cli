@@ -26,8 +26,8 @@ const (
 // driveReactReplyReactionTypes mirrors the reaction_type enum from the
 // platform metadata (file.comment.reply.reactions.update_reaction). The
 // server does NOT validate this field — an arbitrary string is accepted and
-// persisted as a broken reaction on the reply (live-verified), so this local
-// check is the only guard. Values are case-sensitive.
+// persisted as a broken reaction on the reply, so this local check is the
+// only guard. Values are case-sensitive.
 var driveReactReplyReactionTypes = map[string]struct{}{
 	"ANGRY": {}, "APPLAUSE": {}, "ATTENTION": {}, "AWESOME": {}, "BEAR": {}, "BEER": {},
 	"BETRAYED": {}, "BIGKISS": {}, "BLACKFACE": {}, "BLUBBER": {}, "BLUSH": {}, "BOMB": {},

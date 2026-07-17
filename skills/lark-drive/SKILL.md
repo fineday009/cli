@@ -159,7 +159,7 @@ Shortcut 是对常用操作的高级封装（`lark-cli drive +<verb> [flags]`）
 | `+batch-query-comments` | 按评论 ID 批量获取 doc/docx/sheet/file/slides/base(bitable)/apps 评论（`--comment-ids` 逗号分隔或重复传，单次最多 100 个，`--need-reaction` 附带 reaction，docx 可加 `--need-relation` 返回评论定位）；支持 URL（含妙搭 `/page/<token>`）与 wiki 自动解包。 |
 | `+resolve-comment` | 将 doc/docx/sheet/file/slides/base(bitable)/apps 上的评论标记为已解决（`is_solved=true`）：`--comment-id`；支持 URL（含妙搭 `/page/<token>`）与 wiki 自动解包。 |
 | `+restore-comment` | 恢复/重新打开已解决的评论（`is_solved=false`）：`--comment-id`；与 `+resolve-comment` 共享同一 patch 端点；支持 URL（含妙搭 `/page/<token>`）与 wiki 自动解包。 |
-| `+add-reply` | 给已有评论添加回复：`--comment-id` + `--content`（与 `+add-comment` 相同的 reply_elements JSON，text 自动转义）；支持 doc/docx/sheet/file/slides/base(bitable)/apps 及解析到它们的 wiki；全文评论和已解决评论不可回复。 |
+| `+add-reply` | 给已有评论添加回复：`--comment-id` + `--content`（与 `+add-comment` 相同的 reply_elements JSON，text 自动转义）；支持 doc/docx/sheet/file/slides/base(bitable)/apps 的 URL（含 wiki URL）或 token+type，wiki 自动解析到真实资源；全文评论和已解决评论不可回复。 |
 | `+list-replies` | 分页获取某条评论下的回复：`--comment-id` + `--page-size`/`--page-token`（`--need-reaction` 附带 reaction，`--user-id-type` 控制 `items[].user_id` 形态）；仅第一页的首条 reply 是承载评论正文的根回复；支持 doc/docx/sheet/file/slides/base(bitable)/apps 的 URL（含妙搭 `/page/<token>`）与 wiki 自动解包。 |
 | `+update-reply` | 整体替换某条回复的内容：`--comment-id` + `--reply-id` + `--content`（与 `+add-comment` 相同的 reply_elements JSON，text 自动转义）；只能更新当前身份自己创建的回复，更新根回复即改写评论正文；支持 doc/docx/sheet/file/slides/base(bitable)/apps 的 URL（含妙搭 `/page/<token>`）与 wiki 自动解包。 |
 | `+delete-reply` | 删除评论下的某条回复：`--comment-id` + `--reply-id`；高风险写操作，真实执行需 `--yes`；支持 doc/docx/sheet/file/slides/base(bitable)/apps 的 URL（含妙搭 `/page/<token>`）与 wiki 自动解包。 |

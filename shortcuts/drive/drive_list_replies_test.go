@@ -268,14 +268,14 @@ func TestDriveListRepliesValidation(t *testing.T) {
 			wantParam: "--url",
 		},
 		{
-			name: "invalid user id type",
+			name: "unsupported user id type",
 			args: []string{
 				"+list-replies",
 				"--url", "https://example.larksuite.com/docx/docxResource",
 				"--comment-id", "comment_1",
-				"--user-id-type", "email",
+				"--user-id-type", "user_id",
 			},
-			wantErr:   `invalid value "email" for --user-id-type`,
+			wantErr:   `invalid value "user_id" for --user-id-type`,
 			wantParam: "--user-id-type",
 		},
 	}
