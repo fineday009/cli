@@ -132,8 +132,8 @@ func readDriveResolveCommentSpec(runtime *common.RuntimeContext) (driveResolveCo
 }
 
 // parseDriveResolveCommentAction normalizes and validates the --action value.
-// The flag's Enum already rejects unknown values at the framework layer; this
-// guards direct callers and keeps the accepted set in one place.
+// The flag's Enum already rejects unknown values from the CLI, so the error
+// branch only guards direct callers.
 func parseDriveResolveCommentAction(raw string) (string, error) {
 	action := strings.ToLower(strings.TrimSpace(raw))
 	if action != driveResolveCommentActionResolve && action != driveResolveCommentActionRestore {

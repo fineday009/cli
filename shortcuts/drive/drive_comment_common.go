@@ -39,9 +39,8 @@ func (op driveCommentOp) targetTypeList() string {
 }
 
 // flagEnum returns the Enum set for the --type flag: the endpoint's wire
-// types plus wiki, which is resolved to one of them before the API call.
-// When bitable is supported, the base product-name alias is also accepted
-// right after it (normalized to bitable), mirroring +list-comments.
+// types plus wiki (resolved to a wire type before the API call) and the
+// base product-name alias when bitable is supported (normalized to bitable).
 func (op driveCommentOp) flagEnum() []string {
 	enum := make([]string, 0, len(op.Types)+2)
 	for _, t := range op.Types {
