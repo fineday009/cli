@@ -1,41 +1,37 @@
-# Drive 评论查询、统计与回复指南
+# Drive 评论指南
 
-> 前置条件：先阅读 [`../SKILL.md`](../SKILL.md) 的“评论能力入口”，添加评论参数细节见 [`lark-drive-add-comment.md`](lark-drive-add-comment.md)，获取评论列表优先使用 [`lark-drive-list-comments.md`](lark-drive-list-comments.md)，reaction 见 [`lark-drive-reactions.md`](lark-drive-reactions.md)。批量取评论、解决评论、恢复评论、回复评论、获取回复、更新回复、删除回复分别使用 `drive +batch-query-comments`、`drive +resolve-comment`、`drive +restore-comment`、`drive +add-reply`、`drive +list-replies`、`drive +update-reply`、`drive +delete-reply`。
+> **前置条件：** 认证、全局参数与高风险确认协议见 [`../../lark-shared/SKILL.md`](../../lark-shared/SKILL.md)。本文只做场景引导和跨命令口径；单个命令的参数与行为细节以“意图路由”表所指的专题文档为准。
 
-## 评论模式
+## 何时读取
 
-- `drive +add-comment` 支持全文评论和局部评论。
-- 全文评论：未传 `--block-id` 时默认启用，也可显式传 `--full-comment`；支持 `docx`、旧版 `doc` URL、白名单扩展名的 Drive file，以及最终解析为 `doc` / `docx` / `file` 的 wiki URL。
-- 局部评论：传 `--block-id` 时启用；`docx` 支持文本定位或 block id，`sheet` 支持 `<sheetId>!<cell>`，`slides` 支持 `<slide-block-type>!<xml-id>`，wiki URL 解析到这些类型时也支持对应局部评论。
-- Drive file 只支持全文评论，不支持局部评论。支持扩展名：`.md`、`.txt`、`.json`、`.csv`、`.go`、`.js`、`.py`、`.pptx`、`.png`、`.jpg`、`.jpeg`、`.zip`、`.mp3`、`.mp4`。`.pdf`、`.docx`、`.xlsx` 等未在白名单内的普通文件暂不支持。
-- Review / 审阅 / 校对 / 逐条指出问题场景优先使用局部评论，不要把多个可定位问题汇总成一条全文评论。
-- `drive +add-comment` 的 `--content` 需要传 `reply_elements` JSON 数组字符串，例如 `--content '[{"type":"text","text":"正文"}]'`。
-- `slides` 评论要求显式传 `--block-id <slide-block-type>!<xml-id>`；CLI 会将其拆分后写入 `anchor.block_id` 和 `anchor.slide_block_type`。其中 `<xml-id>` 是 PPT XML 协议中的元素 `id`；不支持 `--selection-with-ellipsis` 和 `--full-comment`。
-- 评论写入内容里的文本不能直接出现 `<`、`>`；提交前应转义为 `&lt;`、`&gt;`。`drive +add-comment`、`drive +add-reply`、`drive +update-reply` 会对 `type=text` 文本元素自动兜底转义；直接调用原生评论 API 时需要自行转义。
-- 如果 wiki 解析后不是 `doc` / `docx` / `file` / `sheet` / `slides`，不要用 `+add-comment`。
+- 用户要对云文档评论做任何操作：添加评论、查评论列表、按 ID 批量取评论、回复、获取/更新/删除回复、解决/恢复评论、给回复加/删表情回应。
+- 用户要统计评论数/回复数、找“最新/最早评论”，或根据评论定位文档正文位置。
 
-## 查询默认口径
+## 意图路由
 
-优先使用 `drive +list-comments`，不要优先手写 `drive file.comments list`。shortcut 默认 `--solved-status false`，即仅查询未解决评论。即使用户说“所有评论”“全部评论”“把评论都列出来”，只要没有明确提到包含已解决评论，仍然按默认口径查询未解决评论；仅当用户明确要求包含已解决评论时，才传 `--solved-status all`。只查已解决评论时传 `--solved-status true`。
+| 用户意图 | 优先命令 | 详见 |
+|---|---|---|
+| 添加评论（全文 / 局部 / review 逐条批注） | `drive +add-comment` | [`lark-drive-add-comment.md`](lark-drive-add-comment.md) |
+| 获取评论列表、全量统计、找最新/最早评论 | `drive +list-comments` | [`lark-drive-list-comments.md`](lark-drive-list-comments.md) |
+| 已知评论 ID 批量查询 | `drive +batch-query-comments` | [`lark-drive-comment-ops.md`](lark-drive-comment-ops.md) |
+| 解决 / 恢复（重新打开）评论 | `drive +resolve-comment` / `drive +restore-comment` | [`lark-drive-comment-ops.md`](lark-drive-comment-ops.md) |
+| 回复评论、获取 / 更新 / 删除回复 | `drive +add-reply` / `+list-replies` / `+update-reply` / `+delete-reply` | [`lark-drive-comment-ops.md`](lark-drive-comment-ops.md) |
+| 给回复加 / 删表情回应，查询 reaction | `drive +react-reply`、查询加 `--need-reaction` | [`lark-drive-reactions.md`](lark-drive-reactions.md) |
+| 根据评论定位正文位置（仅 docx） | `+list-comments --need-relation` / `+batch-query-comments --need-relation` | [`lark-drive-comment-location.md`](lark-drive-comment-location.md) |
 
-```bash
-# 默认查询：仅未解决评论
-lark-cli drive +list-comments --url '<DOC_URL>'
+- 优先使用上表的 shortcut，不要优先手写 `drive file.comments *` / `drive file.comment.replys *` 原生命令；只有需要 shortcut 未暴露的字段时才用原生命令兜底（先 `lark-cli schema` 查契约）。
+- 查询默认口径：`drive +list-comments` 默认仅查未解决评论；即使用户说“所有评论”“全部评论”，只要没明确提到包含已解决评论，仍按默认口径，明确要求时才传 `--solved-status all`。
+- 回复、更新回复、解决恢复、删除回复都有产品级限制（全文评论不可回复、根回复即评论正文等），操作前先读 [`lark-drive-comment-ops.md`](lark-drive-comment-ops.md) 对应命令一节。
 
-# 全部评论：包含已解决和未解决
-lark-cli drive +list-comments --url '<DOC_URL>' --solved-status all
+## 目标定位通用规则
 
-# 已解决评论
-lark-cli drive +list-comments --url '<DOC_URL>' --solved-status true
+- 评论家族命令的目标定位方式一致：传 `--url`（包括 wiki URL）或 `--token` + `--type`；wiki 场景内部会自动解析出真实资源的 type 和 token。
+- 支持 `doc`/`docx`/`sheet`/`file`/`slides`/`bitable`/`apps`；Base 传 `/base/` URL 或 `--type bitable`（`base` 为兼容别名）；妙搭 apps 传 `/page/<token>` URL 或裸 token + `--type apps`。
+- 例外：`+add-comment` 不支持 apps（妙搭不支持新增评论，其余评论管理能力支持 apps）。
 
-# 裸 wiki token
-lark-cli drive +list-comments --token '<WIKI_TOKEN>' --type wiki
+## 评论卡片模型与统计口径
 
-```
-
-## 评论卡片与统计
-
-- `drive file.comments list` 返回的 `items` 是评论卡片列表，每个 `item` 对应用户界面中的一张评论卡片，不是平铺的互动消息列表。
+- 评论列表（`drive +list-comments` / 原生 `file.comments list`）返回的 `items` 是评论卡片列表，每个 `item` 对应用户界面中的一张评论卡片，不是平铺的互动消息列表。
 - 创建第一条评论时会同时创建该卡片里的第一条 reply；真正承载正文的是 `item.reply_list.replies`，其中第一条 reply 在用户视角下就是这张卡片里的“评论本身”。
 - 统计“评论数”或“评论卡片数”：统计 `items` 长度；全量统计时对所有分页返回的 `items` 长度累加。
 - 统计“回复数”：统计所有 `item.reply_list.replies` 长度之和，再减去 `items` 长度。
@@ -48,61 +44,4 @@ lark-cli drive +list-comments --token '<WIKI_TOKEN>' --type wiki
 - 排序前必须拉完所有评论分页，不能只取第一页。
 - “最新评论”/“最后评论”：按 `create_time` 降序取第一条。
 - “最早评论”：按 `create_time` 升序取第一条。
-- 用户只说“第一条评论”时，直接使用 `drive file.comments list` 返回的第一条，不需要额外排序。
-
-## 回复评论
-
-- 回复评论优先使用 `drive +add-reply --url '<DOC_URL>' --comment-id <id> --content '[{"type":"text","text":"回复内容"}]'`；`--content` 与 `+add-comment` 同格式（text / mention_user / link）。目标传 `--url`（包括 wiki URL）或 `--token` + `--type`；wiki 场景内部会自动解析出真实资源的 type 和 token。支持 `doc`/`docx`/`sheet`/`file`/`slides`/`bitable`/`apps`，妙搭 apps 传 `/page/<token>` URL 或裸 token + `--type apps`。
-- 该 shortcut 走 `POST .../comments/:comment_id/replies` 回复端点。不要试图用"添加评论"接口（`POST .../comments`）传 body `comment_id` 来回复——尽管官方文档如此描述，该写法实际不会挂到目标评论下，而是创建一条新的独立评论。
-- 回复前先检查目标评论状态。
-- `is_whole=true` 的全文评论不支持回复；遇到时提示“全文评论不支持回复”。
-- `is_solved=true` 的已解决评论不支持回复；遇到时提示“该评论已被解决，无法回复”。
-- 当目标评论不能回复时，只提示限制，不要自动替用户寻找其他可回复评论。
-
-## 获取回复
-
-- 获取某条评论下的回复优先使用 `drive +list-replies --url '<DOC_URL>' --comment-id <id>`，不要优先手写 `drive file.comment.replys list`。目标传 `--url`（包括 wiki URL）或 `--token` + `--type`；wiki 场景内部会自动解析出真实资源的 type 和 token。支持 `doc`/`docx`/`sheet`/`file`/`slides`/`bitable`/`apps`。
-- 分页：`--page-size`（1-100，默认 50）+ `--page-token`（取上次输出的 `page_token`，`has_more=true` 时继续拉）；需要 reaction 数据时加 `--need-reaction`；`--user-id-type open_id|union_id` 控制 `items[].user_id` 的返回形态（不传时服务端默认 open_id）。
-- 根回复承载评论正文本身，是回复列表中创建最早的一条：仅第一页（未传 `--page-token`）的 `items[0]` 是根回复；翻页后（传了 `--page-token`）返回的 `items[0]` 只是普通回复，不要按位置当作根回复去更新或删除。
-- 输出字段：`items[].reply_id` / `user_id` / `create_time` / `update_time` / `content.elements`，供 `+update-reply`、`+delete-reply` 使用。
-
-## 更新回复
-
-- 更新回复内容使用 `drive +update-reply --url '<DOC_URL>' --comment-id <id> --reply-id <id> --content '[{"type":"text","text":"新内容"}]'`；`--content` 与 `+add-comment` 同格式（text / mention_user / link），`type=text` 自动转义 `<`、`>`。
-- 更新是整体替换：新 `content` 完全覆盖旧内容，没有局部修改语义。
-- 只能更新当前身份自己创建的回复；更新他人回复会返回 API 错误 `1069303 forbidden`。执行前先用 `+list-replies` 核对 `items[].user_id`（默认返回 open_id，持有 union_id 时传 `--user-id-type union_id` 对齐后再比对）。
-- 更新评论卡片的根回复（第一页 `items[0]`，即创建最早的一条 reply）等价于改写这条评论的正文本身；改写前先和用户确认改的是回复还是评论正文。
-
-## 解决 / 恢复评论
-
-- 解决评论使用 `drive +resolve-comment --url '<DOC_URL>' --comment-id <id>`（发送 `is_solved=true`）；恢复/重新打开已解决评论使用 `drive +restore-comment --url '<DOC_URL>' --comment-id <id>`（发送 `is_solved=false`）。两个命令共享同一个 patch 端点，只是方向相反。
-- 目标传 `--url`（包括 wiki URL）或 `--token` + `--type`；wiki 场景内部会自动解析出真实资源的 type 和 token。支持 `doc`/`docx`/`sheet`/`file`/`slides`/`bitable`/`apps`。
-- 用户说“把这条评论标记为已处理/已完成/关闭”对应 `+resolve-comment`；“重新打开/取消解决/恢复”对应 `+restore-comment`。
-
-## 删除回复
-
-- 使用 `drive +delete-reply --url '<DOC_URL>' --comment-id <id> --reply-id <id>`；回复 ID 来自 `+list-replies` 输出的 `items[].reply_id`，或 `+list-comments` 输出的 `items[].reply_list.replies[].reply_id`。
-- 高风险写操作：真实执行需要按 `lark-shared` 高风险审批协议确认后追加 `--yes`；删除不可恢复。
-- 评论卡片的首条（根）reply 就是“评论本身”，删除根 reply 会删除整张评论卡片；删除前先和用户确认删的是回复还是整条评论。这也是删除整条评论的唯一 API 途径。
-
-## batch_query 与 list
-
-- 已知评论 ID 后的批量查询优先使用 `drive +batch-query-comments --url '<DOC_URL>' --comment-ids <id1,id2,...>`；单次最多 100 个 ID，需要 reaction 数据时加 `--need-reaction`，docx 需要评论定位时加 `--need-relation`（非 docx 静默忽略），wiki URL/token 自动解包，妙搭 apps 传 `/page/<token>` URL 或 `--type apps`。
-- `drive +list-comments` 用于分页获取评论列表；如果要统计全量评论数、遍历包含已解决评论在内的所有评论、获取全量最新评论或最后 N 条评论，请先传 `--solved-status all` 并拉完所有分页。它会处理 URL、wiki token 和 token/type 匹配问题。
-- `drive file.comments list` / `drive file.comments batch_query` 是原生命令。需要 shortcut 未暴露的字段时才使用。
-
-## 评论定位字段
-
-- 需要根据评论定位到文档正文位置时（例如根据评论 review 文档、区分多处相同引用文本、把评论落点映射到 `docs +fetch` 的 block），先确认目标是 `file_type=docx`，再阅读 [`lark-drive-comment-location.md`](lark-drive-comment-location.md)，并使用 `drive +list-comments --need-relation`。
-- `--need-relation` 仅 docx 生效；其他文档类型会静默忽略。
-
-## 原生 API
-
-需要更底层地直接调用评论 V2 协议时，先查看 schema，再调用原生命令。全文评论省略 `anchor`，局部评论传 `anchor.block_id`。
-
-```bash
-lark-cli schema drive.file.comments.create_v2
-lark-cli drive file.comments create_v2 \
-  --params '{"file_token":"<DOC_TOKEN>"}' \
-  --data '{"file_type":"docx","reply_elements":[{"type":"text","text":"全文评论内容"}]}'
-```
+- 用户只说“第一条评论”时，直接使用 `drive +list-comments` 返回的第一条，不需要额外排序。

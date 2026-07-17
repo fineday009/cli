@@ -121,5 +121,6 @@ lark-cli drive +list-comments \
 ## 参考
 
 - [lark-drive](../SKILL.md) -- 云空间（云盘/云存储）全部命令
-- [lark-drive-comments-guide](lark-drive-comments-guide.md) -- 评论统计、回复限制和原生 API 说明
+- [lark-drive-comments-guide](lark-drive-comments-guide.md) -- 评论场景路由、卡片模型与统计/排序口径
+- [lark-drive-comment-ops](lark-drive-comment-ops.md) -- 批量查询、解决/恢复与回复命令
 - [lark-drive-comment-location](lark-drive-comment-location.md) -- 使用 `need_relation` 定位 docx 正文
