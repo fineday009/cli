@@ -103,7 +103,7 @@ lark-cli drive +list-comments \
 - URL 输入时不需要传 `--type`；如果 URL 类型和显式 `--type` 冲突，shortcut 会返回 validation error，建议移除 `--type`。
 - wiki 输入会自动解析到真实文档，再查询评论列表。JSON 输出不额外返回 wiki token 或 wiki node。
 - 输出中的 `items` 保留评论卡片字段，外层补充 `file_token`、`file_type`、`has_more`、`page_token`、`count`；`count` 是当前页返回的评论卡片数。是否继续分页以 `has_more` 为准，而不是只看 `page_token` 是否存在。
-- 如果需要批量按评论 ID 查询、获取更多回复、创建/编辑/删除回复，继续使用原生 `drive file.comments batch_query` 或 `drive file.comment.replys.*`。
+- 如果需要批量按评论 ID 查询、获取更多回复、创建/编辑/删除回复，优先使用对应 shortcut（`drive +batch-query-comments` / `+list-replies` / `+add-reply` / `+update-reply` / `+delete-reply`），路由见 [`lark-drive-comments-guide.md`](lark-drive-comments-guide.md)；原生 `drive file.comments *` / `drive file.comment.replys *` 仅作兜底。
 
 ## 输出
 
@@ -121,6 +121,5 @@ lark-cli drive +list-comments \
 ## 参考
 
 - [lark-drive](../SKILL.md) -- 云空间（云盘/云存储）全部命令
-- [lark-drive-comments-guide](lark-drive-comments-guide.md) -- 评论场景路由、卡片模型与统计/排序口径
-- [lark-drive-comment-ops](lark-drive-comment-ops.md) -- 批量查询、解决/恢复与回复命令
+- [lark-drive-comments-guide](lark-drive-comments-guide.md) -- 评论域二级路由、卡片模型与统计/排序口径
 - [lark-drive-comment-location](lark-drive-comment-location.md) -- 使用 `need_relation` 定位 docx 正文

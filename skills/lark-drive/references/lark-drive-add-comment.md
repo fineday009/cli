@@ -174,10 +174,7 @@ lark-cli drive +add-comment \
     - `<img id="bPk" ... />` 对应 `--block-id img!bPk`，表示给图片元素评论。
     - `<shape type="text" id="bPq">...</shape>` 对应 `--block-id shape!bPq`，表示给文本 shape 评论。
 
-- `--content` 接收结构化评论元素数组；`type` 支持 `text`、`mention_user`、`link`。为便于书写，`mention_user` / `link` 元素可以直接把用户 ID 或链接地址放在 `text` 字段中，shortcut 会转换成 OpenAPI 所需字段。
-- `type=text` 的评论文本不能直接包含 `<`、`>`；应优先传 `&lt;`、`&gt;`。shortcut 在发送前也会自动将 `<`、`>` 转义为 `&lt;`、`&gt;` 作为兜底。
-- **所有 `type=text` 元素的字符总和 ≤ 10000**（按字符算，中英文 / 符号一视同仁）。超过会被 shortcut 在发送前拒绝，并指出累计超长的元素。**拆成多个 text element 不能绕过这个上限**——上限是总额，不是每元素。需要更长内容就缩短或拆成多条评论。
-- 长度限制只对 `type=text` 生效，`mention_user` / `link` 不计入。
+- `--content` 是结构化评论元素数组，`type` 支持 `text` / `mention_user` / `link`；完整 schema、便捷写法、`<`/`>` 自动转义、10000 字符总额限制、shortcut → 原生 body 的转换边界统一见 [`lark-drive-comment-content.md`](lark-drive-comment-content.md)（`+add-comment` / `+add-reply` / `+update-reply` 共用同一套格式）。上方示例已覆盖最常见的纯文本与 text/mention_user/link 组合写法。
 - 写入评论前会自动生成符合 OpenAPI 定义的请求体；shortcut 用户只需要传 `--doc`、`--content`，局部评论再传对应格式的 `--block-id`。
 - `--dry-run` 仅预览调用链和请求体，不会实际写入。
 - 如果需要更底层的控制，仍可改用 `lark-cli schema drive.file.comments.create_v2` + `lark-cli drive file.comments create_v2`。
