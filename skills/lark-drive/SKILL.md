@@ -28,7 +28,7 @@ metadata:
 - 用户要为指定飞书文档**设置 / 修改密级标签（secure label）**，或查询当前用户可用的密级标签，直接读取 [`references/lark-drive-secure-label.md`](references/lark-drive-secure-label.md)；这是 Drive 文件治理能力。
 - 用户要**整理云盘 / 文件夹 / 文档库 / 知识库 / 个人文档库**，或要“盘点目录结构、找出未归档/临时/重复/空目录、生成整理方案”，必须先阅读 [`references/lark-drive-workflow.md`](references/lark-drive-workflow.md)，再按其中 `Workflow Registry` 进入 [`knowledge_organize`](references/lark-drive-workflow-knowledge-organize.md) workflow。默认只生成方案；创建目录、移动资源、申请权限都必须单独确认。
 - 用户要**搜文档 / Wiki / 电子表格 / 多维表格 / 云空间（云盘/云存储）对象**，优先使用 `lark-cli drive +search`。自然语言里"最近我编辑过的"、"我创建的"（→ `--created-by-me`，原始创建者语义）、"我负责/owner 的"（→ `--mine`，owner 语义）、"最近一周我打开过的 xxx"、"某人 owner 的 docx" 等直接映射到扁平 flag，避免手写嵌套 JSON。
-- 用户要对**文档评论**做任何操作（添加评论、列表 / 批量查询、回复、获取 / 更新 / 删除回复、解决 / 恢复、reaction、按评论定位正文），先读评论域二级路由 [`references/lark-drive-comments-guide.md`](references/lark-drive-comments-guide.md)，再按其中意图路由表进入具体命令的 ref。优先使用 `drive +<verb>` shortcut，不要优先手写 `drive file.comments *` / `drive file.comment.replys *` 原生命令。
+- 用户要对**文档评论**做任何操作（添加评论、列表 / 批量查询、回复、获取 / 更新 / 删除回复、解决 / 恢复、reaction、按评论定位正文），必须先阅读 [`references/lark-drive-comments-guide.md`](references/lark-drive-comments-guide.md)，再按其中意图路由表进入具体命令的 ref。优先使用 `drive +<verb>` shortcut，不要优先手写 `drive file.comments *` / `drive file.comment.replys *` 原生命令。
 - 用户给出 doubao.com 的云空间资源 URL/token，或明确提到豆包里的 file/folder/docx/sheet/bitable/wiki 资源时，仍按资源类型、URL 路径和 token 路由到本 skill；不要因为域名不是飞书而回退到 WebFetch。
 - 用户要把本地 `.xlsx` / `.csv` / `.base` 导入成 Base / 多维表格 / bitable，第一步必须使用 `lark-cli drive +import --type bitable`。
 - 用户要把本地 `.md` / `.docx` / `.doc` / `.txt` / `.html` 导入成在线文档，使用 `lark-cli drive +import --type docx`。

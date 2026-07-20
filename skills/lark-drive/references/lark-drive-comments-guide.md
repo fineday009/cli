@@ -42,7 +42,7 @@
 ## 评论卡片模型与统计口径
 
 - 评论列表（`drive +list-comments` / `drive +batch-query-comments`）返回的 `items` 是评论卡片列表，每个 `item` 对应用户界面中的一张评论卡片，不是平铺的互动消息列表。
-- 创建第一条评论时会同时创建该卡片里的第一条 reply；真正承载正文的是 `item.reply_list.replies`，其中第一条 reply（根回复）在用户视角下就是这张卡片里的“评论本身”。更新根回复即改写评论正文，删除根回复即删除整张卡片。
+- 创建第一条评论时会同时创建该卡片里的第一条 reply；真正承载正文的是 `item.reply_list.replies`，其中第一条 reply（根回复）在用户视角下就是这张卡片里的“评论本身”。更新根回复即改写评论正文；删除按 reply 逐条生效，卡片在最后一条回复被删时才消失（删整条评论见 [`lark-drive-delete-reply.md`](lark-drive-delete-reply.md)）。
 - 根回复的定位只在 `drive +list-replies` 第一页（未传 `--page-token`）的 `items[0]` 成立；翻页后 `items[0]` 只是普通回复。
 - 统计“评论数”或“评论卡片数”：统计 `items` 长度；全量统计时对所有分页返回的 `items` 长度累加。
 - 统计“回复数”：统计所有 `item.reply_list.replies` 长度之和，再减去 `items` 长度。
