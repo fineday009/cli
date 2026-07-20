@@ -148,6 +148,13 @@ func normalizeDriveCommentIDs(raw []string) ([]string, error) {
 
 func buildDriveBatchQueryCommentsDryRun(spec driveBatchQueryCommentsSpec) *common.DryRunAPI {
 	if spec.Ref.Type == "wiki" {
+		// The wiki obj_type is unknown until step 1 resolves, so RequestBody
+		// cannot decide the docx-only need_relation gate here; surface it as a
+		// placeholder the same way +list-comments does.
+		body := spec.RequestBody("<obj_type from step 1>")
+		if spec.NeedRelation {
+			body["need_relation"] = "<sent only when obj_type is docx>"
+		}
 		return common.NewDryRunAPI().
 			Desc("2-step orchestration: resolve wiki -> batch query comments").
 			GET("/open-apis/wiki/v2/spaces/get_node").
@@ -156,7 +163,7 @@ func buildDriveBatchQueryCommentsDryRun(spec driveBatchQueryCommentsSpec) *commo
 			POST("/open-apis/drive/v1/files/<obj_token from step 1>/comments/batch_query").
 			Desc("[2] Batch query comments on resolved document").
 			Params(map[string]interface{}{"file_type": "<obj_type from step 1>"}).
-			Body(spec.RequestBody("<obj_type from step 1>"))
+			Body(body)
 	}
 
 	return common.NewDryRunAPI().

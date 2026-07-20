@@ -432,6 +432,31 @@ func TestDriveBatchQueryCommentsDryRunWiki(t *testing.T) {
 	}
 }
 
+func TestDriveBatchQueryCommentsDryRunWikiNeedRelation(t *testing.T) {
+	f, stdout, _, _ := cmdutil.TestFactory(t, driveTestConfig())
+	err := mountAndRunDrive(t, DriveBatchQueryComments, []string{
+		"+batch-query-comments",
+		"--url", "https://example.larksuite.com/wiki/wikiResource",
+		"--comment-ids", "comment_1",
+		"--need-relation",
+		"--dry-run", "--as", "user",
+	}, f, stdout)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := dryRunDataMap(t, stdout.String())
+	api := mustSliceValue(t, out["api"], "data.api")
+	if len(api) != 2 {
+		t.Fatalf("dry-run api call count = %d, want 2\nstdout:\n%s", len(api), stdout.String())
+	}
+	step2 := mustMapValue(t, api[1], "api[1]")
+	body := mustMapValue(t, step2["body"], "api[1].body")
+	if got := body["need_relation"]; got != "<sent only when obj_type is docx>" {
+		t.Fatalf("api[1].body.need_relation = %#v, want conditional placeholder", got)
+	}
+}
+
 func TestDriveBatchQueryCommentsOmittedItemsNormalized(t *testing.T) {
 	f, stdout, _, reg := cmdutil.TestFactory(t, driveTestConfig())
 	reg.Register(&httpmock.Stub{

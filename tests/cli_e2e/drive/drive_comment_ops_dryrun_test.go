@@ -61,6 +61,7 @@ func TestDrive_CommentOpsDryRun(t *testing.T) {
 				"--token", "wikcnE2EComment",
 				"--type", "wiki",
 				"--comment-ids", "7457001",
+				"--need-relation",
 				"--dry-run",
 			},
 			wantMethod: "GET",
@@ -74,6 +75,9 @@ func TestDrive_CommentOpsDryRun(t *testing.T) {
 				}
 				if got := clie2e.DryRunGet(out, "api.1.url").String(); got != "/open-apis/drive/v1/files/<obj_token from step 1>/comments/batch_query" {
 					t.Fatalf("api.1.url = %q, want placeholder batch_query URL\nstdout:\n%s", got, out)
+				}
+				if got := clie2e.DryRunGet(out, "api.1.body.need_relation").String(); got != "<sent only when obj_type is docx>" {
+					t.Fatalf("api.1.body.need_relation = %q, want conditional placeholder\nstdout:\n%s", got, out)
 				}
 			},
 		},
