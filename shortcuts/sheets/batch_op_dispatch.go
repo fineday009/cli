@@ -4,8 +4,13 @@
 package sheets
 
 import (
+	"errors"
+	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/larksuite/cli/errs"
+	"github.com/larksuite/cli/internal/suggest"
 )
 
 // ─── +batch-update sub-op dispatch ─────────────────────────────────────
@@ -301,6 +306,126 @@ func sheetMoveBatchInput(fv flagView, token, sheetID, sheetName string) (map[str
 // +batch-update 顶层 --url/--token 统一提供（excel_id / spreadsheet_token / url）。
 var reservedSubOpKeys = []string{"excel_id", "spreadsheet_token", "url"}
 
+// subOpKeyVocabulary returns the set of hyphen-canonical flag names a sub-op
+// input may carry for `sc`: every non-system flag in flag-defs except the
+// spreadsheet locators (reserved for the batch top level). Nil when the
+// shortcut has no flag-defs entry (vocabulary checks are then skipped).
+func subOpKeyVocabulary(sc string) map[string]bool {
+	defs, _ := loadFlagDefs()
+	spec, ok := defs[sc]
+	if !ok {
+		return nil
+	}
+	vocab := make(map[string]bool, len(spec.Flags))
+	for _, df := range spec.Flags {
+		if df.Kind == "system" || df.Name == "url" || df.Name == "spreadsheet-token" {
+			continue
+		}
+		vocab[df.Name] = true
+	}
+	return vocab
+}
+
+// camelToKebab converts a lowerCamelCase key to its kebab form
+// (sheetName → sheet-name). Returns "" when the key carries no uppercase
+// letter (nothing to convert).
+func camelToKebab(key string) string {
+	if strings.ToLower(key) == key {
+		return ""
+	}
+	var b strings.Builder
+	for i, r := range key {
+		if r >= 'A' && r <= 'Z' {
+			if i > 0 {
+				b.WriteByte('-')
+			}
+			b.WriteRune(r + ('a' - 'A'))
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+// normalizeSubOpInputKeys validates every sub-op input key against the
+// shortcut's flag vocabulary, rewriting habitual spellings in place and
+// rejecting anything that matches nothing. Eval traces show unknown keys were
+// previously ignored silently, which turned "wrong key" (size for width,
+// camelCase sheetName, an invented styles object) into misleading
+// "missing required flag" errors downstream — the single largest batch error
+// cluster. Rewrites applied, in order:
+//
+//   - underscore ↔ hyphen forms of a declared flag (already tolerated by
+//     mapFlagView — accepted here as-is)
+//   - lowerCamelCase → the declared flag (sheetName → sheet_name)
+//   - the command's intuitive-alias table (size → width/height on the resize
+//     pair) — the same commandFlagAliases the cobra path applies
+//   - "ranges" with a single-entry array unwraps onto "range"; a multi-entry
+//     array gets a split-into-sub-ops prescription instead
+//
+// Anything else errors with a did-you-mean. Returns a bare error; the caller
+// wraps it with the operations[i] (<shortcut>) context and key contract.
+func normalizeSubOpInputKeys(sc string, input map[string]interface{}) error {
+	vocab := subOpKeyVocabulary(sc)
+	if vocab == nil {
+		return nil
+	}
+	keys := make([]string, 0, len(input))
+	for k := range input {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	aliases := commandFlagAliases[sc]
+	for _, k := range keys {
+		hv := strings.ReplaceAll(k, "_", "-")
+		if vocab[hv] {
+			continue
+		}
+		if kebab := camelToKebab(k); kebab != "" && vocab[kebab] {
+			input[strings.ReplaceAll(kebab, "-", "_")] = input[k]
+			delete(input, k)
+			continue
+		}
+		if target, ok := aliases[strings.ToLower(hv)]; ok && vocab[target] {
+			if _, taken := input[target]; !taken {
+				if _, taken := input[strings.ReplaceAll(target, "-", "_")]; !taken {
+					input[target] = input[k]
+					delete(input, k)
+					continue
+				}
+			}
+		}
+		if strings.ToLower(hv) == "ranges" && vocab["range"] && !vocab["ranges"] {
+			if arr, isArr := input[k].([]interface{}); isArr {
+				if len(arr) == 1 {
+					if s, isStr := arr[0].(string); isStr {
+						input["range"] = s
+						delete(input, k)
+						continue
+					}
+				}
+				return fmt.Errorf("%s takes a single \"range\" per sub-op, got %d entries in %q — split them into %d sub-ops (one per range)", sc, len(arr), k, len(arr)) //nolint:forbidigo // intermediate error; the batch dispatcher wraps it into a typed operations validation error
+			}
+			if s, isStr := input[k].(string); isStr {
+				input["range"] = s
+				delete(input, k)
+				continue
+			}
+		}
+		msg := fmt.Sprintf("unknown input key %q", k)
+		display := make([]string, 0, len(vocab))
+		for name := range vocab {
+			display = append(display, strings.ReplaceAll(name, "-", "_"))
+		}
+		sort.Strings(display)
+		if match := suggest.Closest(strings.ToLower(hv), display, 1); len(match) > 0 {
+			msg += fmt.Sprintf(" — did you mean %q?", match[0])
+		}
+		return fmt.Errorf("%s", msg) //nolint:forbidigo // intermediate error; the batch dispatcher wraps it into a typed operations validation error
+	}
+	return nil
+}
+
 // translateBatchOp 把一个 CLI 视角的 {shortcut, input} 翻成底层 MCP
 // batch_update 的 {tool_name, input}。`index` 用于错误信息定位。input 用
 // shortcut 的 CLI flag 名（连字符/下划线均可），经该 shortcut 的 standalone
@@ -358,13 +483,17 @@ func translateBatchOp(raw interface{}, token string, index int) (map[string]inte
 		)
 	}
 	// 禁在 sub-op 重复填 spreadsheet 定位 —— 由 +batch-update 顶层 --url/--token 统一提供。
-	for _, k := range reservedSubOpKeys {
-		if _, has := input[k]; has {
-			return nil, sheetsValidationForFlag(
-				"operations",
-				"operations[%d] (%s): do not pass input.%s — it is already set from +batch-update top-level --url / --token",
-				index, sc, k,
-			)
+	// 连字符 / 下划线两种写法都算命中（spreadsheet-token 与 spreadsheet_token 同罪）。
+	for userKey := range input {
+		normalized := strings.ReplaceAll(userKey, "-", "_")
+		for _, k := range reservedSubOpKeys {
+			if normalized == k {
+				return nil, sheetsValidationForFlag(
+					"operations",
+					"operations[%d] (%s): do not pass input.%s — it is already set from +batch-update top-level --url / --token",
+					index, sc, userKey,
+				)
+			}
 		}
 	}
 	// 拒绝任何额外的 sub-op 顶层 key（防御未来 schema drift / 用户笔误）。
@@ -372,6 +501,16 @@ func translateBatchOp(raw interface{}, token string, index int) (map[string]inte
 		if k != "shortcut" && k != "input" {
 			return nil, sheetsValidationForFlag("operations", "operations[%d] (%s): unknown top-level key %q (expected only 'shortcut' and 'input')", index, sc, k)
 		}
+	}
+	// Reject / rewrite off-vocabulary input keys BEFORE any value reads: an
+	// unknown key silently ignored surfaces later as a misleading
+	// "missing required flag" error (the top batch error cluster in evals).
+	if err := normalizeSubOpInputKeys(sc, input); err != nil {
+		verr := sheetsValidationForFlag("operations", "operations[%d] (%s): %v", index, sc, err)
+		if contract := subOpInputContract(sc); contract != "" {
+			verr = verr.WithHint("%s input keys: %s", sc, contract)
+		}
+		return nil, verr
 	}
 	fv := newMapFlagViewForCommand(sc, input)
 	// operations is skipped by parse-time schema validation, so type-check the
@@ -410,7 +549,16 @@ func translateBatchOp(raw interface{}, token string, index int) (map[string]inte
 // matrix, on the operations axis.
 const maxBatchOperations = 100
 
-// translateBatchOperations 翻译整个 ops 数组；fail-fast，遇错立即返回。
+// maxAggregatedOpErrors caps how many per-op validation errors ride in one
+// aggregated message; past it the count is summarized. Keeps a 100-op batch
+// where everything is wrong from producing a page-long error.
+const maxAggregatedOpErrors = 10
+
+// translateBatchOperations 翻译整个 ops 数组。校验错误**聚合上报**：翻译
+// 所有 op、每个失败 op 记录首错，一次性返回全部——评测里首错即断曾把一题
+// 拖成最多 7 轮"修一个错、重发、再报下一个"的往返（table-put --styles 的
+// 聚合先例已验证一次报全的收益）。单错时原样返回，保持与 standalone 报错
+// 逐字一致（batch-vs-standalone 契约测试锁定）。
 func translateBatchOperations(rawOps []interface{}, token string) ([]interface{}, error) {
 	if len(rawOps) == 0 {
 		return nil, sheetsValidationForFlag("operations", "--operations must be a non-empty JSON array")
@@ -422,20 +570,68 @@ func translateBatchOperations(rawOps []interface{}, token string) ([]interface{}
 	}
 	out := make([]interface{}, 0, len(rawOps))
 	var totalCells int64
+	var opErrs []*errs.ValidationError
 	for i, raw := range rawOps {
 		translated, err := translateBatchOp(raw, token, i)
 		if err != nil {
-			return nil, err
+			var verr *errs.ValidationError
+			if !errors.As(err, &verr) {
+				return nil, err
+			}
+			opErrs = append(opErrs, verr)
+			continue
 		}
-		totalCells += translatedCellCount(translated)
-		if totalCells > maxStampMatrixCells {
-			return nil, sheetsValidationForFlag("operations",
-				"--operations materialize %d cells total, over the %d-cell safety cap; reduce the number or size of cell operations",
-				totalCells, maxStampMatrixCells)
+		// The cell budget only means anything for a batch that can still run;
+		// once an op has failed validation the batch is rejected anyway.
+		if len(opErrs) == 0 {
+			totalCells += translatedCellCount(translated)
+			if totalCells > maxStampMatrixCells {
+				return nil, sheetsValidationForFlag("operations",
+					"--operations materialize %d cells total, over the %d-cell safety cap; reduce the number or size of cell operations",
+					totalCells, maxStampMatrixCells)
+			}
 		}
 		out = append(out, translated)
 	}
-	return out, nil
+	switch len(opErrs) {
+	case 0:
+		return out, nil
+	case 1:
+		return nil, opErrs[0]
+	}
+	return nil, aggregateOpErrors(opErrs)
+}
+
+// aggregateOpErrors folds several per-op validation errors into one, keeping
+// each op's own operations[i] (<shortcut>) context in the message and the
+// distinct hints (per-shortcut key contracts) joined in the hint.
+func aggregateOpErrors(opErrs []*errs.ValidationError) *errs.ValidationError {
+	shown := opErrs
+	var more int
+	if len(shown) > maxAggregatedOpErrors {
+		shown = shown[:maxAggregatedOpErrors]
+		more = len(opErrs) - maxAggregatedOpErrors
+	}
+	parts := make([]string, 0, len(shown))
+	var hints []string
+	seenHint := map[string]bool{}
+	for _, e := range shown {
+		parts = append(parts, e.Message)
+		if e.Hint != "" && !seenHint[e.Hint] && len(hints) < 3 {
+			seenHint[e.Hint] = true
+			hints = append(hints, e.Hint)
+		}
+	}
+	msg := fmt.Sprintf("%d operations failed validation (fix them all, then resend once): %s",
+		len(opErrs), strings.Join(parts, "; "))
+	if more > 0 {
+		msg += fmt.Sprintf("; … and %d more", more)
+	}
+	verr := sheetsValidationForFlag("operations", "%s", msg)
+	if len(hints) > 0 {
+		verr = verr.WithHint("%s", strings.Join(hints, " | "))
+	}
+	return verr
 }
 
 func translatedCellCount(op map[string]interface{}) int64 {
