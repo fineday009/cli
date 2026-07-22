@@ -12,7 +12,7 @@
 |---|---|---|
 | `text` | `text` | 普通文本正文 |
 | `mention_user` | `mention_user` | 被 @ 用户的 open_id |
-| `link` | `link` | 超链接 URL |
+| `link` | `link` | 飞书云文档链接（docx/doc/sheet/bitable/wiki 等云文档 URL；对应 wire `docs_link`） |
 
 最常见就是单个纯文本元素：
 
@@ -27,16 +27,14 @@
   {"type":"text","text":"请 "},
   {"type":"mention_user","mention_user":"ou_xxx"},
   {"type":"text","text":" 看下 "},
-  {"type":"link","link":"https://example.com"}
+  {"type":"link","link":"https://your-tenant.feishu.cn/docx/<TOKEN>"}
 ]'
 ```
 
 - `type=text` 的 `text` 不能为空；未知 `type` 会被拒绝，只允许 `text` / `mention_user` / `link`。
 - 为省事，`mention_user` / `link` 的值也可以直接放在 `text` 字段（如 `{"type":"mention_user","text":"ou_xxx"}`），CLI 会识别；推荐用上表的专属字段，语义更清晰。
+- `link` 是**飞书云文档链接**（wire 类型就叫 `docs_link`），不是任意网页链接。回复类命令（`+add-reply` / `+update-reply`）会校验，传外部 URL 被服务端拒绝（`1069302`），只接受飞书云文档 URL；`+add-comment` 对外部 URL 较宽松（能写入），但外部链接未必按云文档链接渲染，仍建议只放云文档 URL。
 
-## 转义
-
-`type=text` 里的 `<`、`>` 由 shortcut 自动转义为 `&lt;`、`&gt;`（避免被评论渲染器当作标记解析），调用方无需自己处理。
 
 ## 长度限制
 
