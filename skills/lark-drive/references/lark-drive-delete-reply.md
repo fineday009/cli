@@ -28,10 +28,19 @@ lark-cli drive +delete-reply --url '<DOC_URL>' --comment-id '<id>' --reply-id '<
 - 删除永久生效，回复没有回收站或撤销。
 - 删除按 reply 逐条生效：删一条 reply 只删那一条，卡片在其**最后一条 reply 被删掉时**才消失。评论卡片的首条（根）reply 就是“评论本身”，所以只有当根回复是该卡唯一 reply（评论没有其它回复）时，删根回复才等于删掉整张评论卡片；卡片下还有其它回复时，删根回复只删根回复、卡片带着剩余回复继续存在。
 - **删除整条评论没有专门的命令，需要用本命令删光该卡片下的所有回复**（先用 `drive +list-replies` 拉全回复 id）。删除前先和用户确认删的是某条回复还是整条评论。
+- 需要 shortcut 未暴露的字段时才用原生 `drive file.comment.replys delete` 兜底（先 `lark-cli schema drive.file.comment.replys.delete` 查契约）；直接调原生时 Base 的 `file_type` 传 `bitable`。
 
-## 原生兜底
+## 输出
 
-只有需要 shortcut 未暴露的字段时，才用原生 `drive file.comment.replys delete`（先 `lark-cli schema drive.file.comment.replys.delete` 查契约）。直接调原生时 Base 的 `file_type` 传 `bitable`。
+```json
+{
+  "file_token": "docx_token",
+  "file_type": "docx",
+  "comment_id": "<comment_id>",
+  "reply_id": "<reply_id>",
+  "deleted": true
+}
+```
 
 ## 参考
 

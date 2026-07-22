@@ -29,10 +29,20 @@ lark-cli drive +react-reply --url '<WIKI_URL>' --reply-id '<id>' --emoji DONE --
 - add / delete 幂等：重复添加已有 reaction、删除不存在的 reaction 都会成功返回且无副作用；delete 只取消当前身份自己加的 reaction。
 - 对根回复操作等价于给评论本身加 / 删表情。
 - 读回 reaction：在 `drive +list-replies` / `drive +batch-query-comments` 上带 `--need-reaction`；`count=0` 的条目是已删除 reaction 的残留，判断存在与否按 `count>0` 过滤。
+- 需要 shortcut 未暴露的字段时才用原生 `drive file.comment.reply.reactions update_reaction` 兜底（先 `lark-cli schema` 查契约）；原生路径没有本地枚举校验，`reaction_type` 取值须自行保证，Base 的 `file_type` 传 `bitable`。
 
-## 原生兜底
+## 输出
 
-只有需要 shortcut 未暴露的字段时，才用原生 `drive file.comment.reply.reactions update_reaction`（先 `lark-cli schema` 查契约）。原生路径没有本地枚举校验，`reaction_type` 取值须自行保证；直接调原生时 Base 的 `file_type` 传 `bitable`。
+```json
+{
+  "file_token": "docx_token",
+  "file_type": "docx",
+  "reply_id": "<reply_id>",
+  "reaction_type": "THUMBSUP",
+  "action": "add",
+  "updated": true
+}
+```
 
 ## 参考
 

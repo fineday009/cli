@@ -25,10 +25,19 @@ lark-cli drive +update-reply --url '<DOC_URL>' --comment-id '<id>' --reply-id '<
 - 更新是整体替换：新 `content` 完全覆盖旧内容，没有局部修改语义。
 - **只能更新当前身份自己创建的回复**；更新他人回复返回 API 错误 `1069303 forbidden`。执行前先用 `+list-replies` 核对 `items[].user_id`（默认 open_id，持有 union_id 时传 `--user-id-type union_id` 对齐），并用创建该回复的同一个 `--as` 身份执行。
 - 更新评论卡片的根回复（第一页 `items[0]`，即创建最早的一条 reply）等价于改写这条评论的正文本身；改写前先和用户确认改的是回复还是评论正文。
+- 需要 shortcut 未暴露的字段时才用原生 `drive file.comment.replys update` 兜底（先 `lark-cli schema drive.file.comment.replys.update` 查契约，按 schema 拼 body）；直接调原生时需自行转义文本，Base 的 `file_type` 传 `bitable`。
 
-## 原生兜底
+## 输出
 
-只有需要 shortcut 未暴露的字段时，才用原生 `drive file.comment.replys update`（先 `lark-cli schema drive.file.comment.replys.update` 查契约，按 schema 拼 body）。直接调原生时需自行转义文本，Base 的 `file_type` 传 `bitable`。
+```json
+{
+  "file_token": "docx_token",
+  "file_type": "docx",
+  "comment_id": "<comment_id>",
+  "reply_id": "<reply_id>",
+  "updated": true
+}
+```
 
 ## 参考
 

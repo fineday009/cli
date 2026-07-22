@@ -32,9 +32,21 @@ lark-cli drive +add-reply --url '<DOC_URL>' --comment-id '<id>' \
 
 不要用 `POST .../comments` 传 body `comment_id` 来回复——尽管官方文档如此描述，该写法实际不会挂到目标评论下，而是创建一条新的独立评论。本 shortcut 用的是专门的 replies 端点。
 
-## 原生兜底
+## 行为说明
 
-只有需要 shortcut 未暴露的字段时，才用原生 `drive file.comment.replys create`（先 `lark-cli schema drive.file.comment.replys.create` 查契约，按 schema 拼 body）。直接调原生时需自行转义文本，Base 的 `file_type` 传 `bitable`。
+- 需要 shortcut 未暴露的字段时才用原生 `drive file.comment.replys create` 兜底（先 `lark-cli schema drive.file.comment.replys.create` 查契约，按 schema 拼 body）；直接调原生时需自行转义文本，Base 的 `file_type` 传 `bitable`。
+
+## 输出
+
+```json
+{
+  "file_token": "docx_token",
+  "file_type": "docx",
+  "comment_id": "<comment_id>",
+  "created": true,
+  "reply_id": "<reply_id>"
+}
+```
 
 ## 参考
 

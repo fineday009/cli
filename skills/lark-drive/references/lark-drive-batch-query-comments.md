@@ -33,10 +33,20 @@ lark-cli drive +batch-query-comments --token '<WIKI_TOKEN>' --type wiki --commen
 
 - `--need-relation` 通过请求 **body** 发送（`+list-comments` 是 query param），只在解析后的目标是 docx 时发送；该参数未收录于平台 metadata，但服务端支持，返回 `items[].relation` 及块位置。
 - 输出的 `items` 始终是 JSON 数组（服务端省略时归一化为 `[]`），外层补 `file_token`、`file_type`、`count`。
+- 需要 shortcut 未暴露的字段时才用原生 `drive file.comments batch_query` 兜底（先 `lark-cli schema drive.file.comments.batch_query` 查契约）；直接调原生时 Base 的 `file_type` 传 `bitable`。
 
-## 原生兜底
+## 输出
 
-只有需要 shortcut 未暴露的字段时，才用原生 `drive file.comments batch_query`（先 `lark-cli schema drive.file.comments.batch_query` 查契约）。直接调原生时 Base 的 `file_type` 传 `bitable`。
+```json
+{
+  "file_token": "docx_token",
+  "file_type": "docx",
+  "items": [],
+  "count": 0
+}
+```
+
+`items` 是命中的评论卡片数组（外层补 `file_token`/`file_type`，wiki 输入再加 `wiki_token`）；`count` 是命中数。
 
 ## 参考
 

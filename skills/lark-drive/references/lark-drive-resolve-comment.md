@@ -29,10 +29,20 @@ lark-cli drive +resolve-comment --url '<DOC_URL>' --comment-id '<id>' --dry-run
 
 - 这是写操作。
 - 对同一条评论连续翻转解决状态可能触发服务端限流（HTTP 429）；连续调用之间留间隔或短暂延迟后重试。
+- 需要 shortcut 未暴露的字段时才用原生 `drive file.comments patch` 兜底（先 `lark-cli schema drive.file.comments.patch` 查契约）；直接调原生时 Base 的 `file_type` 传 `bitable`。
 
-## 原生兜底
+## 输出
 
-只有需要 shortcut 未暴露的字段时，才用原生 `drive file.comments patch`（先 `lark-cli schema drive.file.comments.patch` 查契约）。直接调原生时 Base 的 `file_type` 传 `bitable`。
+```json
+{
+  "file_token": "docx_token",
+  "file_type": "docx",
+  "comment_id": "<comment_id>",
+  "action": "resolve",
+  "is_solved": true,
+  "updated": true
+}
+```
 
 ## 参考
 

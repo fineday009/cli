@@ -34,10 +34,23 @@ lark-cli drive +list-replies --url '<DOC_URL>' --comment-id '<id>' --need-reacti
 - 输出字段：`items[].reply_id` / `user_id` / `create_time` / `update_time` / `content.elements`，供 `+update-reply`、`+delete-reply` 使用。
 - 检查回复归属（更新/删除前）：默认返回 open_id，持有 union_id 时传 `--user-id-type union_id` 对齐后再比对 `items[].user_id`。
 - 输出的 `items` 始终是 JSON 数组（服务端省略时归一化为 `[]`）。
+- 需要 shortcut 未暴露的字段时才用原生 `drive file.comment.replys list` 兜底（先 `lark-cli schema drive.file.comment.replys.list` 查契约）；直接调原生时 Base 的 `file_type` 传 `bitable`。
 
-## 原生兜底
+## 输出
 
-只有需要 shortcut 未暴露的字段时，才用原生 `drive file.comment.replys list`（先 `lark-cli schema drive.file.comment.replys.list` 查契约）。直接调原生时 Base 的 `file_type` 传 `bitable`。
+```json
+{
+  "file_token": "docx_token",
+  "file_type": "docx",
+  "comment_id": "<comment_id>",
+  "items": [],
+  "has_more": false,
+  "page_token": "",
+  "count": 0
+}
+```
+
+`items` 是回复数组；是否继续翻页以 `has_more` 为准，`has_more=true` 时用返回的 `page_token` 续拉。
 
 ## 参考
 
