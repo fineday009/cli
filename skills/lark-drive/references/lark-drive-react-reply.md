@@ -7,18 +7,35 @@
 ## 命令
 
 ```bash
-# 给某条 reply 添加点赞
-lark-cli drive +react-reply --url '<DOC_URL>' --reply-id '<id>' --emoji THUMBSUP --action add
+# 给某条 reply 加点赞（传完整 URL：docx/doc/sheet/file/slides/base/apps 都可）
+lark-cli drive +react-reply --url "https://example.larksuite.com/docx/<DOCX_TOKEN>" --reply-id '<id>' --emoji THUMBSUP --action add
 
-# 删除某条 reply 上的 DONE（wiki URL 自动解包）
-lark-cli drive +react-reply --url '<WIKI_URL>' --reply-id '<id>' --emoji DONE --action delete
+# 电子表格 URL 保留 /sheets/ 路径
+lark-cli drive +react-reply --url "https://example.larksuite.com/sheets/<SHEET_TOKEN>" --reply-id '<id>' --emoji THUMBSUP --action add
+
+# 妙搭 apps URL 使用 /page/<token>
+lark-cli drive +react-reply --url "https://example.feishu.cn/page/<APPS_TOKEN>/" --reply-id '<id>' --emoji THUMBSUP --action add
+
+# wiki URL 自动解包
+lark-cli drive +react-reply --url "https://example.larksuite.com/wiki/<WIKI_TOKEN>" --reply-id '<id>' --emoji THUMBSUP --action add
+
+# 裸 wiki token 必须显式声明 --type wiki
+lark-cli drive +react-reply --token "<WIKI_TOKEN>" --type wiki --reply-id '<id>' --emoji THUMBSUP --action add
+
+# 裸 token 需声明对应类型（以 sheet 为例）
+lark-cli drive +react-reply --token "<SHEET_TOKEN>" --type sheet --reply-id '<id>' --emoji THUMBSUP --action add
+
+# 删除自己加的 reaction（--action delete）
+lark-cli drive +react-reply --url "https://example.larksuite.com/docx/<DOCX_TOKEN>" --reply-id '<id>' --emoji DONE --action delete
 ```
 
 ## 参数
 
 | 参数 | 必填 | 说明 |
 |---|---|---|
-| `--url` / `--token` + `--type` | 是（二选一） | 目标定位，见 [`lark-drive-comments-guide.md`](lark-drive-comments-guide.md)；wiki 自动解包 |
+| `--url` | 与 `--token` 二选一 | 推荐入口。支持 doc/docx/sheet/file/slides/base/bitable/apps/wiki URL；apps 妙搭 URL 使用 `/page/<token>`；wiki URL 会自动解析到真实文档。 |
+| `--token` | 与 `--url` 二选一 | 裸 token 或 URL。裸 token 必须搭配 `--type`；wiki token 使用 `--type wiki`。 |
+| `--type` | 裸 token 时必填 | 传 token 对应类型：`doc`、`docx`、`sheet`、`file`、`slides`、`bitable`、`base`、`apps`、`wiki`。wiki token 使用 `wiki`；传 `base` 时，CLI 会按 `bitable` 类型处理。 |
 | `--reply-id` | 是 | 要操作的回复 ID；来自 `drive +list-replies` 的 `items[].reply_id`。给“这条评论”加/删表情时取该评论根回复（第一页 `items[0]`）的 `reply_id` |
 | `--emoji` | 是 | `reaction_type` 值，大小写敏感；本地按平台枚举校验。完整列表与语义映射见 [`lark-drive-reactions.md`](lark-drive-reactions.md) |
 | `--action` | 是 | `add` 添加；`delete` 删除当前身份自己加的 reaction |

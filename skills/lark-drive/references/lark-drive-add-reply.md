@@ -2,35 +2,45 @@
 
 > **前置条件：** 先阅读 [`../../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) 了解认证、全局参数和权限处理；`--content` 完整格式见 [`lark-drive-comment-content.md`](lark-drive-comment-content.md)。
 
-给已有评论添加一条回复，走 `POST .../comments/:comment_id/replies` 回复端点。
+给已有评论添加一条回复。
 
 ## 命令
 
 ```bash
-lark-cli drive +add-reply --url '<DOC_URL>' --comment-id '<id>' \
-  --content '[{"type":"text","text":"回复内容"}]'
+# 推荐：传完整 URL（docx/doc/sheet/file/slides/base/apps 都可）
+lark-cli drive +add-reply --url "https://example.larksuite.com/docx/<DOCX_TOKEN>" --comment-id '<id>' --content '[{"type":"text","text":"回复内容"}]'
+
+# 电子表格 URL 保留 /sheets/ 路径
+lark-cli drive +add-reply --url "https://example.larksuite.com/sheets/<SHEET_TOKEN>" --comment-id '<id>' --content '[{"type":"text","text":"回复内容"}]'
+
+# 妙搭 apps URL 使用 /page/<token>
+lark-cli drive +add-reply --url "https://example.feishu.cn/page/<APPS_TOKEN>/" --comment-id '<id>' --content '[{"type":"text","text":"回复内容"}]'
+
+# wiki URL 自动解包
+lark-cli drive +add-reply --url "https://example.larksuite.com/wiki/<WIKI_TOKEN>" --comment-id '<id>' --content '[{"type":"text","text":"回复内容"}]'
+
+# 裸 wiki token 必须显式声明 --type wiki
+lark-cli drive +add-reply --token "<WIKI_TOKEN>" --type wiki --comment-id '<id>' --content '[{"type":"text","text":"回复内容"}]'
+
+# 裸 token 需声明对应类型（以 sheet 为例）
+lark-cli drive +add-reply --token "<SHEET_TOKEN>" --type sheet --comment-id '<id>' --content '[{"type":"text","text":"回复内容"}]'
 ```
 
 ## 参数
 
 | 参数 | 必填 | 说明 |
 |---|---|---|
-| `--url` / `--token` + `--type` | 是（二选一） | 目标定位，见 [`lark-drive-comments-guide.md`](lark-drive-comments-guide.md)；wiki 自动解包 |
+| `--url` | 与 `--token` 二选一 | 推荐入口。支持 doc/docx/sheet/file/slides/base/bitable/apps/wiki URL；apps 妙搭 URL 使用 `/page/<token>`；wiki URL 会自动解析到真实文档。 |
+| `--token` | 与 `--url` 二选一 | 裸 token 或 URL。裸 token 必须搭配 `--type`；wiki token 使用 `--type wiki`。 |
+| `--type` | 裸 token 时必填 | 传 token 对应类型：`doc`、`docx`、`sheet`、`file`、`slides`、`bitable`、`base`、`apps`、`wiki`。wiki token 使用 `wiki`；传 `base` 时，CLI 会按 `bitable` 类型处理。 |
 | `--comment-id` | 是 | 要回复的评论 ID；来自 `drive +list-comments` 的 `items[].comment_id` |
 | `--content` | 是 | `reply_elements` JSON，`type=text` 文本自动转义；完整 schema、mention_user/link、10000 字符限制见 [`lark-drive-comment-content.md`](lark-drive-comment-content.md) |
 
-## 回复前先检查目标评论状态
+## 回复限制
 
-`is_whole=true` 的全文评论、`is_solved=true` 的已解决评论都不能回复。回复前先确认目标可回复：
-
-- 已知 comment_id：`drive +batch-query-comments --url '<DOC_URL>' --comment-ids '<id>'`，看返回项的 `is_whole` / `is_solved`。
-- 用 `drive +list-comments` 查找目标：**必须带 `--solved-status all`**，否则默认只查未解决评论，会漏掉已解决的目标；再核对 `is_whole` / `is_solved`。
-
-命中限制时的提示口径：全文评论 → “全文评论不支持回复”；已解决评论 → “该评论已被解决，无法回复”。当目标评论不能回复时，只提示限制，不要自动替用户改回复到别的评论。
-
-## 为什么不用“添加评论”接口回复
-
-不要用 `POST .../comments` 传 body `comment_id` 来回复——尽管官方文档如此描述，该写法实际不会挂到目标评论下，而是创建一条新的独立评论。本 shortcut 用的是专门的 replies 端点。
+- `is_whole=true` 的全文评论、`is_solved=true` 的已解决评论都不能回复。
+- 目标的 `is_whole` / `is_solved` 通常在上一步 `+list-comments` / `+batch-query-comments` 的结果里已有，据此判断即可；信息不足时再补查一次。
+- 命中限制时如实提示（“全文评论不支持回复” / “该评论已被解决，无法回复”），不要自动替用户改回复到别的评论。
 
 ## 行为说明
 

@@ -7,24 +7,35 @@
 ## 命令
 
 ```bash
-# 按 ID 批量取（逗号分隔或重复 --comment-ids）
-lark-cli drive +batch-query-comments --url '<DOC_URL>' --comment-ids '<id1>,<id2>'
+# 推荐：传完整 URL（docx/doc/sheet/file/slides/base/apps 都可），逗号分隔或重复 --comment-ids
+lark-cli drive +batch-query-comments --url "https://example.larksuite.com/docx/<DOCX_TOKEN>" --comment-ids '<id1>,<id2>'
 
-# 需要 reaction 数据
-lark-cli drive +batch-query-comments --url '<DOC_URL>' --comment-ids '<id>' --need-reaction
+# 电子表格 URL 保留 /sheets/ 路径，原样传入
+lark-cli drive +batch-query-comments --url "https://example.larksuite.com/sheets/<SHEET_TOKEN>" --comment-ids '<id>'
 
-# docx 需要评论定位关系（非 docx 静默忽略）
-lark-cli drive +batch-query-comments --url '<DOCX_URL>' --comment-ids '<id>' --need-relation
+# 妙搭 apps URL 使用 /page/<token>，识别为 file_type=apps
+lark-cli drive +batch-query-comments --url "https://example.feishu.cn/page/<APPS_TOKEN>/" --comment-ids '<id>'
 
-# 裸 wiki token
-lark-cli drive +batch-query-comments --token '<WIKI_TOKEN>' --type wiki --comment-ids '<id>'
+# wiki URL 自动解包到底层文档
+lark-cli drive +batch-query-comments --url "https://example.larksuite.com/wiki/<WIKI_TOKEN>" --comment-ids '<id>'
+
+# 裸 wiki token 必须显式声明 --type wiki
+lark-cli drive +batch-query-comments --token "<WIKI_TOKEN>" --type wiki --comment-ids '<id>'
+
+# 裸 token 需声明对应类型；不要默认当作 docx。这里以 sheet 为例
+lark-cli drive +batch-query-comments --token "<SHEET_TOKEN>" --type sheet --comment-ids '<id>'
+
+# 需要 reaction 数据加 --need-reaction；docx 需要评论定位加 --need-relation（非 docx 静默忽略）
+lark-cli drive +batch-query-comments --url "https://example.larksuite.com/docx/<DOCX_TOKEN>" --comment-ids '<id>' --need-reaction --need-relation
 ```
 
 ## 参数
 
 | 参数 | 必填 | 说明 |
 |---|---|---|
-| `--url` / `--token` + `--type` | 是（二选一） | 目标定位，见 [`lark-drive-comments-guide.md`](lark-drive-comments-guide.md)；wiki 自动解包 |
+| `--url` | 与 `--token` 二选一 | 推荐入口。支持 doc/docx/sheet/file/slides/base/bitable/apps/wiki URL；apps 妙搭 URL 使用 `/page/<token>`；wiki URL 会自动解析到真实文档。 |
+| `--token` | 与 `--url` 二选一 | 裸 token 或 URL。裸 token 必须搭配 `--type`；wiki token 使用 `--type wiki`。 |
+| `--type` | 裸 token 时必填 | 传 token 对应类型：`doc`、`docx`、`sheet`、`file`、`slides`、`bitable`、`base`、`apps`、`wiki`。wiki token 使用 `wiki`；传 `base` 时，CLI 会按 `bitable` 类型处理。 |
 | `--comment-ids` | 是 | 评论 ID，逗号分隔或重复传，单次最多 100 个；来自 `drive +list-comments` 的 `items[].comment_id` |
 | `--need-reaction` | 否 | 返回评论卡片上的 reaction 数据，见 [`lark-drive-reactions.md`](lark-drive-reactions.md) |
 | `--need-relation` | 否 | docx 评论定位关系；仅 docx 生效，非 docx 静默忽略，见 [`lark-drive-comment-location.md`](lark-drive-comment-location.md) |

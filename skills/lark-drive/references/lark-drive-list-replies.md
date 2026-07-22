@@ -7,32 +7,48 @@
 ## 命令
 
 ```bash
-lark-cli drive +list-replies --url '<DOC_URL>' --comment-id '<id>'
+# 推荐：传完整 URL（docx/doc/sheet/file/slides/base/apps 都可）
+lark-cli drive +list-replies --url "https://example.larksuite.com/docx/<DOCX_TOKEN>" --comment-id '<id>'
 
-# 分页续跑
-lark-cli drive +list-replies --url '<DOC_URL>' --comment-id '<id>' \
-  --page-size 100 --page-token '<NEXT_PAGE_TOKEN>'
+# 电子表格 URL 保留 /sheets/ 路径
+lark-cli drive +list-replies --url "https://example.larksuite.com/sheets/<SHEET_TOKEN>" --comment-id '<id>'
 
-# 需要 reaction 数据
-lark-cli drive +list-replies --url '<DOC_URL>' --comment-id '<id>' --need-reaction
+# 妙搭 apps URL 使用 /page/<token>
+lark-cli drive +list-replies --url "https://example.feishu.cn/page/<APPS_TOKEN>/" --comment-id '<id>'
+
+# wiki URL 自动解包
+lark-cli drive +list-replies --url "https://example.larksuite.com/wiki/<WIKI_TOKEN>" --comment-id '<id>'
+
+# 裸 wiki token 必须显式声明 --type wiki
+lark-cli drive +list-replies --token "<WIKI_TOKEN>" --type wiki --comment-id '<id>'
+
+# 裸 token 需声明对应类型（以 sheet 为例）
+lark-cli drive +list-replies --token "<SHEET_TOKEN>" --type sheet --comment-id '<id>'
+
+# 分页续跑：has_more=true 时用上次返回的 page_token
+lark-cli drive +list-replies --url "https://example.larksuite.com/docx/<DOCX_TOKEN>" --comment-id '<id>' --page-size 100 --page-token '<NEXT_PAGE_TOKEN>'
+
+# 需要 reaction 数据加 --need-reaction
+lark-cli drive +list-replies --url "https://example.larksuite.com/docx/<DOCX_TOKEN>" --comment-id '<id>' --need-reaction
 ```
 
 ## 参数
 
 | 参数 | 必填 | 说明 |
 |---|---|---|
-| `--url` / `--token` + `--type` | 是（二选一） | 目标定位，见 [`lark-drive-comments-guide.md`](lark-drive-comments-guide.md)；wiki 自动解包 |
+| `--url` | 与 `--token` 二选一 | 推荐入口。支持 doc/docx/sheet/file/slides/base/bitable/apps/wiki URL；apps 妙搭 URL 使用 `/page/<token>`；wiki URL 会自动解析到真实文档。 |
+| `--token` | 与 `--url` 二选一 | 裸 token 或 URL。裸 token 必须搭配 `--type`；wiki token 使用 `--type wiki`。 |
+| `--type` | 裸 token 时必填 | 传 token 对应类型：`doc`、`docx`、`sheet`、`file`、`slides`、`bitable`、`base`、`apps`、`wiki`。wiki token 使用 `wiki`；传 `base` 时，CLI 会按 `bitable` 类型处理。 |
 | `--comment-id` | 是 | 评论 ID；来自 `drive +list-comments` 的 `items[].comment_id` |
 | `--page-size` | 否 | 1-100，默认 50 |
 | `--page-token` | 否 | 上次输出的 `page_token`；`has_more=true` 时用它续拉 |
 | `--need-reaction` | 否 | 在回复上返回 reaction 数据，见 [`lark-drive-reactions.md`](lark-drive-reactions.md) |
-| `--user-id-type` | 否 | 控制 `items[].user_id` 形态：`open_id`（默认）、`union_id` |
 
 ## 行为说明
 
 - 根回复承载评论正文本身，是回复列表中创建最早的一条：**仅第一页（未传 `--page-token`）的 `items[0]` 是根回复**；翻页后（传了 `--page-token`）返回的 `items[0]` 只是普通回复，不要按位置当作根回复去更新或删除。
 - 输出字段：`items[].reply_id` / `user_id` / `create_time` / `update_time` / `content.elements`，供 `+update-reply`、`+delete-reply` 使用。
-- 检查回复归属（更新/删除前）：默认返回 open_id，持有 union_id 时传 `--user-id-type union_id` 对齐后再比对 `items[].user_id`。
+- 检查回复归属（更新/删除前）：比对 `items[].user_id`（open_id）与当前身份，判断是不是自己创建的回复。
 - 输出的 `items` 始终是 JSON 数组（服务端省略时归一化为 `[]`）。
 - 需要 shortcut 未暴露的字段时才用原生 `drive file.comment.replys list` 兜底（先 `lark-cli schema drive.file.comment.replys.list` 查契约）；直接调原生时 Base 的 `file_type` 传 `bitable`。
 

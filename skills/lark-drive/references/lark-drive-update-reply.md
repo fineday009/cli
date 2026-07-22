@@ -7,15 +7,32 @@
 ## 命令
 
 ```bash
-lark-cli drive +update-reply --url '<DOC_URL>' --comment-id '<id>' --reply-id '<id>' \
-  --content '[{"type":"text","text":"新内容"}]'
+# 推荐：传完整 URL（docx/doc/sheet/file/slides/base/apps 都可）
+lark-cli drive +update-reply --url "https://example.larksuite.com/docx/<DOCX_TOKEN>" --comment-id '<id>' --reply-id '<id>' --content '[{"type":"text","text":"新内容"}]'
+
+# 电子表格 URL 保留 /sheets/ 路径
+lark-cli drive +update-reply --url "https://example.larksuite.com/sheets/<SHEET_TOKEN>" --comment-id '<id>' --reply-id '<id>' --content '[{"type":"text","text":"新内容"}]'
+
+# 妙搭 apps URL 使用 /page/<token>
+lark-cli drive +update-reply --url "https://example.feishu.cn/page/<APPS_TOKEN>/" --comment-id '<id>' --reply-id '<id>' --content '[{"type":"text","text":"新内容"}]'
+
+# wiki URL 自动解包
+lark-cli drive +update-reply --url "https://example.larksuite.com/wiki/<WIKI_TOKEN>" --comment-id '<id>' --reply-id '<id>' --content '[{"type":"text","text":"新内容"}]'
+
+# 裸 wiki token 必须显式声明 --type wiki
+lark-cli drive +update-reply --token "<WIKI_TOKEN>" --type wiki --comment-id '<id>' --reply-id '<id>' --content '[{"type":"text","text":"新内容"}]'
+
+# 裸 token 需声明对应类型（以 sheet 为例）
+lark-cli drive +update-reply --token "<SHEET_TOKEN>" --type sheet --comment-id '<id>' --reply-id '<id>' --content '[{"type":"text","text":"新内容"}]'
 ```
 
 ## 参数
 
 | 参数 | 必填 | 说明 |
 |---|---|---|
-| `--url` / `--token` + `--type` | 是（二选一） | 目标定位，见 [`lark-drive-comments-guide.md`](lark-drive-comments-guide.md)；wiki 自动解包 |
+| `--url` | 与 `--token` 二选一 | 推荐入口。支持 doc/docx/sheet/file/slides/base/bitable/apps/wiki URL；apps 妙搭 URL 使用 `/page/<token>`；wiki URL 会自动解析到真实文档。 |
+| `--token` | 与 `--url` 二选一 | 裸 token 或 URL。裸 token 必须搭配 `--type`；wiki token 使用 `--type wiki`。 |
+| `--type` | 裸 token 时必填 | 传 token 对应类型：`doc`、`docx`、`sheet`、`file`、`slides`、`bitable`、`base`、`apps`、`wiki`。wiki token 使用 `wiki`；传 `base` 时，CLI 会按 `bitable` 类型处理。 |
 | `--comment-id` | 是 | 回复所属的评论 ID；来自 `drive +list-comments` |
 | `--reply-id` | 是 | 要更新的回复 ID；来自 `drive +list-replies` 的 `items[].reply_id` |
 | `--content` | 是 | 新的 `reply_elements` JSON，`type=text` 文本自动转义；完整 schema 见 [`lark-drive-comment-content.md`](lark-drive-comment-content.md) |
@@ -23,7 +40,7 @@ lark-cli drive +update-reply --url '<DOC_URL>' --comment-id '<id>' --reply-id '<
 ## 行为说明
 
 - 更新是整体替换：新 `content` 完全覆盖旧内容，没有局部修改语义。
-- **只能更新当前身份自己创建的回复**；更新他人回复返回 API 错误 `1069303 forbidden`。执行前先用 `+list-replies` 核对 `items[].user_id`（默认 open_id，持有 union_id 时传 `--user-id-type union_id` 对齐），并用创建该回复的同一个 `--as` 身份执行。
+- **只能更新当前身份自己创建的回复**；更新他人回复返回 API 错误 `1069303 forbidden`。执行前先用 `+list-replies` 核对 `items[].user_id`（open_id），并用创建该回复的同一个 `--as` 身份执行。
 - 更新评论卡片的根回复（第一页 `items[0]`，即创建最早的一条 reply）等价于改写这条评论的正文本身；改写前先和用户确认改的是回复还是评论正文。
 - 需要 shortcut 未暴露的字段时才用原生 `drive file.comment.replys update` 兜底（先 `lark-cli schema drive.file.comment.replys.update` 查契约，按 schema 拼 body）；直接调原生时需自行转义文本，Base 的 `file_type` 传 `bitable`。
 
