@@ -13,6 +13,11 @@ import (
 	"github.com/larksuite/cli/shortcuts/common"
 )
 
+var driveMemberRemoveIDTypes = []string{
+	"email", "openid", "openchat", "opendepartmentid",
+	"userid", "unionid", "groupid", "wikispaceid",
+}
+
 // DriveMemberRemove removes one collaborator/member permission from a Drive resource.
 var DriveMemberRemove = common.Shortcut{
 	Service:     "drive",
@@ -25,7 +30,7 @@ var DriveMemberRemove = common.Shortcut{
 		{Name: "token", Desc: "target token or document URL; type is auto-inferred from URL path when omitted", Required: true},
 		{Name: "type", Desc: "target resource type; required when --token is a bare token"},
 		{Name: "member-id", Desc: "single collaborator ID to remove; comma-separated values are rejected", Required: true},
-		{Name: "member-type", Desc: "ID type for --member-id; supported: email|openid|unionid|openchat|opendepartmentid|groupid|appid|wikispaceid", Required: true},
+		{Name: "member-type", Desc: "ID type for --member-id; supported: email|openid|openchat|opendepartmentid|userid|unionid|groupid|wikispaceid", Required: true},
 		{Name: "member-kind", Desc: "request body type when --member-type=wikispaceid; one of wiki_space_member|wiki_space_viewer|wiki_space_editor"},
 		{Name: "perm-type", Desc: "wiki permission scope; defaults to container; rejected for non-wiki types and wiki-space members"},
 	},
@@ -104,9 +109,16 @@ func readDriveMemberRemoveSpec(runtime *common.RuntimeContext) (driveMemberRemov
 		).WithParam("--member-id")
 	}
 
-	memberType, err := resolveDriveMemberAddMemberType([]string{memberID}, runtime.Str("member-type"))
+	memberType, err := resolveDriveMemberRemoveMemberType(memberID, runtime.Str("member-type"))
 	if err != nil {
 		return driveMemberRemoveSpec{}, err
+	}
+	if memberType == "wikispaceid" && resourceType != "wiki" {
+		return driveMemberRemoveSpec{}, errs.NewValidationError(
+			errs.SubtypeInvalidArgument,
+			"--member-type=wikispaceid only applies when resource type is wiki; got %q",
+			resourceType,
+		).WithParam("--member-type")
 	}
 	memberKind, err := resolveDriveMemberAddMemberKind(memberType, runtime.Str("member-kind"))
 	if err != nil {
@@ -152,6 +164,34 @@ func readDriveMemberRemoveSpec(runtime *common.RuntimeContext) (driveMemberRemov
 		).WithParam("--member-type")
 	}
 	return spec, nil
+}
+
+func resolveDriveMemberRemoveMemberType(memberID, explicit string) (string, error) {
+	memberType, err := normalizeDriveMemberAddEnumValue(explicit, driveMemberRemoveIDTypes, "--member-type")
+	if err != nil {
+		return "", err
+	}
+	if memberType == "" {
+		return "", errs.NewValidationError(
+			errs.SubtypeInvalidArgument,
+			"--member-type is required; accepted values: %s",
+			strings.Join(driveMemberRemoveIDTypes, ", "),
+		).WithParam("--member-type")
+	}
+
+	// User IDs are tenant-defined and may resemble another supported ID format.
+	if memberType != "userid" {
+		if expected := inferMemberTypeFromID(memberID); expected != "" && expected != memberType {
+			return "", errs.NewValidationError(
+				errs.SubtypeInvalidArgument,
+				"member-id %q prefix implies --member-type %s, but --member-type %s was provided; fix the ID or use the matching member type",
+				memberID,
+				expected,
+				memberType,
+			).WithParam("--member-id")
+		}
+	}
+	return memberType, nil
 }
 
 func buildDriveMemberRemoveDryRun(spec driveMemberRemoveSpec) *common.DryRunAPI {

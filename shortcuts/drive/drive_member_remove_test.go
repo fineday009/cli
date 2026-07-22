@@ -32,6 +32,13 @@ func TestDriveMemberRemoveMetadata(t *testing.T) {
 	if !reflect.DeepEqual(DriveMemberRemove.AuthTypes, []string{"user", "bot"}) {
 		t.Fatalf("auth types = %#v", DriveMemberRemove.AuthTypes)
 	}
+	wantIDTypes := []string{
+		"email", "openid", "openchat", "opendepartmentid",
+		"userid", "unionid", "groupid", "wikispaceid",
+	}
+	if !reflect.DeepEqual(driveMemberRemoveIDTypes, wantIDTypes) {
+		t.Fatalf("member types = %#v, want %#v", driveMemberRemoveIDTypes, wantIDTypes)
+	}
 }
 
 func TestDriveMemberRemoveSpecRequestShape(t *testing.T) {
@@ -85,14 +92,14 @@ func TestDriveMemberRemoveOutputConditionalFields(t *testing.T) {
 		t.Fatalf("wiki-space output must omit perm_type: %#v", wikiSpace)
 	}
 
-	app := driveMemberRemoveOutput(driveMemberRemoveSpec{
+	userID := driveMemberRemoveOutput(driveMemberRemoveSpec{
 		Token:        "doxTok",
 		ResourceType: "docx",
-		MemberID:     "cli_app",
-		MemberType:   "appid",
+		MemberID:     "custom_user",
+		MemberType:   "userid",
 	})
-	if _, ok := app["member_kind"]; ok {
-		t.Fatalf("appid output must omit member_kind: %#v", app)
+	if userID["member_kind"] != "user" {
+		t.Fatalf("userid output = %#v, want member_kind user", userID)
 	}
 }
 
@@ -161,6 +168,18 @@ func TestDriveMemberRemoveValidation(t *testing.T) {
 			wantText:  "implies --member-type openchat",
 		},
 		{
+			name:      "rejects app ID",
+			args:      []string{"--token", "doxTok", "--type", "docx", "--member-id", "cli_app", "--member-type", "appid"},
+			wantParam: "--member-type",
+			wantText:  `invalid value "appid"`,
+		},
+		{
+			name:      "rejects wiki-space ID outside wiki",
+			args:      []string{"--token", "doxTok", "--type", "docx", "--member-id", "space_x", "--member-type", "wikispaceid", "--member-kind", "wiki_space_member"},
+			wantParam: "--member-type",
+			wantText:  "only applies when resource type is wiki",
+		},
+		{
 			name:      "requires member kind for wiki space ID",
 			args:      []string{"--token", "wikTok", "--type", "wiki", "--member-id", "space_x", "--member-type", "wikispaceid"},
 			wantParam: "--member-kind",
@@ -214,11 +233,53 @@ func TestDriveMemberRemoveValidation(t *testing.T) {
 			if problem.Category != errs.CategoryValidation {
 				t.Fatalf("problem = %#v", problem)
 			}
+			if problem.Subtype != errs.SubtypeInvalidArgument {
+				t.Fatalf("problem subtype = %q, want %q", problem.Subtype, errs.SubtypeInvalidArgument)
+			}
 			var validationErr *errs.ValidationError
 			if !errors.As(err, &validationErr) || validationErr.Param != tt.wantParam {
 				t.Fatalf("validation error = %#v, want param %q", validationErr, tt.wantParam)
 			}
 		})
+	}
+}
+
+func TestDriveMemberRemoveAcceptsUserID(t *testing.T) {
+	t.Setenv("LARKSUITE_CLI_CONFIG_DIR", t.TempDir())
+
+	f, stdout, _, _ := cmdutil.TestFactory(t, driveTestConfig())
+	err := mountAndRunDrive(t, DriveMemberRemove, []string{
+		"+member-remove",
+		"--token", "doxTok",
+		"--type", "docx",
+		"--member-id", "ou_tenant_defined_user",
+		"--member-type", "userid",
+		"--dry-run",
+		"--as", "user",
+	}, f, stdout)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var got struct {
+		Data struct {
+			API []struct {
+				Params map[string]interface{} `json:"params"`
+				Body   map[string]interface{} `json:"body"`
+			} `json:"api"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("decode dry-run output: %v\n%s", err, stdout.String())
+	}
+	if len(got.Data.API) != 1 {
+		t.Fatalf("api count = %d, want 1", len(got.Data.API))
+	}
+	if got.Data.API[0].Params["member_type"] != "userid" {
+		t.Fatalf("params = %#v", got.Data.API[0].Params)
+	}
+	if got.Data.API[0].Body["type"] != "user" {
+		t.Fatalf("body = %#v", got.Data.API[0].Body)
 	}
 }
 
