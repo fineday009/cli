@@ -1,6 +1,6 @@
 # drive +delete-reply
 
-> **前置条件：** 先阅读 [`lark-drive-comments-guide.md`](lark-drive-comments-guide.md) 了解评论域路由与目标定位（URL/wiki/apps/base）。
+> **前置条件：** 先阅读 [`../../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) 了解认证、全局参数和权限处理。
 
 删除某条回复。**高风险写操作**：真实执行需要按 [`../../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) 的高风险审批协议向用户确认后追加 `--yes`；删除不可恢复。
 

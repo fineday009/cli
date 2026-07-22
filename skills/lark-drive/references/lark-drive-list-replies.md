@@ -1,6 +1,6 @@
 # drive +list-replies
 
-> **前置条件：** 先阅读 [`lark-drive-comments-guide.md`](lark-drive-comments-guide.md) 了解评论域路由、目标定位（URL/wiki/apps/base）与根回复（root reply）概念。
+> **前置条件：** 先阅读 [`../../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) 了解认证、全局参数和权限处理。
 
 分页获取某条评论下的回复。
 

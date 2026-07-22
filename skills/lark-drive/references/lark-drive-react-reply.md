@@ -1,6 +1,6 @@
 # drive +react-reply
 
-> **前置条件：** 先阅读 [`lark-drive-comments-guide.md`](lark-drive-comments-guide.md) 了解评论域路由与目标定位（URL/wiki/apps/base）。reaction 查询规则、语义联想与完整 `reaction_type` 枚举见跨切面专题 [`lark-drive-reactions.md`](lark-drive-reactions.md)。
+> **前置条件：** 先阅读 [`../../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) 了解认证、全局参数和权限处理。reaction 查询规则、语义联想与完整 `reaction_type` 枚举见跨切面专题 [`lark-drive-reactions.md`](lark-drive-reactions.md)。
 
 给一条回复添加或删除表情回应（reaction）。操作对象始终是 `reply_id`。
 

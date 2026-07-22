@@ -1,6 +1,6 @@
 # drive +restore-comment
 
-> **前置条件：** 先阅读 [`lark-drive-comments-guide.md`](lark-drive-comments-guide.md) 了解评论域路由与目标定位（URL/wiki/apps/base）。
+> **前置条件：** 先阅读 [`../../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) 了解认证、全局参数和权限处理。
 
 恢复 / 重新打开一条已解决的评论（发送 `is_solved=false`）。反向操作——把评论标记为已解决——是独立命令 [`lark-drive-resolve-comment.md`](lark-drive-resolve-comment.md)，两者共享同一个 patch 端点。
 
@@ -23,7 +23,7 @@ lark-cli drive +restore-comment --url '<DOC_URL>' --comment-id '<id>' --dry-run
 | 参数 | 必填 | 说明 |
 |---|---|---|
 | `--url` / `--token` + `--type` | 是（二选一） | 目标定位，见 [`lark-drive-comments-guide.md`](lark-drive-comments-guide.md)；wiki 自动解包 |
-| `--comment-id` | 是 | 要恢复的评论 ID；来自 `drive +list-comments`。已解决评论需传 `--solved-status true` 或 `all` 才能查到 |
+| `--comment-id` | 是 | 要恢复的评论 ID；来自 `drive +list-comments` 的 `items[].comment_id` |
 
 ## 行为说明
 

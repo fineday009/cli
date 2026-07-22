@@ -1,6 +1,6 @@
 # drive +batch-query-comments
 
-> **前置条件：** 先阅读 [`lark-drive-comments-guide.md`](lark-drive-comments-guide.md) 了解评论域路由、目标定位（URL/wiki/apps/base）与评论卡片模型。
+> **前置条件：** 先阅读 [`../../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) 了解认证、全局参数和权限处理。
 
 按评论 ID 批量获取评论卡片。已知 comment_id 时用它精确取；要分页遍历、全量统计或找最新/最早评论，用 [`lark-drive-list-comments.md`](lark-drive-list-comments.md)。
 

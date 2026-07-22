@@ -174,7 +174,7 @@ lark-cli drive +add-comment \
     - `<img id="bPk" ... />` 对应 `--block-id img!bPk`，表示给图片元素评论。
     - `<shape type="text" id="bPq">...</shape>` 对应 `--block-id shape!bPq`，表示给文本 shape 评论。
 
-- `--content` 是结构化评论元素数组，`type` 支持 `text` / `mention_user` / `link`；完整 schema、便捷写法、`<`/`>` 自动转义、10000 字符总额限制、shortcut → 原生 body 的转换边界统一见 [`lark-drive-comment-content.md`](lark-drive-comment-content.md)（`+add-comment` / `+add-reply` / `+update-reply` 共用同一套格式）。上方示例已覆盖最常见的纯文本与 text/mention_user/link 组合写法。
+- `--content` 是结构化评论元素数组（`text` / `mention_user` / `link`），完整格式见 [`lark-drive-comment-content.md`](lark-drive-comment-content.md)；上方示例已覆盖常见写法。
 - 写入评论前会自动生成符合 OpenAPI 定义的请求体；shortcut 用户只需要传 `--doc`、`--content`，局部评论再传对应格式的 `--block-id`。
 - `--dry-run` 仅预览调用链和请求体，不会实际写入。
 - 如果需要更底层的控制，仍可改用 `lark-cli schema drive.file.comments.create_v2` + `lark-cli drive file.comments create_v2`。

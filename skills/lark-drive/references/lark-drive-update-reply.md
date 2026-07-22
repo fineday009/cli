@@ -1,6 +1,6 @@
 # drive +update-reply
 
-> **前置条件：** 先阅读 [`lark-drive-comments-guide.md`](lark-drive-comments-guide.md) 了解评论域路由与目标定位（URL/wiki/apps/base）；`--content` 完整格式见 [`lark-drive-comment-content.md`](lark-drive-comment-content.md)。
+> **前置条件：** 先阅读 [`../../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) 了解认证、全局参数和权限处理；`--content` 完整格式见 [`lark-drive-comment-content.md`](lark-drive-comment-content.md)。
 
 整体替换某条回复的内容。
 
@@ -28,7 +28,7 @@ lark-cli drive +update-reply --url '<DOC_URL>' --comment-id '<id>' --reply-id '<
 
 ## 原生兜底
 
-只有需要 shortcut 未暴露的字段时，才用原生 `drive file.comment.replys update`（先 `lark-cli schema drive.file.comment.replys.update` 查契约）。直接调原生时需自行转义文本、自行拼 `content.elements` wire 形态（见 [`lark-drive-comment-content.md`](lark-drive-comment-content.md)），Base 的 `file_type` 传 `bitable`。
+只有需要 shortcut 未暴露的字段时，才用原生 `drive file.comment.replys update`（先 `lark-cli schema drive.file.comment.replys.update` 查契约，按 schema 拼 body）。直接调原生时需自行转义文本，Base 的 `file_type` 传 `bitable`。
 
 ## 参考
 
