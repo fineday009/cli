@@ -24,7 +24,6 @@ type driveListRepliesSpec struct {
 	PageSize     int
 	PageToken    string
 	NeedReaction bool
-	UserIDType   string
 }
 
 // DriveListReplies lists the replies of one comment through the Drive comment
@@ -43,12 +42,10 @@ var DriveListReplies = common.Shortcut{
 		common.Flag{Name: "page-size", Type: "int", Default: "50", Desc: "page size, 1-100"},
 		common.Flag{Name: "page-token", Desc: "pagination token from previous response"},
 		common.Flag{Name: "need-reaction", Type: "bool", Desc: "include reaction data on replies"},
-		common.Flag{Name: "user-id-type", Desc: "user ID type for items[].user_id: open_id (default), union_id", Enum: []string{"open_id", "union_id"}},
 	),
 	Tips: []string{
 		"Comment IDs come from `drive +list-comments` (items[].comment_id).",
 		"The root reply (the comment body itself) is the earliest-created reply: it is items[0] of the FIRST page only (no --page-token); items[0] of later pages is a regular reply.",
-		"Pass --user-id-type union_id when checking reply ownership for +update-reply/+delete-reply, so items[].user_id matches the ID form you hold (default: open_id).",
 		"Wiki URLs/tokens are resolved to the underlying document automatically.",
 	},
 	Validate: func(ctx context.Context, runtime *common.RuntimeContext) error {
@@ -120,7 +117,6 @@ func readDriveListRepliesSpec(runtime *common.RuntimeContext) (driveListRepliesS
 		PageSize:     pageSize,
 		PageToken:    strings.TrimSpace(runtime.Str("page-token")),
 		NeedReaction: runtime.Bool("need-reaction"),
-		UserIDType:   strings.TrimSpace(runtime.Str("user-id-type")),
 	}, nil
 }
 
@@ -134,9 +130,6 @@ func buildDriveListRepliesParams(spec driveListRepliesSpec, fileType string) map
 	}
 	if spec.NeedReaction {
 		params["need_reaction"] = true
-	}
-	if spec.UserIDType != "" {
-		params["user_id_type"] = spec.UserIDType
 	}
 	return params
 }

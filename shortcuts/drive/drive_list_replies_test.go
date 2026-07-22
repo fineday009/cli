@@ -176,8 +176,8 @@ func TestDriveListRepliesPaginationAndReactionParams(t *testing.T) {
 			if got := query.Get("need_reaction"); got != "true" {
 				t.Errorf("need_reaction = %q, want true", got)
 			}
-			if got := query.Get("user_id_type"); got != "union_id" {
-				t.Errorf("user_id_type = %q, want union_id", got)
+			if got := query.Get("user_id_type"); got != "" {
+				t.Errorf("user_id_type = %q, want omitted (flag removed)", got)
 			}
 		},
 		Body: map[string]interface{}{
@@ -194,7 +194,6 @@ func TestDriveListRepliesPaginationAndReactionParams(t *testing.T) {
 		"--page-size", "10",
 		"--page-token", "cursor_1",
 		"--need-reaction",
-		"--user-id-type", "union_id",
 		"--as", "user",
 	}, f, stdout)
 	if err != nil {
@@ -266,17 +265,6 @@ func TestDriveListRepliesValidation(t *testing.T) {
 			},
 			wantErr:   "replies list supports doc, docx, sheet, file, slides, bitable, base, apps, wiki",
 			wantParam: "--url",
-		},
-		{
-			name: "unsupported user id type",
-			args: []string{
-				"+list-replies",
-				"--url", "https://example.larksuite.com/docx/docxResource",
-				"--comment-id", "comment_1",
-				"--user-id-type", "user_id",
-			},
-			wantErr:   `invalid value "user_id" for --user-id-type`,
-			wantParam: "--user-id-type",
 		},
 	}
 

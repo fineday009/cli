@@ -188,7 +188,6 @@ func TestDrive_CommentOpsDryRun(t *testing.T) {
 				"--comment-id", "7457001",
 				"--page-size", "20",
 				"--need-reaction",
-				"--user-id-type", "union_id",
 				"--dry-run",
 			},
 			wantMethod: "GET",
@@ -203,8 +202,8 @@ func TestDrive_CommentOpsDryRun(t *testing.T) {
 				if got := clie2e.DryRunGet(out, "api.0.params.need_reaction").Bool(); !got {
 					t.Fatalf("need_reaction = %v, want true\nstdout:\n%s", got, out)
 				}
-				if got := clie2e.DryRunGet(out, "api.0.params.user_id_type").String(); got != "union_id" {
-					t.Fatalf("user_id_type = %q, want union_id\nstdout:\n%s", got, out)
+				if clie2e.DryRunGet(out, "api.0.params.user_id_type").Exists() {
+					t.Fatalf("user_id_type must be omitted (flag removed)\nstdout:\n%s", out)
 				}
 			},
 		},
