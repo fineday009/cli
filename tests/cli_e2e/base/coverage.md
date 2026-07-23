@@ -1,9 +1,9 @@
 # Base CLI E2E Coverage
 
 ## Metrics
-- Denominator: 78 leaf commands
-- Covered: 22
-- Coverage: 28.2%
+- Denominator: 104 leaf commands
+- Covered: 40
+- Coverage: 38.5%
 
 ## Summary
 - TestBase_BasicWorkflow: proves `+base-create`, `+base-get`, `+table-create`, `+table-get`, and `+table-list`; key `t.Run(...)` proof points are `get base as bot`, `get table as bot`, and `list tables and find created table as bot`.
@@ -13,7 +13,9 @@
 - TestBaseRecordBatchUpdatePerRecordWorkflow: creates two records, updates different field types in one request, asserts the minimal response contract, reads both records back, verifies a missing record ID is not prevalidated, and cleans up the temporary Base.
 - TestBase_RoleWorkflow: proves `+advperm-enable`, `+role-create`, `+role-list`, `+role-get`, and `+role-update`; key `t.Run(...)` proof points are `list as bot`, `get as bot`, and `update as bot`.
 - Cleanup note: `+table-delete` and `+role-delete` only run in cleanup and are intentionally left uncovered.
-- Blocked area: dashboard, field, most record operations, form, view, and workflow operations still lack deterministic create/read/update workflows in this suite.
+- TestBaseWorkspaceDryRun / TestBaseappDryRun / TestBaseappPageDryRun / TestAppBlockDryRun: prove the request shapes of the 16 BaseApp and Workspace shortcuts, plus two local validations that never reach the API (`--type` enum on `+workspace-entity-add`, ordering-flag exclusivity on `+baseapp-page-create`) and the chart `data_config` validator on `+app-block-create`.
+- TestAppBlockGetDataDryRun: proves `+app-block-get-data` hits the dashboard block data endpoint and that it requires `--base-token`, not the `--app-token` every other `+app-block-*` command takes.
+- Blocked area: dashboard, field, most record operations, form, view, and workflow operations still lack deterministic create/read/update workflows in this suite. BaseApp and Workspace commands are dry-run only until the downstream OpenAPI ships; live workflows come with the joint debugging phase.
 
 ## Command Table
 
@@ -21,18 +23,32 @@
 | --- | --- | --- | --- | --- | --- |
 | ✕ | base +advperm-disable | shortcut |  | none | no disable workflow yet |
 | ✓ | base +advperm-enable | shortcut | base_role_workflow_test.go::TestBase_RoleWorkflow | `--base-token` | |
-| ✕ | base +base-copy | shortcut |  | none | no copy workflow yet |
-| ✓ | base +base-create | shortcut | base/helpers_test.go::createBaseWithRetry | `--name`; `--time-zone` | helper asserts created base token |
-| ✓ | base +base-get | shortcut | base_basic_workflow_test.go::TestBase_BasicWorkflow/get base as bot | `--base-token` | |
+| ✓ | base +app-block-create | shortcut | base_baseapp_dryrun_test.go::TestAppBlockDryRun/create chart,create list,create rejects an unsupported type,create rejects an invalid chart data_config | `--app-token`; `--page-id`; `--name`; `--type`; `--data-config`; `--position`; dry-run only | request shape and local data_config validation only |
+| ✓ | base +app-block-get | shortcut | base_baseapp_dryrun_test.go::TestAppBlockDryRun/get | `--app-token`; `--page-id`; `--block-id`; dry-run only | request shape only |
+| ✓ | base +app-block-get-data | shortcut | base_baseapp_dryrun_test.go::TestAppBlockGetDataDryRun | `--base-token`; `--block-id`; dry-run only | proves the dashboard endpoint reuse and that --app-token is not accepted as a substitute |
+| ✓ | base +app-block-list | shortcut | base_baseapp_dryrun_test.go::TestAppBlockDryRun/list | `--app-token`; `--page-id`; optional `--type`; dry-run only | request shape only |
+| ✓ | base +app-block-update | shortcut | base_baseapp_dryrun_test.go::TestAppBlockDryRun/update | `--app-token`; `--page-id`; `--block-id`; `--name`; dry-run only | request shape only |
 | ✓ | base +base-block-create | shortcut | base_block_dryrun_test.go::TestBaseBlockDryRun/create | `--base-token`; `--type`; `--name`; `--parent-id`; dry-run only | request shape only |
 | ✓ | base +base-block-delete | shortcut | base_block_dryrun_test.go::TestBaseBlockDryRun/delete | `--base-token`; `--block-id`; dry-run only | request shape only |
 | ✓ | base +base-block-list | shortcut | base_block_dryrun_test.go::TestBaseBlockDryRun/list all,list folder | `--base-token`; optional `--parent-id`; optional `--type`; dry-run only | request shape only |
 | ✓ | base +base-block-move | shortcut | base_block_dryrun_test.go::TestBaseBlockDryRun/move root,move after | `--base-token`; `--block-id`; optional `--parent-id`; `--after-id`; dry-run only | request shape only |
 | ✓ | base +base-block-rename | shortcut | base_block_dryrun_test.go::TestBaseBlockDryRun/rename | `--base-token`; `--block-id`; `--name`; dry-run only | request shape only |
+| ✕ | base +base-copy | shortcut |  | none | no copy workflow yet |
+| ✓ | base +base-create | shortcut | base/helpers_test.go::createBaseWithRetry | `--name`; `--time-zone` | helper asserts created base token |
+| ✓ | base +base-get | shortcut | base_basic_workflow_test.go::TestBase_BasicWorkflow/get base as bot | `--base-token` | |
+| ✓ | base +baseapp-create | shortcut | base_baseapp_dryrun_test.go::TestBaseappDryRun/create | `--name`; `--workspace-token`; `--base-name`; `--table-name`; dry-run only | request shape only |
+| ✓ | base +baseapp-get | shortcut | base_baseapp_dryrun_test.go::TestBaseappDryRun/get | `--app-token`; `--with-pages`; dry-run only | request shape only |
+| ✓ | base +baseapp-page-create | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/create,create rejects conflicting ordering flags | `--app-token`; `--name`; `--to-last`; `--prev-page-id`; dry-run only | request shape and ordering-flag exclusivity |
+| ✓ | base +baseapp-page-delete | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/delete | `--app-token`; `--page-id`; dry-run only | request shape only |
+| ✓ | base +baseapp-page-get | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/get | `--app-token`; `--page-id`; `--with-components`; dry-run only | request shape only |
+| ✓ | base +baseapp-page-list | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/list | `--app-token`; dry-run only | request shape only |
+| ✓ | base +baseapp-page-rename | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/rename | `--app-token`; `--page-id`; `--name`; dry-run only | request shape only |
+| ✓ | base +baseapp-rename | shortcut | base_baseapp_dryrun_test.go::TestBaseappDryRun/rename | `--app-token`; `--name`; dry-run only | request shape only |
 | ✕ | base +dashboard-arrange | shortcut |  | none | dashboard workflows not covered |
 | ✕ | base +dashboard-block-create | shortcut |  | none | dashboard workflows not covered |
 | ✕ | base +dashboard-block-delete | shortcut |  | none | dashboard workflows not covered |
 | ✕ | base +dashboard-block-get | shortcut |  | none | dashboard workflows not covered |
+| ✓ | base +dashboard-block-get-data | shortcut | base_dashboard_block_get_data_dryrun_test.go::TestBaseDashboardBlockGetDataDryRun | `--base-token`; `--block-id`; dry-run only | request shape only |
 | ✕ | base +dashboard-block-list | shortcut |  | none | dashboard workflows not covered |
 | ✕ | base +dashboard-block-update | shortcut |  | none | dashboard workflows not covered |
 | ✕ | base +dashboard-create | shortcut |  | none | dashboard workflows not covered |
@@ -49,23 +65,26 @@
 | ✕ | base +field-update | shortcut |  | none | field workflows not covered |
 | ✕ | base +form-create | shortcut |  | none | form workflows not covered |
 | ✕ | base +form-delete | shortcut |  | none | form workflows not covered |
+| ✕ | base +form-detail | shortcut |  | none | form workflows not covered |
 | ✕ | base +form-get | shortcut |  | none | form workflows not covered |
 | ✕ | base +form-list | shortcut |  | none | form workflows not covered |
 | ✕ | base +form-questions-create | shortcut |  | none | form workflows not covered |
 | ✕ | base +form-questions-delete | shortcut |  | none | form workflows not covered |
 | ✕ | base +form-questions-list | shortcut |  | none | form workflows not covered |
 | ✕ | base +form-questions-update | shortcut |  | none | form workflows not covered |
+| ✕ | base +form-submit | shortcut |  | none | form workflows not covered |
 | ✕ | base +form-update | shortcut |  | none | form workflows not covered |
 | ✓ | base +record-batch-create | shortcut | base_record_batch_update_workflow_test.go::TestBaseRecordBatchUpdatePerRecordWorkflow | `--base-token`; `--table-id`; `--json.fields`; `--json.rows` | seeds heterogeneous live workflow records |
 | ✓ | base +record-batch-update | shortcut | base_record_batch_update_dryrun_test.go::TestBaseRecordBatchUpdatePerRecordDryRun; base_record_batch_update_workflow_test.go::TestBaseRecordBatchUpdatePerRecordWorkflow | `--base-token`; `--table-id`; `--json.update_records`; dry-run + live | heterogeneous select/number update with write-back verification |
 | ✕ | base +record-delete | shortcut |  | none | record workflows not covered |
+| ✓ | base +record-download-attachment | shortcut | base_attachment_dryrun_test.go::TestBase_AttachmentDryRun/download | dry-run only | request shape only |
 | ✓ | base +record-get | shortcut | base_record_batch_update_workflow_test.go::TestBaseRecordBatchUpdatePerRecordWorkflow | `--record-id`; repeated `--field-id`; `--format json` | reads back select and number values after batch update |
 | ✕ | base +record-history-list | shortcut |  | none | record workflows not covered |
 | ✕ | base +record-list | shortcut |  | none | record workflows not covered |
-| ✕ | base +record-search | shortcut |  | none | record workflows not covered |
-| ✓ | base +record-upload-attachment | shortcut | base_attachment_dryrun_test.go::TestBase_AttachmentDryRun/upload | dry-run only | request shape only |
-| ✓ | base +record-download-attachment | shortcut | base_attachment_dryrun_test.go::TestBase_AttachmentDryRun/download | dry-run only | request shape only |
 | ✓ | base +record-remove-attachment | shortcut | base_attachment_dryrun_test.go::TestBase_AttachmentDryRun/remove | dry-run only | request shape only |
+| ✕ | base +record-search | shortcut |  | none | record workflows not covered |
+| ✕ | base +record-share-link-create | shortcut |  | none | record share workflows not covered |
+| ✓ | base +record-upload-attachment | shortcut | base_attachment_dryrun_test.go::TestBase_AttachmentDryRun/upload | dry-run only | request shape only |
 | ✕ | base +record-upsert | shortcut |  | none | record workflows not covered |
 | ✓ | base +role-create | shortcut | base/helpers_test.go::createRole | `--base-token`; `--json` | helper asserts created role id |
 | ✕ | base +role-delete | shortcut |  | none | cleanup only |
@@ -77,6 +96,8 @@
 | ✓ | base +table-get | shortcut | base_basic_workflow_test.go::TestBase_BasicWorkflow/get table as bot | `--base-token`; `--table-id` | |
 | ✓ | base +table-list | shortcut | base_basic_workflow_test.go::TestBase_BasicWorkflow/list tables and find created table as bot | `--base-token` | |
 | ✕ | base +table-update | shortcut |  | none | no rename workflow yet |
+| ✕ | base +title-resolve | shortcut |  | none | resolve workflows not covered |
+| ✕ | base +url-resolve | shortcut |  | none | resolve workflows not covered |
 | ✕ | base +view-create | shortcut |  | none | view workflows not covered |
 | ✕ | base +view-delete | shortcut |  | none | view workflows not covered |
 | ✕ | base +view-get | shortcut |  | none | view workflows not covered |
@@ -100,3 +121,7 @@
 | ✕ | base +workflow-get | shortcut |  | none | workflow CRUD not covered |
 | ✕ | base +workflow-list | shortcut |  | none | workflow CRUD not covered |
 | ✕ | base +workflow-update | shortcut |  | none | workflow CRUD not covered |
+| ✓ | base +workspace-create | shortcut | base_baseapp_dryrun_test.go::TestBaseWorkspaceDryRun/create | `--name`; dry-run only | request shape only |
+| ✓ | base +workspace-entity-add | shortcut | base_baseapp_dryrun_test.go::TestBaseWorkspaceDryRun/entity-add,entity-add rejects an unsupported type | `--workspace-token`; `--type`; `--token`; `--to-last`; dry-run only | request shape and --type enum rejection |
+| ✓ | base +workspace-entity-list | shortcut | base_baseapp_dryrun_test.go::TestBaseWorkspaceDryRun/entity-list | `--workspace-token`; `--type`; dry-run only | request shape only |
+| ✓ | base +workspace-entity-remove | shortcut | base_baseapp_dryrun_test.go::TestBaseWorkspaceDryRun/entity-remove | `--workspace-token`; `--entity-id`; dry-run only | request shape only |

@@ -1,7 +1,7 @@
 ---
 name: lark-base
-version: 1.2.3
-description: "飞书多维表格（Base）操作：建表、字段、记录、视图、统计、公式/lookup、表单、仪表盘、workflow、角色权限；遇到 Base/多维表格/bitable 或 /base/ 链接时使用。文件导入转 lark-drive，认证/授权转 lark-shared。"
+version: 1.3.0
+description: "飞书多维表格（Base）操作：建表、字段、记录、视图、统计、公式/lookup、表单、仪表盘、应用模式（BaseApp 页面与组件）、Workspace 目录、workflow、角色权限；遇到 Base/多维表格/bitable 或 /base/ 链接时使用。文件导入转 lark-drive，认证/授权转 lark-shared。"
 metadata:
   requires:
     bins: ["lark-cli"]
@@ -18,6 +18,7 @@ metadata:
 - 用户要在 Base 内建表、改表、管理字段、写记录、查记录、配视图。
 - 用户要在 Base 内做公式字段、lookup 字段、跨表计算、派生指标、筛选聚合、TopN、统计分析。
 - 用户要管理 Base 表单、仪表盘、workflow、高级权限或角色。
+- 用户要用应用模式（BaseApp）：新建应用、管理应用页面、在页面上加图表/列表/富文本组件，或整理 Workspace 目录。
 - 用户要把旧 Base 聚合式命令或旧写法迁移到当前 `lark-cli base +...` shortcut。
 
 不要使用本 skill：
@@ -65,6 +66,8 @@ metadata:
 | 表单题目创建/更新 | `+form-questions-create` / `+form-questions-update` | 读 [lark-base-form-questions-create.md](references/lark-base-form-questions-create.md) / [lark-base-form-questions-update.md](references/lark-base-form-questions-update.md) |
 | 其他表单管理 | `+form-list/get/detail/create/update/delete` / `+form-questions-list/delete` | `+form-detail` 读 [lark-base-form-detail.md](references/lark-base-form-detail.md)；删除前确认目标表单 |
 | 仪表盘与组件 | `+dashboard-*` / `+dashboard-block-*` | 提到图表/看板/block 时先读 [lark-base-dashboard.md](references/lark-base-dashboard.md)；组件 `data_config` 读 [dashboard-block-data-config.md](references/dashboard-block-data-config.md)；读取图表计算结果用 `+dashboard-block-get-data` |
+| 应用模式（BaseApp）与页面组件 | `+baseapp-*` / `+app-block-*` | 提到应用/页面/组件时先读 [lark-base-baseapp.md](references/lark-base-baseapp.md)；组件 `data_config` 读 [lark-base-baseapp-block-data-config.md](references/lark-base-baseapp-block-data-config.md)；页面组件命令吃 `app_token`，只有 `+app-block-get-data` 吃 `base_token` |
+| Workspace 目录 | `+workspace-create` / `+workspace-entity-*` | 新建 Workspace、列出或增删其中的 Base/应用；`+workspace-entity-remove` 只解除目录关系，不删底层资源 |
 | Workflow | `+workflow-*` | 创建/更新或理解 steps 时读入口 [lark-base-workflow-guide.md](references/lark-base-workflow-guide.md) 和 steps JSON SSOT [lark-base-workflow-schema.md](references/lark-base-workflow-schema.md)；list/get/enable/disable 只处理 workflow ID 与启停状态 |
 | 高级权限与角色 | `+advperm-*` / `+role-*` | 角色操作先读入口 [lark-base-role-guide.md](references/lark-base-role-guide.md)；角色 create/update 或解读完整配置再读权限 JSON SSOT [role-config.md](references/role-config.md)；系统角色不可删除；关闭高级权限会影响自定义角色 |
 
@@ -125,6 +128,8 @@ metadata:
 ## Dashboard / Workflow / Role
 
 - Dashboard 的复杂点是 block 的 `data_config`，不是 list/get/create/delete 命令参数。创建或更新 block 前先读 [dashboard-block-data-config.md](references/dashboard-block-data-config.md)，组件必须串行创建；`+dashboard-arrange` 是服务端智能布局，仅在用户明确要求重排/美化、或对本次会话从零新建的仪表盘做收尾整理时执行。`+dashboard-block-get-data` 读取图表最终计算结果，不返回 block 名称、类型、布局或 `data_config`；需要元数据先用 `+dashboard-block-get`。
+- BaseApp（应用模式）把 Base 数据组织成页面和组件。页面/组件命令吃 `app_token` + `page_id`，表/字段/记录命令吃 `base_token`，两者不能互换；唯一例外是 `+app-block-get-data`，它复用仪表盘计算端点，参数是 `--base-token` + `--block-id`，不需要 `--app-token` / `--page-id`。本期没有删除组件的命令，组件 `type` 建后也不可改，所以创建前必须确认类型；页面也没有 arrange 命令，布局由平台默认排布。详见 [lark-base-baseapp.md](references/lark-base-baseapp.md) 与 [lark-base-baseapp-block-data-config.md](references/lark-base-baseapp-block-data-config.md)。
+- 应用页面的 block 与仪表盘的 block 是同一套底层实体，但 ID 体系不通用：`+app-block-*` 的 `block_id` 不要拿去打 `+dashboard-block-*`，反之亦然。图表类 `data_config` 两边同构，列表类和富文本是应用模式独有。
 - Workflow 的复杂点是 `steps` 结构。创建、更新或解释完整 workflow 时读入口 [lark-base-workflow-guide.md](references/lark-base-workflow-guide.md) 和 steps JSON SSOT [lark-base-workflow-schema.md](references/lark-base-workflow-schema.md)；enable/disable/list 只需确认 workflow ID、当前启停状态和用户意图。
 - Role 的复杂点是权限 JSON。角色操作先读入口 [lark-base-role-guide.md](references/lark-base-role-guide.md)；`+role-create` 只支持自定义角色；`+role-update` 是 delta merge；角色 create/update 或解读完整配置时读权限 JSON SSOT [role-config.md](references/role-config.md)。`+role-delete` 只适用于自定义角色，系统角色不可删除；删除角色和关闭高级权限前必须确认目标和影响。
 
@@ -157,5 +162,6 @@ metadata:
 - [lark-base-view-set-filter.md](references/lark-base-view-set-filter.md)：视图筛选 JSON
 - [lark-base-form-detail.md](references/lark-base-form-detail.md) / [lark-base-form-submit.md](references/lark-base-form-submit.md) / [lark-base-form-questions-create.md](references/lark-base-form-questions-create.md) / [lark-base-form-questions-update.md](references/lark-base-form-questions-update.md)：表单详情、提交和复杂 JSON
 - [lark-base-dashboard.md](references/lark-base-dashboard.md) / [dashboard-block-data-config.md](references/dashboard-block-data-config.md) / [lark-base-dashboard-block-get-data.md](references/lark-base-dashboard-block-get-data.md)：仪表盘、组件配置与图表结果协议
+- [lark-base-baseapp.md](references/lark-base-baseapp.md) / [lark-base-baseapp-block-data-config.md](references/lark-base-baseapp-block-data-config.md)：应用模式（Workspace / 应用 / 页面 / 组件）入口与组件配置 SSOT
 - [lark-base-workflow-guide.md](references/lark-base-workflow-guide.md) / [lark-base-workflow-schema.md](references/lark-base-workflow-schema.md)：workflow 入口与 steps JSON SSOT
 - [lark-base-role-guide.md](references/lark-base-role-guide.md) / [role-config.md](references/role-config.md)：角色入口与权限 JSON SSOT

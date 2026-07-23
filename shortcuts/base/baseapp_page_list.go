@@ -1,0 +1,36 @@
+// Copyright (c) 2026 Lark Technologies Pte. Ltd.
+// SPDX-License-Identifier: MIT
+
+package base
+
+import (
+	"context"
+
+	"github.com/larksuite/cli/shortcuts/common"
+)
+
+var BaseAppPageList = common.Shortcut{
+	Service:     "base",
+	Command:     "+baseapp-page-list",
+	Description: "List pages in a BaseApp",
+	Risk:        "read",
+	Scopes:      []string{"base:appmode_page:read"},
+	AuthTypes:   authTypes(),
+	Flags: []common.Flag{
+		appTokenFlag(true),
+		{Name: "page-size", Type: "int", Default: "100", Desc: "page size, range 1-100"},
+		{Name: "page-token", Desc: "pagination token"},
+	},
+	Tips: []string{
+		"lark-cli base +baseapp-page-list --app-token <app_token>",
+		"Use the returned page_id for +baseapp-page-get/rename/delete and every +app-block-* command.",
+	},
+	Validate: func(ctx context.Context, runtime *common.RuntimeContext) error {
+		_, err := common.ValidatePageSizeTyped(runtime, "page-size", 100, 1, 100)
+		return err
+	},
+	DryRun: dryRunBaseappPageList,
+	Execute: func(ctx context.Context, runtime *common.RuntimeContext) error {
+		return executeBaseappPageList(runtime)
+	},
+}

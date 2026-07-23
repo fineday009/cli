@@ -1,0 +1,190 @@
+// Copyright (c) 2026 Lark Technologies Pte. Ltd.
+// SPDX-License-Identifier: MIT
+
+package base
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestBaseWorkspaceDryRun(t *testing.T) {
+	t.Run("create", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+workspace-create", "--name", "Growth")
+		output := strings.TrimSpace(result.Stdout)
+		assert.Contains(t, output, "/open-apis/base/v3/workspaces")
+		assert.Contains(t, output, `"method": "POST"`)
+		assert.Contains(t, output, `"name": "Growth"`)
+	})
+
+	t.Run("entity-list", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+workspace-entity-list", "--workspace-token", "ws_x", "--type", "baseapp")
+		output := strings.TrimSpace(result.Stdout)
+		assert.Contains(t, output, "/open-apis/base/v3/workspaces/ws_x/entities")
+		assert.Contains(t, output, `"method": "GET"`)
+		assert.Contains(t, output, "baseapp")
+	})
+
+	t.Run("entity-add", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+workspace-entity-add",
+			"--workspace-token", "ws_x", "--type", "base", "--token", "bascn_1", "--to-last")
+		output := strings.TrimSpace(result.Stdout)
+		assert.Contains(t, output, "/open-apis/base/v3/workspaces/ws_x/entities")
+		assert.Contains(t, output, `"entity_type": "base"`)
+		assert.Contains(t, output, `"token": "bascn_1"`)
+	})
+
+	t.Run("entity-add rejects an unsupported type", func(t *testing.T) {
+		result := runBaseDryRun(t, 2, "base", "+workspace-entity-add",
+			"--workspace-token", "ws_x", "--type", "sheet", "--token", "bascn_1")
+		assert.Contains(t, result.Stderr, "allowed: base, baseapp")
+	})
+
+	t.Run("entity-remove", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+workspace-entity-remove", "--workspace-token", "ws_x", "--entity-id", "789")
+		output := strings.TrimSpace(result.Stdout)
+		assert.Contains(t, output, "/open-apis/base/v3/workspaces/ws_x/entities/789")
+		assert.Contains(t, output, `"method": "DELETE"`)
+	})
+}
+
+func TestBaseappDryRun(t *testing.T) {
+	t.Run("create", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+baseapp-create",
+			"--name", "Sales app", "--workspace-token", "ws_x", "--base-name", "Sales data", "--table-name", "Orders")
+		output := strings.TrimSpace(result.Stdout)
+		assert.Contains(t, output, "/open-apis/base/v3/apps")
+		assert.Contains(t, output, `"method": "POST"`)
+		assert.Contains(t, output, `"table_name": "Orders"`)
+	})
+
+	t.Run("get", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+baseapp-get", "--app-token", "app_x", "--with-pages")
+		output := strings.TrimSpace(result.Stdout)
+		assert.Contains(t, output, "/open-apis/base/v3/apps/app_x")
+		assert.Contains(t, output, "with_pages")
+	})
+
+	t.Run("rename", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+baseapp-rename", "--app-token", "app_x", "--name", "New name")
+		output := strings.TrimSpace(result.Stdout)
+		assert.Contains(t, output, "/open-apis/base/v3/apps/app_x")
+		assert.Contains(t, output, `"method": "PATCH"`)
+		assert.Contains(t, output, `"name": "New name"`)
+	})
+}
+
+func TestBaseappPageDryRun(t *testing.T) {
+	t.Run("list", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+baseapp-page-list", "--app-token", "app_x")
+		assert.Contains(t, result.Stdout, "/open-apis/base/v3/apps/app_x/pages")
+	})
+
+	t.Run("get", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+baseapp-page-get", "--app-token", "app_x", "--page-id", "pg_1", "--with-components")
+		output := strings.TrimSpace(result.Stdout)
+		assert.Contains(t, output, "/open-apis/base/v3/apps/app_x/pages/pg_1")
+		assert.Contains(t, output, "with_components")
+	})
+
+	t.Run("create", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+baseapp-page-create", "--app-token", "app_x", "--name", "Overview", "--to-last")
+		output := strings.TrimSpace(result.Stdout)
+		assert.Contains(t, output, "/open-apis/base/v3/apps/app_x/pages")
+		assert.Contains(t, output, `"name": "Overview"`)
+		assert.Contains(t, output, `"to_last": true`)
+	})
+
+	t.Run("create rejects conflicting ordering flags", func(t *testing.T) {
+		result := runBaseDryRun(t, 2, "base", "+baseapp-page-create",
+			"--app-token", "app_x", "--name", "Overview", "--prev-page-id", "pg_0", "--to-last")
+		assert.Contains(t, result.Stderr, "to-last")
+	})
+
+	t.Run("rename", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+baseapp-page-rename", "--app-token", "app_x", "--page-id", "pg_1", "--name", "Sales")
+		output := strings.TrimSpace(result.Stdout)
+		assert.Contains(t, output, "/open-apis/base/v3/apps/app_x/pages/pg_1")
+		assert.Contains(t, output, `"method": "PATCH"`)
+	})
+
+	t.Run("delete", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+baseapp-page-delete", "--app-token", "app_x", "--page-id", "pg_1")
+		output := strings.TrimSpace(result.Stdout)
+		assert.Contains(t, output, "/open-apis/base/v3/apps/app_x/pages/pg_1")
+		assert.Contains(t, output, `"method": "DELETE"`)
+	})
+}
+
+func TestAppBlockDryRun(t *testing.T) {
+	t.Run("list", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+app-block-list", "--app-token", "app_x", "--page-id", "pg_1", "--type", "line")
+		output := strings.TrimSpace(result.Stdout)
+		assert.Contains(t, output, "/open-apis/base/v3/apps/app_x/pages/pg_1/blocks")
+		assert.Contains(t, output, "line")
+	})
+
+	t.Run("get", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+app-block-get", "--app-token", "app_x", "--page-id", "pg_1", "--block-id", "wid_1")
+		assert.Contains(t, result.Stdout, "/open-apis/base/v3/apps/app_x/pages/pg_1/blocks/wid_1")
+	})
+
+	t.Run("create chart", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+app-block-create",
+			"--app-token", "app_x", "--page-id", "pg_1",
+			"--name", "Sales by month", "--type", "line",
+			"--data-config", `{"table_name":"Orders","series":[{"field_name":"Amount","rollup":"sum"}]}`,
+			"--position", `{"x":0,"y":0,"w":12,"h":8}`)
+		output := strings.TrimSpace(result.Stdout)
+		assert.Contains(t, output, "/open-apis/base/v3/apps/app_x/pages/pg_1/blocks")
+		assert.Contains(t, output, `"method": "POST"`)
+		assert.Contains(t, output, `"type": "line"`)
+		// normalizeDataConfig 把 rollup 归一化为大写
+		assert.Contains(t, output, "SUM")
+	})
+
+	t.Run("create list", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+app-block-create",
+			"--app-token", "app_x", "--page-id", "pg_1",
+			"--name", "Open orders", "--type", "standardList",
+			"--data-config", `{"table_id":"tblx","view_id":"viwx","fields":["fldx"]}`)
+		output := strings.TrimSpace(result.Stdout)
+		assert.Contains(t, output, `"type": "standardList"`)
+		assert.Contains(t, output, "tblx")
+	})
+
+	t.Run("create rejects an unsupported type", func(t *testing.T) {
+		result := runBaseDryRun(t, 2, "base", "+app-block-create",
+			"--app-token", "app_x", "--page-id", "pg_1", "--name", "X", "--type", "gantt")
+		assert.NotEqual(t, 0, result.ExitCode)
+	})
+
+	t.Run("create rejects an invalid chart data_config", func(t *testing.T) {
+		result := runBaseDryRun(t, 2, "base", "+app-block-create",
+			"--app-token", "app_x", "--page-id", "pg_1", "--name", "X", "--type", "line",
+			"--data-config", `{"series":[{"field_name":"Amount","rollup":"SUM"}]}`)
+		assert.Contains(t, result.Stderr, "table_name")
+	})
+
+	t.Run("update", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+app-block-update",
+			"--app-token", "app_x", "--page-id", "pg_1", "--block-id", "wid_1", "--name", "Monthly sales")
+		output := strings.TrimSpace(result.Stdout)
+		assert.Contains(t, output, "/open-apis/base/v3/apps/app_x/pages/pg_1/blocks/wid_1")
+		assert.Contains(t, output, `"method": "PATCH"`)
+	})
+}
+
+// +app-block-get-data is the one command in the group that takes --base-token
+// and reuses the dashboard endpoint verbatim.
+func TestAppBlockGetDataDryRun(t *testing.T) {
+	result := runBaseDryRun(t, 0, "base", "+app-block-get-data", "--base-token", "app_x", "--block-id", "blk_chart")
+	output := strings.TrimSpace(result.Stdout)
+	assert.Contains(t, output, "/open-apis/base/v3/bases/app_x/dashboards/blocks/blk_chart/data")
+	assert.Contains(t, output, `"method": "GET"`)
+
+	missing := runBaseDryRun(t, 2, "base", "+app-block-get-data", "--app-token", "app_x", "--block-id", "blk_chart")
+	assert.Contains(t, missing.Stderr, "base-token")
+}

@@ -175,6 +175,10 @@ func TestShortcutsCatalog(t *testing.T) {
 		"+form-submit",
 		"+dashboard-list", "+dashboard-get", "+dashboard-create", "+dashboard-update", "+dashboard-delete", "+dashboard-arrange",
 		"+dashboard-block-list", "+dashboard-block-get", "+dashboard-block-get-data", "+dashboard-block-create", "+dashboard-block-update", "+dashboard-block-delete",
+		"+workspace-create", "+workspace-entity-list", "+workspace-entity-add", "+workspace-entity-remove",
+		"+baseapp-create", "+baseapp-get", "+baseapp-rename",
+		"+baseapp-page-list", "+baseapp-page-get", "+baseapp-page-create", "+baseapp-page-rename", "+baseapp-page-delete",
+		"+app-block-list", "+app-block-get", "+app-block-get-data", "+app-block-create", "+app-block-update",
 	}
 	if len(shortcuts) != len(want) {
 		t.Fatalf("len(shortcuts)=%d want=%d", len(shortcuts), len(want))
