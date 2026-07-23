@@ -3,6 +3,7 @@
 .cache/
 dist/
 bin/
+.agents
 
 # Node
 node_modules/
