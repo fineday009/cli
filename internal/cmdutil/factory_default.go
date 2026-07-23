@@ -115,6 +115,7 @@ func cachedHttpClientFunc(f *Factory) func() (*http.Client, error) {
 		}
 
 		var rt http.RoundTripper = transport.Shared()
+		rt = &ReqDetailTransport{Base: rt}
 		rt = &DebugHeaderTransport{Base: rt}
 		rt = &RetryTransport{Base: rt}
 		rt = &SecurityHeaderTransport{Base: rt}
@@ -157,6 +158,7 @@ func cachedLarkClientFunc(f *Factory) func() (*lark.Client, error) {
 
 func buildSDKTransport() http.RoundTripper {
 	var sdkTransport http.RoundTripper = transport.Shared()
+	sdkTransport = &ReqDetailTransport{Base: sdkTransport}
 	sdkTransport = &DebugHeaderTransport{Base: sdkTransport}
 	sdkTransport = &RetryTransport{Base: sdkTransport}
 	sdkTransport = &UserAgentTransport{Base: sdkTransport}

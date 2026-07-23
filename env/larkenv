@@ -16,6 +16,8 @@
 # 可选：
 #   LARK_LANE=<泳道> larkenv boe ...     指定泳道（注入 X-TT-ENV 头）
 #   LARK_CLI_SHOW_LOGID=1 larkenv ...    打印所有请求的 x-tt-logid（默认只在出错时打）
+#   LARK_CLI_SHOW_REQ_DETAIL=1 larkenv ... 打印每次请求/响应的完整 header 和 body（凭证已脱敏）
+#   LARK_CLI_DEBUG_HEADERS=1 larkenv ... 只打印出站 header，不打 body
 #
 # 三个环境的配置和登录态完全隔离在 ~/.lark-cli-env/config/{boe,pre,online}，互不影响。
 set -euo pipefail
