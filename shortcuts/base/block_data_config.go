@@ -19,11 +19,6 @@ var chartBlockTypes = []string{
 	"funnel", "wordCloud", "area", "combo", "radar", "statistics",
 }
 
-// listBlockTypes are the list block types; they only exist on BaseApp pages.
-var listBlockTypes = []string{
-	"standardList", "detailList", "cardList", "groupedList", "collapsibleList",
-}
-
 // textBlockTypes are the text-ish block types. "text" is the dashboard
 // spelling, "richText" is the BaseApp page spelling; both carry the same
 // data_config shape ({"text": "..."}).
@@ -39,8 +34,6 @@ func matchesBlockType(blockType string, candidates []string) bool {
 	return false
 }
 
-func isListBlockType(blockType string) bool { return matchesBlockType(blockType, listBlockTypes) }
-
 func isTextBlockType(blockType string) bool { return matchesBlockType(blockType, textBlockTypes) }
 
 func isChartBlockType(blockType string) bool { return matchesBlockType(blockType, chartBlockTypes) }
@@ -48,15 +41,15 @@ func isChartBlockType(blockType string) bool { return matchesBlockType(blockType
 // appBlockTypes are all block types accepted by the BaseApp page block
 // commands, in the order they appear in the protocol design.
 func appBlockTypes() []string {
-	types := make([]string, 0, len(chartBlockTypes)+len(listBlockTypes)+1)
+	types := make([]string, 0, len(chartBlockTypes)+2)
 	types = append(types, chartBlockTypes...)
 	types = append(types, "richText")
-	types = append(types, listBlockTypes...)
+	types = append(types, "list")
 	return types
 }
 
 func isAppBlockType(blockType string) bool {
-	return isChartBlockType(blockType) || isListBlockType(blockType) || matchesBlockType(blockType, []string{"richText"})
+	return isChartBlockType(blockType) || matchesBlockType(blockType, []string{"richText", "list"})
 }
 
 // ── data_config normalization & validation ───────────────────────────
@@ -117,14 +110,13 @@ func normalizeDataConfig(cfg map[string]interface{}) map[string]interface{} {
 }
 
 // validateBlockDataConfig validates data_config based on block type.
-// Text blocks only need a text field; list blocks use the BaseApp list config
-// shape; everything else falls through to the chart rules.
+// Text blocks only need a text field; everything else falls through to the
+// dashboard chart rules. BaseApp list validation lives in
+// app_list_block_data_config.go and never enters this dashboard path.
 func validateBlockDataConfig(blockType string, cfg map[string]interface{}) []string {
 	switch {
 	case isTextBlockType(blockType):
 		return validateTextDataConfig(blockType, cfg)
-	case isListBlockType(blockType):
-		return validateListDataConfig(cfg)
 	default:
 		return validateChartDataConfig(cfg)
 	}
@@ -219,70 +211,6 @@ func validateChartDataConfig(cfg map[string]interface{}) []string {
 	// filter 基本结构
 	errs = append(errs, validateBlockFilter(cfg, "filter", false)...)
 	return errs
-}
-
-// validateListDataConfig validates the BaseApp list block data_config shape.
-// List blocks配置的是列表 UI，而不是图表聚合，所以字段与 chart 完全不同。
-func validateListDataConfig(cfg map[string]interface{}) []string {
-	var problems []string
-
-	tableID, _ := cfg["table_id"].(string)
-	tableName, _ := cfg["table_name"].(string)
-	if strings.TrimSpace(tableID) == "" && strings.TrimSpace(tableName) == "" {
-		problems = append(problems, "缺少数据源：table_id 与 table_name 至少提供其一")
-	}
-
-	if raw, has := cfg["fields"]; has {
-		arr, ok := raw.([]interface{})
-		if !ok {
-			problems = append(problems, "fields 必须是字符串数组")
-		} else {
-			for i, it := range arr {
-				s, ok := it.(string)
-				if !ok || strings.TrimSpace(s) == "" {
-					problems = append(problems, fmt.Sprintf("fields[%d] 必须是非空字符串（字段 ID 或字段名）", i))
-				}
-			}
-		}
-	}
-
-	if raw, has := cfg["sort"]; has {
-		arr, ok := raw.([]interface{})
-		if !ok {
-			problems = append(problems, "sort 必须是数组")
-		} else {
-			for i, it := range arr {
-				m, ok := it.(map[string]interface{})
-				if !ok {
-					problems = append(problems, fmt.Sprintf("sort[%d] 必须是对象", i))
-					continue
-				}
-				fieldID, _ := m["field_id"].(string)
-				fieldName, _ := m["field_name"].(string)
-				if strings.TrimSpace(fieldID) == "" && strings.TrimSpace(fieldName) == "" {
-					problems = append(problems, fmt.Sprintf("sort[%d] 缺少 field_id 或 field_name", i))
-				}
-				orderRaw, hasOrder := m["order"]
-				order, orderIsString := orderRaw.(string)
-				order = strings.ToLower(strings.TrimSpace(order))
-				switch {
-				case !hasOrder:
-					problems = append(problems, fmt.Sprintf("sort[%d].order 缺失；仅支持 asc|desc", i))
-				case !orderIsString || (order != "asc" && order != "desc"):
-					problems = append(problems, fmt.Sprintf("sort[%d].order 仅支持 asc|desc", i))
-				}
-			}
-		}
-	}
-
-	if raw, has := cfg["display"]; has {
-		if _, ok := raw.(map[string]interface{}); !ok {
-			problems = append(problems, "display 必须是对象")
-		}
-	}
-
-	problems = append(problems, validateBlockFilter(cfg, "filter", true)...)
-	return problems
 }
 
 // validateBlockFilter validates the filter object shared by chart and list

@@ -32,51 +32,61 @@ func TestDryRunBaseappOps(t *testing.T) {
 
 	createRT := newBaseTestRuntime(map[string]string{"name": "Sales app", "workspace-token": "ws_x", "base-name": "Sales data", "table-name": "Orders"}, nil, nil)
 	assertDryRunContains(t, dryRunBaseappCreate(ctx, createRT),
-		"POST /open-apis/base/v3/apps",
+		"POST /open-apis/base/v3/base_apps",
 		`"name":"Sales app"`,
 		`"workspace_token":"ws_x"`,
-		`"base":{"name":"Sales data","table_name":"Orders"}`,
+		"POST /open-apis/base/v3/bases",
+		`"name":"Sales data"`,
+		"POST /open-apis/base/v3/workspaces/ws_x/entities",
 	)
 
 	minimalCreateRT := newBaseTestRuntime(map[string]string{"name": "Blank app"}, nil, nil)
-	if out := dryRunBaseappCreate(ctx, minimalCreateRT).Format(); strings.Contains(out, `"base"`) || strings.Contains(out, "workspace_token") {
-		t.Fatalf("blank create must not send base/workspace keys:\n%s", out)
+	if out := dryRunBaseappCreate(ctx, minimalCreateRT).Format(); strings.Contains(out, `"base_token"`) {
+		t.Fatalf("app create must not expose a base-token input:\n%s", out)
 	}
 
 	getRT := newBaseTestRuntime(map[string]string{"app-token": "app_x"}, map[string]bool{"with-pages": true}, nil)
-	assertDryRunContains(t, dryRunBaseappGet(ctx, getRT), "GET /open-apis/base/v3/apps/app_x", "with_pages=true")
+	assertDryRunContains(t, dryRunBaseappGet(ctx, getRT), "GET /open-apis/base/v3/base_apps/app_x", "with_pages=true")
 
 	renameRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "name": "New name"}, nil, nil)
-	assertDryRunContains(t, dryRunBaseappRename(ctx, renameRT), "PATCH /open-apis/base/v3/apps/app_x", `"name":"New name"`)
+	assertDryRunContains(t, dryRunBaseappRename(ctx, renameRT), "PATCH /open-apis/drive/v1/files/app_x", "type=bitable", `"new_title":"New name"`)
+}
+
+func TestAppCreateDoesNotExposeBaseToken(t *testing.T) {
+	for _, flag := range BaseAppCreate.Flags {
+		if flag.Name == "base-token" {
+			t.Fatal("+app-create must not expose --base-token")
+		}
+	}
 }
 
 func TestDryRunBaseappPageOps(t *testing.T) {
 	ctx := context.Background()
 
 	listRT := newBaseTestRuntime(map[string]string{"app-token": "app_x"}, nil, map[string]int{"page-size": 100})
-	assertDryRunContains(t, dryRunBaseappPageList(ctx, listRT), "GET /open-apis/base/v3/apps/app_x/pages", "page_size=100")
+	assertDryRunContains(t, dryRunBaseappPageList(ctx, listRT), "GET /open-apis/base/v3/base_apps/app_x/pages", "page_size=100")
 
 	getRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "page-id": "pg_1"}, map[string]bool{"with-components": true}, nil)
-	assertDryRunContains(t, dryRunBaseappPageGet(ctx, getRT), "GET /open-apis/base/v3/apps/app_x/pages/pg_1", "with_components=true")
+	assertDryRunContains(t, dryRunBaseappPageGet(ctx, getRT), "GET /open-apis/base/v3/base_apps/app_x/pages/pg_1", "with_components=true")
 
 	createRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "name": "Overview", "parent-page-id": "pg_root"}, map[string]bool{"to-last": true}, nil)
-	assertDryRunContains(t, dryRunBaseappPageCreate(ctx, createRT), "POST /open-apis/base/v3/apps/app_x/pages", `"name":"Overview"`, `"parent_page_id":"pg_root"`, `"to_last":true`)
+	assertDryRunContains(t, dryRunBaseappPageCreate(ctx, createRT), "POST /open-apis/base/v3/base_apps/app_x/pages", `"name":"Overview"`, `"parent_page_id":"pg_root"`, `"to_last":true`)
 
 	renameRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "page-id": "pg_1", "name": "Sales"}, nil, nil)
-	assertDryRunContains(t, dryRunBaseappPageRename(ctx, renameRT), "PATCH /open-apis/base/v3/apps/app_x/pages/pg_1", `"name":"Sales"`)
+	assertDryRunContains(t, dryRunBaseappPageRename(ctx, renameRT), "PATCH /open-apis/base/v3/base_apps/app_x/pages/pg_1", `"name":"Sales"`)
 
 	deleteRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "page-id": "pg_1"}, nil, nil)
-	assertDryRunContains(t, dryRunBaseappPageDelete(ctx, deleteRT), "DELETE /open-apis/base/v3/apps/app_x/pages/pg_1")
+	assertDryRunContains(t, dryRunBaseappPageDelete(ctx, deleteRT), "DELETE /open-apis/base/v3/base_apps/app_x/pages/pg_1")
 }
 
 func TestDryRunAppBlockOps(t *testing.T) {
 	ctx := context.Background()
 
 	listRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "page-id": "pg_1", "type": "line"}, nil, map[string]int{"page-size": 20})
-	assertDryRunContains(t, dryRunAppBlockList(ctx, listRT), "GET /open-apis/base/v3/apps/app_x/pages/pg_1/blocks", "type=line", "page_size=20")
+	assertDryRunContains(t, dryRunAppBlockList(ctx, listRT), "GET /open-apis/base/v3/base_apps/app_x/pages/pg_1/blocks", "type=line", "page_size=20")
 
 	getRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "page-id": "pg_1", "block-id": "wid_1", "user-id-type": "open_id"}, nil, nil)
-	assertDryRunContains(t, dryRunAppBlockGet(ctx, getRT), "GET /open-apis/base/v3/apps/app_x/pages/pg_1/blocks/wid_1", "user_id_type=open_id")
+	assertDryRunContains(t, dryRunAppBlockGet(ctx, getRT), "GET /open-apis/base/v3/base_apps/app_x/pages/pg_1/blocks/wid_1", "user_id_type=open_id")
 
 	createRT := newBaseTestRuntime(map[string]string{
 		"app-token":   "app_x",
@@ -87,7 +97,7 @@ func TestDryRunAppBlockOps(t *testing.T) {
 		"position":    `{"x":0,"y":0,"w":12,"h":8}`,
 	}, nil, nil)
 	assertDryRunContains(t, dryRunAppBlockCreate(ctx, createRT),
-		"POST /open-apis/base/v3/apps/app_x/pages/pg_1/blocks",
+		"POST /open-apis/base/v3/base_apps/app_x/pages/pg_1/blocks",
 		`"type":"line"`,
 		`"name":"Sales by month"`,
 		`"show_title":true`,
@@ -97,6 +107,16 @@ func TestDryRunAppBlockOps(t *testing.T) {
 		t.Fatalf("show_title must be lifted out of data_config:\n%s", out)
 	}
 
+	listCreateRT := newBaseTestRuntime(map[string]string{
+		"app-token":   "app_x",
+		"page-id":     "pg_1",
+		"name":        "Orders",
+		"type":        "list",
+		"sub-type":    "card",
+		"data-config": `{"base_token":"bas_x","table_name":"Orders","fields":[],"card_config":{}}`,
+	}, nil, nil)
+	assertDryRunContains(t, dryRunAppBlockCreate(ctx, listCreateRT), `"type":"list"`, `"sub_type":"card"`, `"base_token":"bas_x"`)
+
 	updateRT := newBaseTestRuntime(map[string]string{
 		"app-token":   "app_x",
 		"page-id":     "pg_1",
@@ -105,9 +125,12 @@ func TestDryRunAppBlockOps(t *testing.T) {
 		"data-config": `{"filter":{"conjunction":"and","conditions":[]}}`,
 	}, nil, nil)
 	updateDR := dryRunAppBlockUpdate(ctx, updateRT)
-	assertDryRunContains(t, updateDR, "PATCH /open-apis/base/v3/apps/app_x/pages/pg_1/blocks/wid_1", `"name":"Monthly sales"`, `"conjunction":"and"`)
+	assertDryRunContains(t, updateDR, "PATCH /open-apis/base/v3/base_apps/app_x/pages/pg_1/blocks/wid_1", `"name":"Monthly sales"`, `"conjunction":"and"`)
 	if out := updateDR.Format(); strings.Contains(out, `"type"`) {
 		t.Fatalf("update must not send a block type:\n%s", out)
+	}
+	if out := updateDR.Format(); strings.Contains(out, `"table_name"`) || strings.Contains(out, `"series"`) {
+		t.Fatalf("update must not inject omitted data_config fields:\n%s", out)
 	}
 }
 
@@ -169,10 +192,13 @@ func TestBaseappRisksAndScopes(t *testing.T) {
 		scope    string
 	}{
 		"+workspace-entity-remove": {BaseWorkspaceEntityRemove, "high-risk-write", "base:workspace:write"},
-		"+baseapp-page-delete":     {BaseAppPageDelete, "high-risk-write", "base:appmode_page:delete"},
-		"+baseapp-create":          {BaseAppCreate, "write", "base:appmode:create"},
+		"+app-page-delete":         {BaseAppPageDelete, "high-risk-write", "base:appmode_page:delete"},
+		"+app-rename":              {BaseAppRename, "write", "base:app:update"},
 		"+app-block-create":        {BaseAppBlockCreate, "write", "base:appmode_block:create"},
 		"+app-block-get-data":      {BaseAppBlockGetData, "read", "base:dashboard:read"},
+	}
+	if got := strings.Join(BaseAppCreate.Scopes, ","); got != "base:appmode:create,base:app:create,base:workspace:write" {
+		t.Errorf("+app-create scopes=%v", BaseAppCreate.Scopes)
 	}
 	for name, tc := range cases {
 		if tc.shortcut.Risk != tc.risk {
@@ -186,12 +212,10 @@ func TestBaseappRisksAndScopes(t *testing.T) {
 
 func TestValidateListDataConfig(t *testing.T) {
 	t.Run("accepts a minimal list config", func(t *testing.T) {
-		problems := validateBlockDataConfig("standardList", map[string]interface{}{
-			"table_id": "tblx",
-			"view_id":  "viwx",
-			"fields":   []interface{}{"fldx"},
-			"sort":     []interface{}{map[string]interface{}{"field_id": "fldx", "order": "asc"}},
-			"display":  map[string]interface{}{"show_title": true},
+		problems := validateAppListDataConfig("standard", map[string]interface{}{
+			"base_token": "basx",
+			"table_name": "Orders",
+			"columns":    []interface{}{},
 		})
 		if len(problems) != 0 {
 			t.Fatalf("problems=%v", problems)
@@ -199,24 +223,25 @@ func TestValidateListDataConfig(t *testing.T) {
 	})
 
 	t.Run("requires a data source", func(t *testing.T) {
-		problems := validateBlockDataConfig("cardList", map[string]interface{}{})
-		if len(problems) != 1 || !strings.Contains(problems[0], "table_id") {
+		problems := validateAppListDataConfig("card", map[string]interface{}{})
+		if len(problems) != 2 || !strings.Contains(strings.Join(problems, " "), "base_token") {
 			t.Fatalf("problems=%v", problems)
 		}
 	})
 
-	t.Run("rejects a bad sort order", func(t *testing.T) {
-		problems := validateBlockDataConfig("groupedList", map[string]interface{}{
-			"table_name": "Orders",
-			"sort":       []interface{}{map[string]interface{}{"field_id": "fldx", "order": "up"}},
+	t.Run("rejects fields from another subtype", func(t *testing.T) {
+		problems := validateAppListDataConfig("grouped", map[string]interface{}{
+			"base_token":  "basx",
+			"table_name":  "Orders",
+			"card_config": map[string]interface{}{},
 		})
-		if len(problems) != 1 || !strings.Contains(problems[0], "sort[0].order") {
+		if len(problems) != 1 || !strings.Contains(problems[0], "card_config") {
 			t.Fatalf("problems=%v", problems)
 		}
 	})
 
 	t.Run("does not apply chart rules to list blocks", func(t *testing.T) {
-		problems := validateBlockDataConfig("detailList", map[string]interface{}{"table_id": "tblx"})
+		problems := validateAppListDataConfig("detail", map[string]interface{}{"base_token": "basx", "table_name": "Orders"})
 		for _, problem := range problems {
 			if strings.Contains(problem, "series") || strings.Contains(problem, "count_all") {
 				t.Fatalf("chart rule leaked into list validation: %v", problems)

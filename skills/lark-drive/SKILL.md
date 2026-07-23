@@ -50,7 +50,7 @@ metadata:
 - `drive +inspect` / `drive +upload` 遇到 `not found`、`permission denied`、`missing scope` 时，默认停止重试；只有 `rate limit` 或临时网络错误才适合有限重试。
 
 ## 修改标题
-- 使用 `drive files patch` 命令，通过new_title字段可以修改标题，支持 docx、sheet、bitable、file、wiki、folder 类型
+- 使用 `drive files patch` 命令，通过 `new_title` 修改标题，支持 docx、sheet、bitable、file、wiki、folder 类型。Base 与 BaseApp 都传 `type=bitable`；BaseApp 使用 `app_token` 作为 `file_token`。
 
 ## 核心概念
 

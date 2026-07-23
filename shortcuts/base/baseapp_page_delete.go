@@ -11,7 +11,7 @@ import (
 
 var BaseAppPageDelete = common.Shortcut{
 	Service:     "base",
-	Command:     "+baseapp-page-delete",
+	Command:     "+app-page-delete",
 	Description: "Delete a BaseApp page",
 	Risk:        "high-risk-write",
 	Scopes:      []string{"base:appmode_page:delete"},
@@ -21,7 +21,7 @@ var BaseAppPageDelete = common.Shortcut{
 		pageIDFlag(true),
 	},
 	Tips: []string{
-		"lark-cli base +baseapp-page-delete --app-token <app_token> --page-id <page_id> --yes",
+		"lark-cli base +app-page-delete --app-token <app_token> --page-id <page_id> --yes",
 		"Deleting a page also deletes its blocks and cannot be recovered; the base data behind the blocks is untouched.",
 		baseHighRiskYesTip,
 	},

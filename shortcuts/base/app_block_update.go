@@ -16,7 +16,7 @@ var BaseAppBlockUpdate = common.Shortcut{
 	Command:     "+app-block-update",
 	Description: "Update a block on a BaseApp page",
 	Risk:        "write",
-	Scopes:      []string{"base:appmode_block:write"},
+	Scopes:      []string{"base:appmode_block:update"},
 	AuthTypes:   authTypes(),
 	Flags: []common.Flag{
 		appTokenFlag(true),
@@ -34,7 +34,7 @@ var BaseAppBlockUpdate = common.Shortcut{
 		"Read lark-base-baseapp-block-data-config.md as the SSOT; do not invent data_config from natural language.",
 		"Use +app-block-get first to inspect the current data_config before replacing nested values.",
 		"Block type cannot be changed, and this phase has no delete command; a wrong type can only be fixed in the UI.",
-		"data_config update merges top-level keys, but each provided key is replaced as a whole.",
+		"Only explicitly provided data_config fields are sent. Omitted fields remain unchanged; each provided array/object field is replaced according to the API protocol.",
 	},
 	Validate: func(ctx context.Context, runtime *common.RuntimeContext) error {
 		if _, err := parseBlockPosition(runtime); err != nil {

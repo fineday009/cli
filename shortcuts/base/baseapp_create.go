@@ -11,11 +11,15 @@ import (
 
 var BaseAppCreate = common.Shortcut{
 	Service:     "base",
-	Command:     "+baseapp-create",
+	Command:     "+app-create",
 	Description: "Create a blank BaseApp with a blank base",
 	Risk:        "write",
-	Scopes:      []string{"base:appmode:create"},
-	AuthTypes:   authTypes(),
+	Scopes: []string{
+		"base:appmode:create",
+		"base:app:create",
+		"base:workspace:write",
+	},
+	AuthTypes: authTypes(),
 	Flags: []common.Flag{
 		{Name: "name", Desc: "BaseApp name", Required: true},
 		workspaceTokenFlag(false),
@@ -23,10 +27,11 @@ var BaseAppCreate = common.Shortcut{
 		{Name: "table-name", Desc: "name of the first table in the blank base; defaults to the platform default"},
 	},
 	Tips: []string{
-		`lark-cli base +baseapp-create --name "Sales app" --workspace-token <workspace_token>`,
-		"A blank app always comes with one blank base and one blank table; the response returns both app_token and base_token.",
+		`lark-cli base +app-create --name "Sales app" --workspace-token <workspace_token>`,
+		"After the app is created, the CLI creates one blank Base and moves it into the same Workspace.",
 		"Record both tokens: page/block commands take app_token, while table/field/record commands take base_token.",
 		"Omitting --workspace-token lets the platform pick the default location.",
+		"If Base creation or moving fails after the app is created, the result is marked partial and includes a retry command. Do not create the app again.",
 	},
 	DryRun: dryRunBaseappCreate,
 	Execute: func(ctx context.Context, runtime *common.RuntimeContext) error {

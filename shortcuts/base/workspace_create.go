@@ -22,7 +22,7 @@ var BaseWorkspaceCreate = common.Shortcut{
 	},
 	Tips: []string{
 		`lark-cli base +workspace-create --name "Growth team"`,
-		"Record the returned workspace_token; +workspace-entity-* and +baseapp-create need it.",
+		"Record the returned workspace_token; +workspace-entity-* and +app-create need it.",
 	},
 	DryRun: dryRunWorkspaceCreate,
 	Execute: func(ctx context.Context, runtime *common.RuntimeContext) error {
