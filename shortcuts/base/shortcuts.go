@@ -97,7 +97,7 @@ func Shortcuts() []common.Shortcut {
 		BaseDashboardBlockDelete,
 		BaseWorkspaceCreate,
 		BaseWorkspaceEntityList,
-		BaseWorkspaceEntityAdd,
+		BaseWorkspaceMoveIn,
 		BaseWorkspaceEntityRemove,
 		BaseAppCreate,
 		BaseAppGet,

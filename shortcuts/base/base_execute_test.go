@@ -177,7 +177,7 @@ func TestBaseAppCreateOrchestrationSuccess(t *testing.T) {
 	})
 	reg.Register(&httpmock.Stub{
 		Method: "POST",
-		URL:    "/open-apis/base/v3/workspaces/ws_x/entities",
+		URL:    "/open-apis/base/v3/workspaces/ws_x/move_in",
 		Body:   map[string]interface{}{"code": 0, "data": map[string]interface{}{"entity_id": "ent_x"}},
 	})
 	if err := runShortcut(t, BaseAppCreate, []string{"+app-create", "--name", "Sales"}, factory, stdout); err != nil {
@@ -203,7 +203,7 @@ func TestBaseAppCreateReturnsPartialResultWhenMoveFails(t *testing.T) {
 	})
 	reg.Register(&httpmock.Stub{
 		Method: "POST",
-		URL:    "/open-apis/base/v3/workspaces/ws_x/entities",
+		URL:    "/open-apis/base/v3/workspaces/ws_x/move_in",
 		Body:   map[string]interface{}{"code": 1255001, "msg": "move failed"},
 	})
 	err := runShortcut(t, BaseAppCreate, []string{"+app-create", "--name", "Sales"}, factory, stdout)
@@ -212,7 +212,7 @@ func TestBaseAppCreateReturnsPartialResultWhenMoveFails(t *testing.T) {
 		t.Fatalf("err=%T %v, want PartialFailureError", err, err)
 	}
 	raw := stdout.String()
-	for _, want := range []string{`"status": "partial"`, `"failed_step": "base_move"`, `"app_token": "app_x"`, `"base_token": "bas_x"`, "+workspace-entity-add"} {
+	for _, want := range []string{`"status": "partial"`, `"failed_step": "base_move"`, `"app_token": "app_x"`, `"base_token": "bas_x"`, "+workspace-move-in"} {
 		if !strings.Contains(raw, want) {
 			t.Fatalf("partial output missing %q:\n%s", want, raw)
 		}

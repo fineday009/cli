@@ -27,19 +27,12 @@ func TestBaseWorkspaceDryRun(t *testing.T) {
 		assert.Contains(t, output, "baseapp")
 	})
 
-	t.Run("entity-add", func(t *testing.T) {
-		result := runBaseDryRun(t, 0, "base", "+workspace-entity-add",
-			"--workspace-token", "ws_x", "--type", "base", "--token", "bascn_1", "--to-last")
+	t.Run("move-in", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+workspace-move-in",
+			"--workspace-token", "ws_x", "--entity-token", "bascn_1")
 		output := strings.TrimSpace(result.Stdout)
-		assert.Contains(t, output, "/open-apis/base/v3/workspaces/ws_x/entities")
-		assert.Contains(t, output, `"entity_type": "base"`)
-		assert.Contains(t, output, `"token": "bascn_1"`)
-	})
-
-	t.Run("entity-add rejects an unsupported type", func(t *testing.T) {
-		result := runBaseDryRun(t, 2, "base", "+workspace-entity-add",
-			"--workspace-token", "ws_x", "--type", "sheet", "--token", "bascn_1")
-		assert.Contains(t, result.Stderr, "allowed: base, baseapp")
+		assert.Contains(t, output, "/open-apis/base/v3/workspaces/ws_x/move_in")
+		assert.Contains(t, output, `"entity_token": "bascn_1"`)
 	})
 
 	t.Run("entity-remove", func(t *testing.T) {
@@ -58,7 +51,7 @@ func TestBaseappDryRun(t *testing.T) {
 		assert.Contains(t, output, "/open-apis/base/v3/base_apps")
 		assert.Contains(t, output, `"method": "POST"`)
 		assert.Contains(t, output, "/open-apis/base/v3/bases")
-		assert.Contains(t, output, "/open-apis/base/v3/workspaces/ws_x/entities")
+		assert.Contains(t, output, "/open-apis/base/v3/workspaces/ws_x/move_in")
 	})
 
 	t.Run("get", func(t *testing.T) {

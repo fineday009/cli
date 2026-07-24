@@ -6,7 +6,7 @@
 
 | 对象 | 标识 | 命令 |
 |---|---|---|
-| Workspace | `workspace_token` | `+workspace-create` / `+workspace-entity-*` |
+| Workspace | `workspace_token` | `+workspace-create` / `+workspace-entity-list` / `+workspace-move-in` / `+workspace-entity-remove` |
 | BaseApp | `app_token` | `+app-create/get/rename`；删除见下方 |
 | Base | `base_token` | `+app-create` 返回；表、字段、记录命令使用它 |
 | Page | `page_id` | `+app-page-list/get/create/update/delete` |
@@ -35,8 +35,8 @@ lark-cli base +app-create \
 1. 明确告诉用户 App 已创建且不会回滚。
 2. 不要再次执行 `+app-create`。
 3. 用户要求继续时，执行输出中的 `retry.command`。
-4. `failed_step=base_create` 时，先重试 `+base-create`，再用 `+workspace-entity-add` 移入同一 Workspace。
-5. `failed_step=base_move` 时，只重试 `+workspace-entity-add`，不要重复创建 Base。
+4. `failed_step=base_create` 时，先重试 `+base-create`，再用 `+workspace-move-in` 移入同一 Workspace。
+5. `failed_step=base_move` 时，只重试 `+workspace-move-in`，不要重复创建 Base。
 
 ## 重命名应用
 

@@ -20,8 +20,8 @@ func TestDryRunWorkspaceOps(t *testing.T) {
 	listRT := newBaseTestRuntime(map[string]string{"workspace-token": "ws_x", "type": "BaseApp"}, nil, map[string]int{"page-size": 50})
 	assertDryRunContains(t, dryRunWorkspaceEntityList(ctx, listRT), "GET /open-apis/base/v3/workspaces/ws_x/entities", "page_size=50", "type=baseapp")
 
-	addRT := newBaseTestRuntime(map[string]string{"workspace-token": "ws_x", "type": "base", "token": "bascn_1"}, map[string]bool{"to-last": true}, nil)
-	assertDryRunContains(t, dryRunWorkspaceEntityAdd(ctx, addRT), "POST /open-apis/base/v3/workspaces/ws_x/entities", `"entity_type":"base"`, `"token":"bascn_1"`, `"to_last":true`)
+	moveInRT := newBaseTestRuntime(map[string]string{"workspace-token": "ws_x", "entity-token": "bascn_1"}, nil, nil)
+	assertDryRunContains(t, dryRunWorkspaceMoveIn(ctx, moveInRT), "POST /open-apis/base/v3/workspaces/ws_x/move_in", `"entity_token":"bascn_1"`)
 
 	removeRT := newBaseTestRuntime(map[string]string{"workspace-token": "ws_x", "entity-id": "789"}, nil, nil)
 	assertDryRunContains(t, dryRunWorkspaceEntityRemove(ctx, removeRT), "DELETE /open-apis/base/v3/workspaces/ws_x/entities/789")
@@ -37,7 +37,8 @@ func TestDryRunBaseappOps(t *testing.T) {
 		`"workspace_token":"ws_x"`,
 		"POST /open-apis/base/v3/bases",
 		`"name":"Sales data"`,
-		"POST /open-apis/base/v3/workspaces/ws_x/entities",
+		"POST /open-apis/base/v3/workspaces/ws_x/move_in",
+		`"entity_token"`,
 	)
 
 	minimalCreateRT := newBaseTestRuntime(map[string]string{"name": "Blank app"}, nil, nil)
@@ -191,7 +192,7 @@ func TestBaseappRisksAndScopes(t *testing.T) {
 		risk     string
 		scope    string
 	}{
-		"+workspace-entity-add":    {BaseWorkspaceEntityAdd, "write", "base:workspace:update"},
+		"+workspace-move-in":       {BaseWorkspaceMoveIn, "write", "base:workspace:update"},
 		"+workspace-entity-remove": {BaseWorkspaceEntityRemove, "high-risk-write", "base:workspace:update"},
 		"+app-page-delete":         {BaseAppPageDelete, "high-risk-write", "base:appmode_page:delete"},
 		"+app-rename":              {BaseAppRename, "write", "base:appmode:update"},
@@ -280,8 +281,8 @@ func TestParseBlockPositionRejectsNonNumeric(t *testing.T) {
 }
 
 func TestValidateWorkspaceOrderingRejectsBoth(t *testing.T) {
-	rt := newBaseTestRuntime(map[string]string{"prev-entity-id": "456"}, map[string]bool{"to-last": true}, nil)
-	if err := validateWorkspaceOrdering(rt, "prev-entity-id"); err == nil || !strings.Contains(err.Error(), "to-last") {
+	rt := newBaseTestRuntime(map[string]string{"prev-page-id": "456"}, map[string]bool{"to-last": true}, nil)
+	if err := validateWorkspaceOrdering(rt, "prev-page-id"); err == nil || !strings.Contains(err.Error(), "to-last") {
 		t.Fatalf("err=%v", err)
 	}
 }

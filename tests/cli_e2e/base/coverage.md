@@ -122,6 +122,6 @@
 | ✕ | base +workflow-list | shortcut |  | none | workflow CRUD not covered |
 | ✕ | base +workflow-update | shortcut |  | none | workflow CRUD not covered |
 | ✓ | base +workspace-create | shortcut | base_baseapp_dryrun_test.go::TestBaseWorkspaceDryRun/create | `--name`; dry-run only | request shape only |
-| ✓ | base +workspace-entity-add | shortcut | base_baseapp_dryrun_test.go::TestBaseWorkspaceDryRun/entity-add,entity-add rejects an unsupported type | `--workspace-token`; `--type`; `--token`; `--to-last`; dry-run only | request shape and --type enum rejection |
+| ✓ | base +workspace-move-in | shortcut | base_baseapp_dryrun_test.go::TestBaseWorkspaceDryRun/move-in | `--workspace-token`; `--entity-token`; dry-run only | request shape only |
 | ✓ | base +workspace-entity-list | shortcut | base_baseapp_dryrun_test.go::TestBaseWorkspaceDryRun/entity-list | `--workspace-token`; `--type`; dry-run only | request shape only |
 | ✓ | base +workspace-entity-remove | shortcut | base_baseapp_dryrun_test.go::TestBaseWorkspaceDryRun/entity-remove | `--workspace-token`; `--entity-id`; dry-run only | request shape only |

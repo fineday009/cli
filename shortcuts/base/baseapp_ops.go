@@ -168,28 +168,19 @@ func dryRunWorkspaceEntityList(_ context.Context, runtime *common.RuntimeContext
 		Params(params)
 }
 
-func workspaceEntityAddBody(runtime *common.RuntimeContext) map[string]interface{} {
+func workspaceMoveInBody(runtime *common.RuntimeContext) map[string]interface{} {
 	body := map[string]interface{}{}
-	if entityType, err := normalizeEntityType(runtime.Str("type")); err == nil && entityType != "" {
-		body["entity_type"] = entityType
-	}
-	if token := strings.TrimSpace(runtime.Str("token")); token != "" {
-		body["token"] = token
-	}
-	if prev := strings.TrimSpace(runtime.Str("prev-entity-id")); prev != "" {
-		body["prev_entity_id"] = prev
-	}
-	if runtime.Bool("to-last") {
-		body["to_last"] = true
+	if token := strings.TrimSpace(runtime.Str("entity-token")); token != "" {
+		body["entity_token"] = token
 	}
 	return body
 }
 
-func dryRunWorkspaceEntityAdd(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
+func dryRunWorkspaceMoveIn(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
 	return common.NewDryRunAPI().
-		POST("/open-apis/base/v3/workspaces/:workspace_token/entities").
+		POST("/open-apis/base/v3/workspaces/:workspace_token/move_in").
 		Set("workspace_token", runtime.Str("workspace-token")).
-		Body(workspaceEntityAddBody(runtime))
+		Body(workspaceMoveInBody(runtime))
 }
 
 func dryRunWorkspaceEntityRemove(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
@@ -227,15 +218,12 @@ func executeWorkspaceEntityList(runtime *common.RuntimeContext) error {
 	return nil
 }
 
-func executeWorkspaceEntityAdd(runtime *common.RuntimeContext) error {
-	if _, err := normalizeEntityType(runtime.Str("type")); err != nil {
-		return err
-	}
-	data, err := baseV3Call(runtime, "POST", baseV3Path("workspaces", runtime.Str("workspace-token"), "entities"), nil, workspaceEntityAddBody(runtime))
+func executeWorkspaceMoveIn(runtime *common.RuntimeContext) error {
+	data, err := baseV3Call(runtime, "POST", baseV3Path("workspaces", runtime.Str("workspace-token"), "move_in"), nil, workspaceMoveInBody(runtime))
 	if err != nil {
 		return err
 	}
-	runtime.Out(map[string]interface{}{"entity": data, "created": true}, nil)
+	runtime.Out(map[string]interface{}{"entity": data, "moved_in": true}, nil)
 	return nil
 }
 
@@ -265,9 +253,9 @@ func dryRunBaseappCreate(_ context.Context, runtime *common.RuntimeContext) *com
 	dryRun.POST("/open-apis/base/v3/bases").
 		Body(baseappBlankBaseBody(runtime)).
 		Desc("After App creation succeeds, create a blank candidate Base.")
-	dryRun.POST("/open-apis/base/v3/workspaces/:workspace_token/entities").
+	dryRun.POST("/open-apis/base/v3/workspaces/:workspace_token/move_in").
 		Set("workspace_token", firstNonEmpty(strings.TrimSpace(runtime.Str("workspace-token")), "<created_app_workspace_token>")).
-		Body(map[string]interface{}{"entity_type": "base", "token": "<created_base_token>", "to_last": true}).
+		Body(map[string]interface{}{"entity_token": "<created_base_token>"}).
 		Desc("Move the blank Base into the App Workspace. A failure here returns a partial-completion result and a retry command.")
 	return dryRun
 }
@@ -332,7 +320,7 @@ func executeBaseappCreate(runtime *common.RuntimeContext) error {
 		out["message"] = "App 已创建，但空 Base 创建失败；App 未回滚。请保留 app_token，并按 retry.command 重试后再把 Base 移入同一 Workspace。"
 		out["retry"] = map[string]interface{}{
 			"command": fmt.Sprintf("lark-cli base +base-create --name %q", common.GetString(baseappBlankBaseBody(runtime), "name")),
-			"next":    fmt.Sprintf("lark-cli base +workspace-entity-add --workspace-token %s --type base --token <base_token> --to-last", workspaceToken),
+			"next":    fmt.Sprintf("lark-cli base +workspace-move-in --workspace-token %s --entity-token <base_token>", workspaceToken),
 		}
 		out["app_token"] = appToken
 		return runtime.OutPartialFailure(out, nil)
@@ -354,17 +342,17 @@ func executeBaseappCreate(runtime *common.RuntimeContext) error {
 		out["status"] = "partial"
 		out["failed_step"] = "workspace_resolve"
 		out["message"] = "App 和空 Base 已创建，但响应中没有 Workspace token，CLI 无法自动移动 Base；资源未回滚。"
-		out["retry"] = map[string]interface{}{"command": fmt.Sprintf("lark-cli base +workspace-entity-add --workspace-token <workspace_token> --type base --token %s --to-last", baseToken)}
+		out["retry"] = map[string]interface{}{"command": fmt.Sprintf("lark-cli base +workspace-move-in --workspace-token <workspace_token> --entity-token %s", baseToken)}
 		return runtime.OutPartialFailure(out, nil)
 	}
-	moveBody := map[string]interface{}{"entity_type": "base", "token": baseToken, "to_last": true}
-	entity, err := baseV3Call(runtime, "POST", baseV3Path("workspaces", workspaceToken, "entities"), nil, moveBody)
+	moveBody := map[string]interface{}{"entity_token": baseToken}
+	entity, err := baseV3Call(runtime, "POST", baseV3Path("workspaces", workspaceToken, "move_in"), nil, moveBody)
 	if err != nil {
 		out["status"] = "partial"
 		out["failed_step"] = "base_move"
 		out["cause"] = err.Error()
 		out["message"] = "App 和空 Base 已创建，但 Base 移入 App Workspace 失败；资源未回滚。再次执行 retry.command 即可继续，不要重复创建 App 或 Base。"
-		out["retry"] = map[string]interface{}{"command": fmt.Sprintf("lark-cli base +workspace-entity-add --workspace-token %s --type base --token %s --to-last", workspaceToken, baseToken)}
+		out["retry"] = map[string]interface{}{"command": fmt.Sprintf("lark-cli base +workspace-move-in --workspace-token %s --entity-token %s", workspaceToken, baseToken)}
 		return runtime.OutPartialFailure(out, nil)
 	}
 	out["workspace_token"] = workspaceToken
