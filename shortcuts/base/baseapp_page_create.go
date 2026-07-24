@@ -11,7 +11,7 @@ import (
 
 var BaseAppPageCreate = common.Shortcut{
 	Service:     "base",
-	Command:     "+baseapp-page-create",
+	Command:     "+app-page-create",
 	Description: "Create a page in a BaseApp",
 	Risk:        "write",
 	Scopes:      []string{"base:appmode_page:create"},
@@ -24,7 +24,8 @@ var BaseAppPageCreate = common.Shortcut{
 		{Name: "to-last", Type: "bool", Desc: "append to the end instead of using --prev-page-id"},
 	},
 	Tips: []string{
-		`lark-cli base +baseapp-page-create --app-token <app_token> --name "Overview" --to-last`,
+		`lark-cli base +app-page-create --app-token <app_token> --name "Overview" --to-last`,
+		"Page names must be unique within an app; the CLI checks existing pages before creation.",
 		"--prev-page-id and --to-last both control ordering; pass at most one.",
 		"Record the returned page_id; every +app-block-* command needs it.",
 		"Only page nodes are supported in this phase; page groups are not creatable through the CLI.",

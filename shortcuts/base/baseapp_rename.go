@@ -11,17 +11,18 @@ import (
 
 var BaseAppRename = common.Shortcut{
 	Service:     "base",
-	Command:     "+baseapp-rename",
+	Command:     "+app-rename",
 	Description: "Rename a BaseApp",
 	Risk:        "write",
-	Scopes:      []string{"base:appmode:write"},
+	Scopes:      []string{"base:app:update"},
 	AuthTypes:   authTypes(),
 	Flags: []common.Flag{
 		appTokenFlag(true),
 		{Name: "name", Desc: "new BaseApp name", Required: true},
 	},
 	Tips: []string{
-		`lark-cli base +baseapp-rename --app-token <app_token> --name "Sales app v2"`,
+		`lark-cli base +app-rename --app-token <app_token> --name "Sales app v2"`,
+		"BaseApp and Base both use type=bitable in Drive file APIs.",
 		"Renaming the app does not rename the base behind it.",
 	},
 	DryRun: dryRunBaseappRename,

@@ -13,7 +13,7 @@
 - TestBaseRecordBatchUpdatePerRecordWorkflow: creates two records, updates different field types in one request, asserts the minimal response contract, reads both records back, verifies a missing record ID is not prevalidated, and cleans up the temporary Base.
 - TestBase_RoleWorkflow: proves `+advperm-enable`, `+role-create`, `+role-list`, `+role-get`, and `+role-update`; key `t.Run(...)` proof points are `list as bot`, `get as bot`, and `update as bot`.
 - Cleanup note: `+table-delete` and `+role-delete` only run in cleanup and are intentionally left uncovered.
-- TestBaseWorkspaceDryRun / TestBaseappDryRun / TestBaseappPageDryRun / TestAppBlockDryRun: prove the request shapes of the 16 BaseApp and Workspace shortcuts, plus two local validations that never reach the API (`--type` enum on `+workspace-entity-add`, ordering-flag exclusivity on `+baseapp-page-create`) and the chart `data_config` validator on `+app-block-create`.
+- TestBaseWorkspaceDryRun / TestBaseappDryRun / TestBaseappPageDryRun / TestAppBlockDryRun: prove the BaseApp and Workspace request shapes, App → Base → Workspace orchestration, Page validation, and chart/list `data_config` handling.
 - TestAppBlockGetDataDryRun: proves `+app-block-get-data` hits the dashboard block data endpoint and that it requires `--base-token`, not the `--app-token` every other `+app-block-*` command takes.
 - Blocked area: dashboard, field, most record operations, form, view, and workflow operations still lack deterministic create/read/update workflows in this suite. BaseApp and Workspace commands are dry-run only until the downstream OpenAPI ships; live workflows come with the joint debugging phase.
 
@@ -36,14 +36,14 @@
 | ✕ | base +base-copy | shortcut |  | none | no copy workflow yet |
 | ✓ | base +base-create | shortcut | base/helpers_test.go::createBaseWithRetry | `--name`; `--time-zone` | helper asserts created base token |
 | ✓ | base +base-get | shortcut | base_basic_workflow_test.go::TestBase_BasicWorkflow/get base as bot | `--base-token` | |
-| ✓ | base +baseapp-create | shortcut | base_baseapp_dryrun_test.go::TestBaseappDryRun/create | `--name`; `--workspace-token`; `--base-name`; `--table-name`; dry-run only | request shape only |
-| ✓ | base +baseapp-get | shortcut | base_baseapp_dryrun_test.go::TestBaseappDryRun/get | `--app-token`; `--with-pages`; dry-run only | request shape only |
-| ✓ | base +baseapp-page-create | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/create,create rejects conflicting ordering flags | `--app-token`; `--name`; `--to-last`; `--prev-page-id`; dry-run only | request shape and ordering-flag exclusivity |
-| ✓ | base +baseapp-page-delete | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/delete | `--app-token`; `--page-id`; dry-run only | request shape only |
-| ✓ | base +baseapp-page-get | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/get | `--app-token`; `--page-id`; `--with-components`; dry-run only | request shape only |
-| ✓ | base +baseapp-page-list | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/list | `--app-token`; dry-run only | request shape only |
-| ✓ | base +baseapp-page-rename | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/rename | `--app-token`; `--page-id`; `--name`; dry-run only | request shape only |
-| ✓ | base +baseapp-rename | shortcut | base_baseapp_dryrun_test.go::TestBaseappDryRun/rename | `--app-token`; `--name`; dry-run only | request shape only |
+| ✓ | base +app-create | shortcut | base_baseapp_dryrun_test.go::TestBaseappDryRun/create | `--name`; `--workspace-token`; `--base-name`; `--table-name` | App → Base → Workspace; partial result unit-tested |
+| ✓ | base +app-get | shortcut | base_baseapp_dryrun_test.go::TestBaseappDryRun/get | `--app-token`; `--with-pages` | request shape |
+| ✓ | base +app-page-create | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/create,create rejects conflicting ordering flags | `--app-token`; `--name`; `--to-last`; `--prev-page-id` | request shape, ordering and uniqueness |
+| ✓ | base +app-page-delete | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/delete | `--app-token`; `--page-id` | request shape |
+| ✓ | base +app-page-get | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/get | `--app-token`; `--page-id`; `--with-components` | request shape |
+| ✓ | base +app-page-list | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/list | `--app-token` | request shape |
+| ✓ | base +app-page-update | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/rename | `--app-token`; `--page-id`; `--name` | request shape and uniqueness |
+| ✓ | base +app-rename | shortcut | base_baseapp_dryrun_test.go::TestBaseappDryRun/rename | `--app-token`; `--name` | Drive files patch, `type=bitable` |
 | ✕ | base +dashboard-arrange | shortcut |  | none | dashboard workflows not covered |
 | ✕ | base +dashboard-block-create | shortcut |  | none | dashboard workflows not covered |
 | ✕ | base +dashboard-block-delete | shortcut |  | none | dashboard workflows not covered |

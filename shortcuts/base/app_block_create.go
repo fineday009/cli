@@ -23,7 +23,8 @@ var BaseAppBlockCreate = common.Shortcut{
 		appTokenFlag(true),
 		pageIDFlag(true),
 		{Name: "name", Desc: "block name", Required: true},
-		{Name: "type", Desc: "block type: chart(column|bar|line|pie|ring|area|combo|scatter|funnel|wordCloud|radar|statistics) | richText | list(standardList|detailList|cardList|groupedList|collapsibleList). Read lark-base-baseapp-block-data-config.md before creating.", Required: true, Enum: appBlockTypes()},
+		{Name: "type", Desc: "block type: chart(column|bar|line|pie|ring|area|combo|scatter|funnel|wordCloud|radar|statistics) | richText | list. Read lark-base-baseapp-block-data-config.md before creating.", Required: true, Enum: appBlockTypes()},
+		{Name: "sub-type", Desc: "list subtype: standard|grouped|collapsible|card|detail; defaults to standard", Enum: appListSubTypes},
 		{Name: "data-config", Desc: "data_config JSON object; read lark-base-baseapp-block-data-config.md for the SSOT"},
 		{Name: "position", Desc: `block position JSON object, e.g. {"x":0,"y":0,"w":12,"h":8}; omit to let the platform place it`},
 		{Name: "user-id-type", Desc: "user ID type for user fields in filters: open_id / union_id / user_id"},
@@ -32,9 +33,9 @@ var BaseAppBlockCreate = common.Shortcut{
 	Tips: []string{
 		`lark-cli base +app-block-create --app-token <app_token> --page-id <page_id> --name "Order Count" --type statistics --data-config '{"table_name":"Orders","count_all":true}'`,
 		`lark-cli base +app-block-create --app-token <app_token> --page-id <page_id> --name "Notes" --type richText --data-config '{"text":"# Sales overview"}'`,
-		`lark-cli base +app-block-create --app-token <app_token> --page-id <page_id> --name "Open orders" --type standardList --data-config '{"table_id":"tblxxx","view_id":"viwxxx","fields":["fldxxx"]}'`,
+		`lark-cli base +app-block-create --app-token <app_token> --page-id <page_id> --name "Open orders" --type list --sub-type standard --data-config '{"base_token":"basxxx","table_name":"Orders","columns":[]}'`,
 		"Before creating data-backed blocks, use +table-list and +field-list to confirm real table and field names.",
-		"Chart data_config uses table and field names; list data_config accepts table_id/view_id/field IDs.",
+		"A list accepts exactly one base_token, and that Base must be in the same Workspace as the App.",
 		"Read lark-base-baseapp-block-data-config.md as the SSOT for chart, list and richText config; do not invent data_config from natural language.",
 		"Block type cannot be changed after creation and this phase has no delete command, so a wrong --type can only be fixed in the UI. Confirm the type before creating.",
 		"There is no page-level arrange command; omit --position to accept the platform layout.",
@@ -45,6 +46,21 @@ var BaseAppBlockCreate = common.Shortcut{
 		blockType := strings.TrimSpace(runtime.Str("type"))
 		if !isAppBlockType(blockType) {
 			return errs.NewValidationError(errs.SubtypeInvalidArgument, "--type %q 不在支持的 block 类型内: %s", blockType, strings.Join(appBlockTypes(), ", ")).WithParam("--type")
+		}
+		if strings.EqualFold(blockType, "list") {
+			subType, ok := normalizeAppListSubType(runtime.Str("sub-type"))
+			if !ok {
+				return errs.NewValidationError(errs.SubtypeInvalidArgument, "--sub-type 仅支持 %s", strings.Join(appListSubTypes, "|")).WithParam("--sub-type")
+			}
+			if raw := strings.TrimSpace(runtime.Str("data-config")); raw != "" && !runtime.Bool("no-validate") {
+				cfg, err := parseJSONObject(newParseCtx(runtime), raw, "data-config")
+				if err != nil {
+					return err
+				}
+				if problems := validateAppListDataConfig(subType, cfg); len(problems) > 0 {
+					return formatDataConfigErrors(problems)
+				}
+			}
 		}
 		if _, err := parseBlockPosition(runtime); err != nil {
 			return err
@@ -64,9 +80,14 @@ var BaseAppBlockCreate = common.Shortcut{
 		if err != nil {
 			return err
 		}
-		norm := normalizeDataConfig(cfg)
-		if problems := validateBlockDataConfig(blockType, norm); len(problems) > 0 {
-			return formatDataConfigErrors(problems)
+		norm := cfg
+		if !strings.EqualFold(blockType, "list") {
+			norm = normalizeDataConfig(cfg)
+		}
+		if !strings.EqualFold(blockType, "list") {
+			if problems := validateBlockDataConfig(blockType, norm); len(problems) > 0 {
+				return formatDataConfigErrors(problems)
+			}
 		}
 		b, _ := json.Marshal(norm)
 		_ = runtime.Cmd.Flags().Set("data-config", string(b))

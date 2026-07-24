@@ -19,7 +19,7 @@ var BaseAppBlockList = common.Shortcut{
 	Flags: []common.Flag{
 		appTokenFlag(true),
 		pageIDFlag(true),
-		{Name: "type", Desc: "filter by block type, e.g. line or standardList; omit to list all types", Enum: appBlockTypes()},
+		{Name: "type", Desc: "filter by block type, e.g. line or list; omit to list all types", Enum: appBlockTypes()},
 		{Name: "page-size", Type: "int", Default: "100", Desc: "page size, range 1-100"},
 		{Name: "page-token", Desc: "pagination token"},
 	},

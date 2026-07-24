@@ -11,7 +11,7 @@ import (
 
 var BaseAppPageList = common.Shortcut{
 	Service:     "base",
-	Command:     "+baseapp-page-list",
+	Command:     "+app-page-list",
 	Description: "List pages in a BaseApp",
 	Risk:        "read",
 	Scopes:      []string{"base:appmode_page:read"},
@@ -22,8 +22,8 @@ var BaseAppPageList = common.Shortcut{
 		{Name: "page-token", Desc: "pagination token"},
 	},
 	Tips: []string{
-		"lark-cli base +baseapp-page-list --app-token <app_token>",
-		"Use the returned page_id for +baseapp-page-get/rename/delete and every +app-block-* command.",
+		"lark-cli base +app-page-list --app-token <app_token>",
+		"Use the returned page_id for +app-page-get/update/delete and every +app-block-* command.",
 	},
 	Validate: func(ctx context.Context, runtime *common.RuntimeContext) error {
 		_, err := common.ValidatePageSizeTyped(runtime, "page-size", 100, 1, 100)

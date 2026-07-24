@@ -6,6 +6,7 @@ package base
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/larksuite/cli/errs"
@@ -95,6 +96,11 @@ func appBlockBody(runtime *common.RuntimeContext, includeType bool) (map[string]
 	if includeType {
 		if blockType := strings.TrimSpace(runtime.Str("type")); blockType != "" {
 			body["type"] = blockType
+		}
+		if strings.EqualFold(strings.TrimSpace(runtime.Str("type")), "list") {
+			if subType, ok := normalizeAppListSubType(runtime.Str("sub-type")); ok {
+				body["sub_type"] = subType
+			}
 		}
 	}
 	if raw := strings.TrimSpace(runtime.Str("data-config")); raw != "" {
@@ -249,23 +255,29 @@ func baseappCreateBody(runtime *common.RuntimeContext) map[string]interface{} {
 	if workspaceToken := strings.TrimSpace(runtime.Str("workspace-token")); workspaceToken != "" {
 		body["workspace_token"] = workspaceToken
 	}
-	baseSpec := map[string]interface{}{}
-	if baseName := strings.TrimSpace(runtime.Str("base-name")); baseName != "" {
-		baseSpec["name"] = baseName
-	}
-	if tableName := strings.TrimSpace(runtime.Str("table-name")); tableName != "" {
-		baseSpec["table_name"] = tableName
-	}
-	if len(baseSpec) > 0 {
-		body["base"] = baseSpec
-	}
 	return body
 }
 
 func dryRunBaseappCreate(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
-	return common.NewDryRunAPI().
-		POST("/open-apis/base/v3/apps").
+	dryRun := common.NewDryRunAPI().
+		POST("/open-apis/base/v3/base_apps").
 		Body(baseappCreateBody(runtime))
+	dryRun.POST("/open-apis/base/v3/bases").
+		Body(baseappBlankBaseBody(runtime)).
+		Desc("After App creation succeeds, create a blank candidate Base.")
+	dryRun.POST("/open-apis/base/v3/workspaces/:workspace_token/entities").
+		Set("workspace_token", firstNonEmpty(strings.TrimSpace(runtime.Str("workspace-token")), "<created_app_workspace_token>")).
+		Body(map[string]interface{}{"entity_type": "base", "token": "<created_base_token>", "to_last": true}).
+		Desc("Move the blank Base into the App Workspace. A failure here returns a partial-completion result and a retry command.")
+	return dryRun
+}
+
+func baseappBlankBaseBody(runtime *common.RuntimeContext) map[string]interface{} {
+	name := strings.TrimSpace(runtime.Str("base-name"))
+	if name == "" {
+		name = strings.TrimSpace(runtime.Str("name")) + " Base"
+	}
+	return map[string]interface{}{"name": name}
 }
 
 func baseappGetParams(runtime *common.RuntimeContext) map[string]interface{} {
@@ -281,35 +293,105 @@ func baseappGetParams(runtime *common.RuntimeContext) map[string]interface{} {
 
 func dryRunBaseappGet(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
 	return common.NewDryRunAPI().
-		GET("/open-apis/base/v3/apps/:app_token").
+		GET("/open-apis/base/v3/base_apps/:app_token").
 		Set("app_token", runtime.Str("app-token")).
 		Params(baseappGetParams(runtime))
 }
 
 func dryRunBaseappRename(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
 	return common.NewDryRunAPI().
-		PATCH("/open-apis/base/v3/apps/:app_token").
-		Set("app_token", runtime.Str("app-token")).
-		Body(map[string]interface{}{"name": strings.TrimSpace(runtime.Str("name"))})
+		PATCH("/open-apis/drive/v1/files/:file_token").
+		Set("file_token", runtime.Str("app-token")).
+		Params(map[string]interface{}{"type": "bitable"}).
+		Body(map[string]interface{}{"new_title": strings.TrimSpace(runtime.Str("name"))})
 }
 
 // ── BaseApp: execute ─────────────────────────────────────────────────
 
 func executeBaseappCreate(runtime *common.RuntimeContext) error {
-	data, err := baseV3Call(runtime, "POST", baseV3Path("apps"), nil, baseappCreateBody(runtime))
+	app, err := baseV3Call(runtime, "POST", baseV3Path("base_apps"), nil, baseappCreateBody(runtime))
 	if err != nil {
 		return err
 	}
-	if data == nil {
-		data = map[string]interface{}{}
+	out := map[string]interface{}{
+		"status":          "in_progress",
+		"app":             app,
+		"app_created":     true,
+		"base_created":    false,
+		"base_moved":      false,
+		"completed_steps": []interface{}{"app_create"},
 	}
-	data["created"] = true
-	runtime.Out(data, nil)
+	appToken := firstNonEmpty(common.GetString(app, "app_token"), common.GetString(app, "token"))
+	workspaceToken := firstNonEmpty(strings.TrimSpace(runtime.Str("workspace-token")), common.GetString(app, "workspace_token"))
+
+	base, err := baseV3Call(runtime, "POST", baseV3Path("bases"), nil, baseappBlankBaseBody(runtime))
+	if err != nil {
+		out["status"] = "partial"
+		out["failed_step"] = "base_create"
+		out["cause"] = err.Error()
+		out["message"] = "App 已创建，但空 Base 创建失败；App 未回滚。请保留 app_token，并按 retry.command 重试后再把 Base 移入同一 Workspace。"
+		out["retry"] = map[string]interface{}{
+			"command": fmt.Sprintf("lark-cli base +base-create --name %q", common.GetString(baseappBlankBaseBody(runtime), "name")),
+			"next":    fmt.Sprintf("lark-cli base +workspace-entity-add --workspace-token %s --type base --token <base_token> --to-last", workspaceToken),
+		}
+		out["app_token"] = appToken
+		return runtime.OutPartialFailure(out, nil)
+	}
+	baseToken := extractBasePermissionToken(base)
+	out["base"] = base
+	out["base_token"] = baseToken
+	out["base_created"] = true
+	out["completed_steps"] = []interface{}{"app_create", "base_create"}
+	if baseToken == "" {
+		out["status"] = "partial"
+		out["failed_step"] = "base_token_resolve"
+		out["message"] = "App 和空 Base 已创建，但 Base 创建响应缺少 base_token，CLI 无法继续移动；资源未回滚。"
+		out["retry"] = map[string]interface{}{"command": "lark-cli base +title-resolve --title <base_name>"}
+		return runtime.OutPartialFailure(out, nil)
+	}
+
+	if workspaceToken == "" {
+		out["status"] = "partial"
+		out["failed_step"] = "workspace_resolve"
+		out["message"] = "App 和空 Base 已创建，但响应中没有 Workspace token，CLI 无法自动移动 Base；资源未回滚。"
+		out["retry"] = map[string]interface{}{"command": fmt.Sprintf("lark-cli base +workspace-entity-add --workspace-token <workspace_token> --type base --token %s --to-last", baseToken)}
+		return runtime.OutPartialFailure(out, nil)
+	}
+	moveBody := map[string]interface{}{"entity_type": "base", "token": baseToken, "to_last": true}
+	entity, err := baseV3Call(runtime, "POST", baseV3Path("workspaces", workspaceToken, "entities"), nil, moveBody)
+	if err != nil {
+		out["status"] = "partial"
+		out["failed_step"] = "base_move"
+		out["cause"] = err.Error()
+		out["message"] = "App 和空 Base 已创建，但 Base 移入 App Workspace 失败；资源未回滚。再次执行 retry.command 即可继续，不要重复创建 App 或 Base。"
+		out["retry"] = map[string]interface{}{"command": fmt.Sprintf("lark-cli base +workspace-entity-add --workspace-token %s --type base --token %s --to-last", workspaceToken, baseToken)}
+		return runtime.OutPartialFailure(out, nil)
+	}
+	out["workspace_token"] = workspaceToken
+	out["workspace_entity"] = entity
+	out["base_moved"] = true
+	out["completed_steps"] = []interface{}{"app_create", "base_create", "base_move"}
+
+	if strings.TrimSpace(runtime.Str("table-name")) != "" {
+		renamedTable, _, renameErr := renameBaseDefaultTable(runtime, base)
+		if renameErr != nil {
+			out["status"] = "partial"
+			out["failed_step"] = "base_initial_table_rename"
+			out["cause"] = renameErr.Error()
+			out["message"] = "App 和空 Base 已创建，Base 也已移入同一 Workspace，但首张表重命名失败；资源未回滚。"
+			out["retry"] = map[string]interface{}{"command": fmt.Sprintf("lark-cli base +table-list --base-token %s", baseToken)}
+			return runtime.OutPartialFailure(out, nil)
+		}
+		out["table"] = renamedTable
+		out["completed_steps"] = []interface{}{"app_create", "base_create", "base_move", "base_initial_table_rename"}
+	}
+	out["status"] = "completed"
+	runtime.Out(out, nil)
 	return nil
 }
 
 func executeBaseappGet(runtime *common.RuntimeContext) error {
-	data, err := baseV3Call(runtime, "GET", baseV3Path("apps", runtime.Str("app-token")), baseappGetParams(runtime), nil)
+	data, err := baseV3Call(runtime, "GET", baseV3Path("base_apps", runtime.Str("app-token")), baseappGetParams(runtime), nil)
 	if err != nil {
 		return err
 	}
@@ -318,16 +400,12 @@ func executeBaseappGet(runtime *common.RuntimeContext) error {
 }
 
 func executeBaseappRename(runtime *common.RuntimeContext) error {
-	body := map[string]interface{}{"name": strings.TrimSpace(runtime.Str("name"))}
-	data, err := baseV3Call(runtime, "PATCH", baseV3Path("apps", runtime.Str("app-token")), nil, body)
+	body := map[string]interface{}{"new_title": strings.TrimSpace(runtime.Str("name"))}
+	data, err := runtime.CallAPITyped("PATCH", "/open-apis/drive/v1/files/"+runtime.Str("app-token"), map[string]interface{}{"type": "bitable"}, body)
 	if err != nil {
 		return err
 	}
-	if data == nil {
-		data = map[string]interface{}{}
-	}
-	data["updated"] = true
-	runtime.Out(data, nil)
+	runtime.Out(map[string]interface{}{"file": data, "updated": true, "app_token": runtime.Str("app-token"), "type": "bitable"}, nil)
 	return nil
 }
 
@@ -335,7 +413,7 @@ func executeBaseappRename(runtime *common.RuntimeContext) error {
 
 func dryRunBaseappPageList(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
 	return common.NewDryRunAPI().
-		GET("/open-apis/base/v3/apps/:app_token/pages").
+		GET("/open-apis/base/v3/base_apps/:app_token/pages").
 		Set("app_token", runtime.Str("app-token")).
 		Params(pagingParams(runtime))
 }
@@ -350,7 +428,7 @@ func baseappPageGetParams(runtime *common.RuntimeContext) map[string]interface{}
 
 func dryRunBaseappPageGet(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
 	return common.NewDryRunAPI().
-		GET("/open-apis/base/v3/apps/:app_token/pages/:page_id").
+		GET("/open-apis/base/v3/base_apps/:app_token/pages/:page_id").
 		Set("app_token", runtime.Str("app-token")).
 		Set("page_id", runtime.Str("page-id")).
 		Params(baseappPageGetParams(runtime))
@@ -372,14 +450,14 @@ func baseappPageCreateBody(runtime *common.RuntimeContext) map[string]interface{
 
 func dryRunBaseappPageCreate(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
 	return common.NewDryRunAPI().
-		POST("/open-apis/base/v3/apps/:app_token/pages").
+		POST("/open-apis/base/v3/base_apps/:app_token/pages").
 		Set("app_token", runtime.Str("app-token")).
 		Body(baseappPageCreateBody(runtime))
 }
 
 func dryRunBaseappPageRename(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
 	return common.NewDryRunAPI().
-		PATCH("/open-apis/base/v3/apps/:app_token/pages/:page_id").
+		PATCH("/open-apis/base/v3/base_apps/:app_token/pages/:page_id").
 		Set("app_token", runtime.Str("app-token")).
 		Set("page_id", runtime.Str("page-id")).
 		Body(map[string]interface{}{"name": strings.TrimSpace(runtime.Str("name"))})
@@ -387,7 +465,7 @@ func dryRunBaseappPageRename(_ context.Context, runtime *common.RuntimeContext) 
 
 func dryRunBaseappPageDelete(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
 	return common.NewDryRunAPI().
-		DELETE("/open-apis/base/v3/apps/:app_token/pages/:page_id").
+		DELETE("/open-apis/base/v3/base_apps/:app_token/pages/:page_id").
 		Set("app_token", runtime.Str("app-token")).
 		Set("page_id", runtime.Str("page-id"))
 }
@@ -395,7 +473,7 @@ func dryRunBaseappPageDelete(_ context.Context, runtime *common.RuntimeContext) 
 // ── Page: execute ────────────────────────────────────────────────────
 
 func executeBaseappPageList(runtime *common.RuntimeContext) error {
-	data, err := baseV3Call(runtime, "GET", baseV3Path("apps", runtime.Str("app-token"), "pages"), pagingParams(runtime), nil)
+	data, err := baseV3Call(runtime, "GET", baseV3Path("base_apps", runtime.Str("app-token"), "pages"), pagingParams(runtime), nil)
 	if err != nil {
 		return err
 	}
@@ -404,7 +482,7 @@ func executeBaseappPageList(runtime *common.RuntimeContext) error {
 }
 
 func executeBaseappPageGet(runtime *common.RuntimeContext) error {
-	data, err := baseV3Call(runtime, "GET", baseV3Path("apps", runtime.Str("app-token"), "pages", runtime.Str("page-id")), baseappPageGetParams(runtime), nil)
+	data, err := baseV3Call(runtime, "GET", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id")), baseappPageGetParams(runtime), nil)
 	if err != nil {
 		return err
 	}
@@ -413,7 +491,10 @@ func executeBaseappPageGet(runtime *common.RuntimeContext) error {
 }
 
 func executeBaseappPageCreate(runtime *common.RuntimeContext) error {
-	data, err := baseV3Call(runtime, "POST", baseV3Path("apps", runtime.Str("app-token"), "pages"), nil, baseappPageCreateBody(runtime))
+	if err := ensureUniqueAppPageName(runtime, strings.TrimSpace(runtime.Str("name")), ""); err != nil {
+		return err
+	}
+	data, err := baseV3Call(runtime, "POST", baseV3Path("base_apps", runtime.Str("app-token"), "pages"), nil, baseappPageCreateBody(runtime))
 	if err != nil {
 		return err
 	}
@@ -422,8 +503,11 @@ func executeBaseappPageCreate(runtime *common.RuntimeContext) error {
 }
 
 func executeBaseappPageRename(runtime *common.RuntimeContext) error {
+	if err := ensureUniqueAppPageName(runtime, strings.TrimSpace(runtime.Str("name")), runtime.Str("page-id")); err != nil {
+		return err
+	}
 	body := map[string]interface{}{"name": strings.TrimSpace(runtime.Str("name"))}
-	data, err := baseV3Call(runtime, "PATCH", baseV3Path("apps", runtime.Str("app-token"), "pages", runtime.Str("page-id")), nil, body)
+	data, err := baseV3Call(runtime, "PATCH", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id")), nil, body)
 	if err != nil {
 		return err
 	}
@@ -431,8 +515,53 @@ func executeBaseappPageRename(runtime *common.RuntimeContext) error {
 	return nil
 }
 
+func ensureUniqueAppPageName(runtime *common.RuntimeContext, name, excludePageID string) error {
+	pageToken := ""
+	for {
+		params := map[string]interface{}{"page_size": 100}
+		if pageToken != "" {
+			params["page_token"] = pageToken
+		}
+		data, err := baseV3Call(runtime, "GET", baseV3Path("base_apps", runtime.Str("app-token"), "pages"), params, nil)
+		if err != nil {
+			return err
+		}
+		for _, page := range appPageItems(data) {
+			pageID := firstNonEmpty(common.GetString(page, "page_id"), common.GetString(page, "id"))
+			if pageID == strings.TrimSpace(excludePageID) {
+				continue
+			}
+			if strings.EqualFold(strings.TrimSpace(common.GetString(page, "name")), name) {
+				return errs.NewValidationError(errs.SubtypeInvalidArgument, "同一应用内 Page 名称必须唯一，已存在名为 %q 的页面", name).WithParam("--name")
+			}
+		}
+		hasMore, _ := data["has_more"].(bool)
+		pageToken = firstNonEmpty(common.GetString(data, "page_token"), common.GetString(data, "next_page_token"))
+		if !hasMore || pageToken == "" {
+			return nil
+		}
+	}
+}
+
+func appPageItems(data map[string]interface{}) []map[string]interface{} {
+	for _, key := range []string{"items", "pages"} {
+		raw, ok := data[key].([]interface{})
+		if !ok {
+			continue
+		}
+		items := make([]map[string]interface{}, 0, len(raw))
+		for _, item := range raw {
+			if page, ok := item.(map[string]interface{}); ok {
+				items = append(items, page)
+			}
+		}
+		return items
+	}
+	return nil
+}
+
 func executeBaseappPageDelete(runtime *common.RuntimeContext) error {
-	_, err := baseV3Call(runtime, "DELETE", baseV3Path("apps", runtime.Str("app-token"), "pages", runtime.Str("page-id")), nil, nil)
+	_, err := baseV3Call(runtime, "DELETE", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id")), nil, nil)
 	if err != nil {
 		return err
 	}
@@ -448,7 +577,7 @@ func dryRunAppBlockList(_ context.Context, runtime *common.RuntimeContext) *comm
 		params["type"] = blockType
 	}
 	return common.NewDryRunAPI().
-		GET("/open-apis/base/v3/apps/:app_token/pages/:page_id/blocks").
+		GET("/open-apis/base/v3/base_apps/:app_token/pages/:page_id/blocks").
 		Set("app_token", runtime.Str("app-token")).
 		Set("page_id", runtime.Str("page-id")).
 		Params(params)
@@ -456,7 +585,7 @@ func dryRunAppBlockList(_ context.Context, runtime *common.RuntimeContext) *comm
 
 func dryRunAppBlockGet(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
 	return common.NewDryRunAPI().
-		GET("/open-apis/base/v3/apps/:app_token/pages/:page_id/blocks/:block_id").
+		GET("/open-apis/base/v3/base_apps/:app_token/pages/:page_id/blocks/:block_id").
 		Set("app_token", runtime.Str("app-token")).
 		Set("page_id", runtime.Str("page-id")).
 		Set("block_id", runtime.Str("block-id")).
@@ -469,7 +598,7 @@ func dryRunAppBlockCreate(_ context.Context, runtime *common.RuntimeContext) *co
 		body = map[string]interface{}{}
 	}
 	return common.NewDryRunAPI().
-		POST("/open-apis/base/v3/apps/:app_token/pages/:page_id/blocks").
+		POST("/open-apis/base/v3/base_apps/:app_token/pages/:page_id/blocks").
 		Set("app_token", runtime.Str("app-token")).
 		Set("page_id", runtime.Str("page-id")).
 		Params(userIDTypeParams(runtime)).
@@ -482,7 +611,7 @@ func dryRunAppBlockUpdate(_ context.Context, runtime *common.RuntimeContext) *co
 		body = map[string]interface{}{}
 	}
 	return common.NewDryRunAPI().
-		PATCH("/open-apis/base/v3/apps/:app_token/pages/:page_id/blocks/:block_id").
+		PATCH("/open-apis/base/v3/base_apps/:app_token/pages/:page_id/blocks/:block_id").
 		Set("app_token", runtime.Str("app-token")).
 		Set("page_id", runtime.Str("page-id")).
 		Set("block_id", runtime.Str("block-id")).
@@ -497,7 +626,7 @@ func executeAppBlockList(runtime *common.RuntimeContext) error {
 	if blockType := strings.TrimSpace(runtime.Str("type")); blockType != "" {
 		params["type"] = blockType
 	}
-	data, err := baseV3Call(runtime, "GET", baseV3Path("apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks"), params, nil)
+	data, err := baseV3Call(runtime, "GET", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks"), params, nil)
 	if err != nil {
 		return err
 	}
@@ -506,7 +635,7 @@ func executeAppBlockList(runtime *common.RuntimeContext) error {
 }
 
 func executeAppBlockGet(runtime *common.RuntimeContext) error {
-	data, err := baseV3Call(runtime, "GET", baseV3Path("apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks", runtime.Str("block-id")), userIDTypeParams(runtime), nil)
+	data, err := baseV3Call(runtime, "GET", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks", runtime.Str("block-id")), userIDTypeParams(runtime), nil)
 	if err != nil {
 		return err
 	}
@@ -515,11 +644,16 @@ func executeAppBlockGet(runtime *common.RuntimeContext) error {
 }
 
 func executeAppBlockCreate(runtime *common.RuntimeContext) error {
+	if strings.EqualFold(strings.TrimSpace(runtime.Str("type")), "list") {
+		if err := validateListBaseWorkspace(runtime); err != nil {
+			return err
+		}
+	}
 	body, err := appBlockBody(runtime, true)
 	if err != nil {
 		return err
 	}
-	data, err := baseV3Call(runtime, "POST", baseV3Path("apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks"), userIDTypeParams(runtime), body)
+	data, err := baseV3Call(runtime, "POST", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks"), userIDTypeParams(runtime), body)
 	if err != nil {
 		return err
 	}
@@ -527,12 +661,85 @@ func executeAppBlockCreate(runtime *common.RuntimeContext) error {
 	return nil
 }
 
+func validateListBaseWorkspace(runtime *common.RuntimeContext) error {
+	raw := strings.TrimSpace(runtime.Str("data-config"))
+	if raw == "" {
+		return nil
+	}
+	cfg, err := parseJSONObject(newParseCtx(runtime), raw, "data-config")
+	if err != nil {
+		return err
+	}
+	baseToken := strings.TrimSpace(common.GetString(cfg, "base_token"))
+	if baseToken == "" {
+		return nil
+	}
+	app, err := baseV3Call(runtime, "GET", baseV3Path("base_apps", runtime.Str("app-token")), nil, nil)
+	if err != nil {
+		return err
+	}
+	for _, token := range stringValues(app["base_tokens"]) {
+		if token == baseToken {
+			return nil
+		}
+	}
+	workspaceToken := strings.TrimSpace(common.GetString(app, "workspace_token"))
+	if workspaceToken == "" {
+		return errs.NewValidationError(errs.SubtypeInvalidArgument, "无法确认列表 Base 与 App 是否位于同一 Workspace：App 响应缺少 workspace_token").WithParam("--data-config")
+	}
+	pageToken := ""
+	for {
+		params := map[string]interface{}{"page_size": 100, "type": "base"}
+		if pageToken != "" {
+			params["page_token"] = pageToken
+		}
+		entities, err := baseV3Call(runtime, "GET", baseV3Path("workspaces", workspaceToken, "entities"), params, nil)
+		if err != nil {
+			return err
+		}
+		if workspaceContainsBase(entities, baseToken) {
+			return nil
+		}
+		hasMore, _ := entities["has_more"].(bool)
+		pageToken = firstNonEmpty(common.GetString(entities, "page_token"), common.GetString(entities, "next_page_token"))
+		if !hasMore || pageToken == "" {
+			break
+		}
+	}
+	return errs.NewValidationError(errs.SubtypeInvalidArgument, "列表组件只能选择 App 所在 Workspace 内的一个 Base；%s 不在当前 Workspace", baseToken).WithParam("--data-config")
+}
+
+func stringValues(raw interface{}) []string {
+	values, _ := raw.([]interface{})
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if text, ok := value.(string); ok {
+			out = append(out, strings.TrimSpace(text))
+		}
+	}
+	return out
+}
+
+func workspaceContainsBase(data map[string]interface{}, baseToken string) bool {
+	for _, key := range []string{"items", "entities"} {
+		items, _ := data[key].([]interface{})
+		for _, raw := range items {
+			entity, _ := raw.(map[string]interface{})
+			token := firstNonEmpty(common.GetString(entity, "token"), common.GetString(entity, "entity_token"))
+			if strings.TrimSpace(token) == baseToken {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func executeAppBlockUpdate(runtime *common.RuntimeContext) error {
 	body, err := appBlockBody(runtime, false)
 	if err != nil {
 		return err
 	}
-	data, err := baseV3Call(runtime, "PATCH", baseV3Path("apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks", runtime.Str("block-id")), userIDTypeParams(runtime), body)
+	data, err := baseV3Call(runtime, "PATCH", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks", runtime.Str("block-id")), userIDTypeParams(runtime), body)
 	if err != nil {
 		return err
 	}

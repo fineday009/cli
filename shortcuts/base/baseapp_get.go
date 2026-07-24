@@ -11,7 +11,7 @@ import (
 
 var BaseAppGet = common.Shortcut{
 	Service:     "base",
-	Command:     "+baseapp-get",
+	Command:     "+app-get",
 	Description: "Get BaseApp info",
 	Risk:        "read",
 	Scopes:      []string{"base:appmode:read"},
@@ -22,9 +22,9 @@ var BaseAppGet = common.Shortcut{
 		{Name: "with-components", Type: "bool", Desc: "include page blocks in the response; implies a heavier payload"},
 	},
 	Tips: []string{
-		"lark-cli base +baseapp-get --app-token <app_token> --with-pages",
+		"lark-cli base +app-get --app-token <app_token> --with-pages",
 		"base_tokens tells you which bases back this app; table/field/record commands take those tokens.",
-		"For block-level detail prefer +baseapp-page-get --with-components or +app-block-list over --with-components here.",
+		"For block-level detail prefer +app-page-get --with-components or +app-block-list over --with-components here.",
 	},
 	DryRun: dryRunBaseappGet,
 	Execute: func(ctx context.Context, runtime *common.RuntimeContext) error {

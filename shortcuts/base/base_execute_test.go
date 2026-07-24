@@ -163,6 +163,62 @@ func TestBaseWorkspaceExecuteCreate(t *testing.T) {
 	}
 }
 
+func TestBaseAppCreateOrchestrationSuccess(t *testing.T) {
+	factory, stdout, reg := newExecuteFactory(t)
+	reg.Register(&httpmock.Stub{
+		Method: "POST",
+		URL:    "/open-apis/base/v3/base_apps",
+		Body:   map[string]interface{}{"code": 0, "data": map[string]interface{}{"app_token": "app_x", "workspace_token": "ws_x"}},
+	})
+	reg.Register(&httpmock.Stub{
+		Method: "POST",
+		URL:    "/open-apis/base/v3/bases",
+		Body:   map[string]interface{}{"code": 0, "data": map[string]interface{}{"base_token": "bas_x"}},
+	})
+	reg.Register(&httpmock.Stub{
+		Method: "POST",
+		URL:    "/open-apis/base/v3/workspaces/ws_x/entities",
+		Body:   map[string]interface{}{"code": 0, "data": map[string]interface{}{"entity_id": "ent_x"}},
+	})
+	if err := runShortcut(t, BaseAppCreate, []string{"+app-create", "--name", "Sales"}, factory, stdout); err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	data := decodeBaseEnvelope(t, stdout)
+	if data["status"] != "completed" || data["app_created"] != true || data["base_created"] != true || data["base_moved"] != true {
+		t.Fatalf("unexpected result: %#v", data)
+	}
+}
+
+func TestBaseAppCreateReturnsPartialResultWhenMoveFails(t *testing.T) {
+	factory, stdout, reg := newExecuteFactory(t)
+	reg.Register(&httpmock.Stub{
+		Method: "POST",
+		URL:    "/open-apis/base/v3/base_apps",
+		Body:   map[string]interface{}{"code": 0, "data": map[string]interface{}{"app_token": "app_x", "workspace_token": "ws_x"}},
+	})
+	reg.Register(&httpmock.Stub{
+		Method: "POST",
+		URL:    "/open-apis/base/v3/bases",
+		Body:   map[string]interface{}{"code": 0, "data": map[string]interface{}{"base_token": "bas_x"}},
+	})
+	reg.Register(&httpmock.Stub{
+		Method: "POST",
+		URL:    "/open-apis/base/v3/workspaces/ws_x/entities",
+		Body:   map[string]interface{}{"code": 1255001, "msg": "move failed"},
+	})
+	err := runShortcut(t, BaseAppCreate, []string{"+app-create", "--name", "Sales"}, factory, stdout)
+	var partial *output.PartialFailureError
+	if !errors.As(err, &partial) {
+		t.Fatalf("err=%T %v, want PartialFailureError", err, err)
+	}
+	raw := stdout.String()
+	for _, want := range []string{`"status": "partial"`, `"failed_step": "base_move"`, `"app_token": "app_x"`, `"base_token": "bas_x"`, "+workspace-entity-add"} {
+		if !strings.Contains(raw, want) {
+			t.Fatalf("partial output missing %q:\n%s", want, raw)
+		}
+	}
+}
+
 func TestBaseWorkspaceExecuteCreateWithFields(t *testing.T) {
 	oldDelay := baseCreateDefaultTableDeleteDelay
 	baseCreateDefaultTableDeleteDelay = 0
