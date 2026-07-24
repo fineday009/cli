@@ -24,6 +24,7 @@ metadata:
 - 用户要**复制文档 / 创建副本 / 另存为副本**时，使用 `lark-cli drive files copy`。先用 `lark-cli schema drive.files.copy --format json` 确认参数；如果来源是 wiki URL/token，先用 `lark-cli drive +inspect` 获取底层 `token` 和 `type`，不要把 wiki token 直接当 `file_token`。`params.file_token` 传源文档 token，`data.folder_token` 传目标文件夹 token，`data.name` 传副本名称，`data.type` 传源文件类型（如 `docx` / `sheet` / `bitable` / `slides`）。示例：`lark-cli drive files copy --params '{"file_token":"<DOC_TOKEN>"}' --data '{"folder_token":"<FOLDER_TOKEN>","name":"<COPY_NAME>","type":"docx"}'`。如返回 `confirmation_required`，按 `lark-shared` 高风险审批协议向用户确认后，在原命令末尾追加 `--yes` 重试。
 - 用户要**识别飞书 / doubao 云空间 URL 的类型和 token**时，可以先按 URL 路径形态做轻量判断；当路径已明确指向 docx / sheet / bitable / slides / file / folder 等资源时，可直接提取对应 token/type。传入 wiki URL、需要识别标题或 canonical URL、URL/token 有歧义，或后续操作依赖底层真实资源时，再使用 `lark-cli drive +inspect --url '<url>'` 进行识别；具体用法、失败处理和边界见 [`references/lark-drive-inspect.md`](references/lark-drive-inspect.md)。
 - 高风险写操作（删除、公开权限修改、owner 转移、版本删除/回滚、批量移动/覆盖/同步）必须同时满足三个条件才执行：目标已解析为该操作可直接使用的执行对象，执行细节已明确到可直接调用命令（例如删除的 file-token/type、公开权限修改的共享范围、owner 转移的目标 owner、版本删除/回滚的 version id、移动/覆盖/同步的目标位置和冲突策略），且用户在本轮明确确认执行这些具体目标和执行细节。用户只说“删除没用的文件”“开放/共享给大家”“改成开放”“覆盖/移动这些”只表示目标状态；先只读发现并列出候选、权限档位或执行方案，停止等待用户确认。
+- 用户要**删除 BaseApp 应用本体**时，使用 `lark-cli drive +delete --file-token <app_token> --type baseapp --yes`；shortcut 会把 `baseapp` 归一成 Drive `type=bitable`，底层和删除 Base 完全一样。直接调用原生 Drive files delete 时也传 `type=bitable`。不要用 `base +workspace-entity-remove` 代替删除，那个命令只解除 Workspace 目录关系。
 - 用户要**检查 / 治理文档权限、公开范围、链接分享、外部访问、复制下载权限、密级标签、owner 转移**，或要”权限风险报告、收紧权限、申请查看 / 编辑权限、转移 / 批量转移 owner”，必须先阅读 [`references/lark-drive-workflow.md`](references/lark-drive-workflow.md)，再按其中 `Workflow Registry` 进入 [`permission_governance`](references/lark-drive-workflow-permission-governance.md) workflow。
 - 用户要为指定飞书文档**设置 / 修改密级标签（secure label）**，或查询当前用户可用的密级标签，直接读取 [`references/lark-drive-secure-label.md`](references/lark-drive-secure-label.md)；这是 Drive 文件治理能力。
 - 用户要**整理云盘 / 文件夹 / 文档库 / 知识库 / 个人文档库**，或要“盘点目录结构、找出未归档/临时/重复/空目录、生成整理方案”，必须先阅读 [`references/lark-drive-workflow.md`](references/lark-drive-workflow.md)，再按其中 `Workflow Registry` 进入 [`knowledge_organize`](references/lark-drive-workflow-knowledge-organize.md) workflow。默认只生成方案；创建目录、移动资源、申请权限都必须单独确认。
@@ -85,6 +86,7 @@ lark-cli drive +inspect --url 'https://xxx.feishu.cn/wiki/wikcnXXX'
 | 添加局部评论（划词评论） | `file_token` | 传 `--block-id` 时，`drive +add-comment` 会创建局部评论；`docx` 支持文本定位或 block_id，`sheet` 使用 `<sheetId>!<cell>`，`slides` 使用 `<slide-block-type>!<xml-id>`；Base 只有记录局部评论，定位为 file_token(base_token) + `--block-id <table-id>!<record-id>!<view-id>` |
 | 添加全文评论 | `file_token` | 不传 `--block-id` 时，`drive +add-comment` 默认创建全文评论；支持 `docx`、旧版 `doc` URL、白名单扩展名的 Drive file，以及最终解析为 `doc`/`docx`/`file` 的 wiki URL |
 | 下载文件 | `file_token` | 从文件 URL 中直接提取 |
+| 删除 Base / BaseApp | Base 用 `base_token`，BaseApp 用 `app_token` | 都走 `drive +delete`；Base 传 `--type bitable`，BaseApp 可传 `--type baseapp`（shortcut 会归一为 `bitable`） |
 | 上传文件 | `folder_token` / `wiki_node_token` | 目标位置的 token |
 | 列出文档评论 | URL 或 `file_token` | 优先使用 `drive +list-comments --url '<url>'`；wiki URL/token 会自动解析到底层真实 token/type；妙搭 apps URL 使用 `/page/<token>` |
 
@@ -155,7 +157,7 @@ Shortcut 是对常用操作的高级封装（`lark-cli drive +<verb> [flags]`）
 | [`+version-revert`](references/lark-drive-version-revert.md) | 回滚到指定历史版本。 |
 | [`+version-delete`](references/lark-drive-version-delete.md) | 删除指定历史版本。 |
 | [`+move`](references/lark-drive-move.md) | 移动 Drive 文件或文件夹；Wiki 层级移动走 `lark-wiki`。 |
-| [`+delete`](references/lark-drive-delete.md) | 删除 Drive 文件或文件夹，文件夹删除会轮询异步任务。 |
+| [`+delete`](references/lark-drive-delete.md) | 删除 Drive 文件、文件夹、Base 或 BaseApp，异步删除会轮询任务。 |
 | [`+task_result`](references/lark-drive-task-result.md) | 查询 import/export/move/delete 等异步任务结果。 |
 | [`+inspect`](references/lark-drive-inspect.md) | 检视 URL 的类型、标题和 canonical token；wiki URL 会自动解包到底层文档。 |
 | [`+apply-permission`](references/lark-drive-apply-permission.md) | 以 user 身份向文档 owner 申请访问权限。 |

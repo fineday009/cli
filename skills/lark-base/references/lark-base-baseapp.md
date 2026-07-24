@@ -7,7 +7,7 @@
 | 对象 | 标识 | 命令 |
 |---|---|---|
 | Workspace | `workspace_token` | `+workspace-create` / `+workspace-entity-*` |
-| BaseApp | `app_token` | `+app-create/get/rename` |
+| BaseApp | `app_token` | `+app-create/get/rename`；删除见下方 |
 | Base | `base_token` | `+app-create` 返回；表、字段、记录命令使用它 |
 | Page | `page_id` | `+app-page-list/get/create/update/delete` |
 | Block | `block_id` | `+app-block-list/get/create/update` |
@@ -45,6 +45,16 @@ lark-cli base +app-rename --app-token <app_token> --name "新名称"
 ```
 
 BaseApp 与 Base 在 Drive 文件接口中都使用 `type=bitable`。`+app-rename` 复用 Drive `files patch`；它不会重命名关联 Base。
+
+## 删除应用
+
+```bash
+lark-cli drive +delete --file-token <app_token> --type baseapp --yes
+```
+
+- 删除 BaseApp 应用本体需要切到 `lark-drive`。
+- CLI 参数对外使用 `--type baseapp` 表达意图；底层 Drive 请求发送 `type=bitable`，和删除 Base 本体一致。
+- 这是高风险写操作；执行前先确认 `app_token` 来自 `+app-get` 或 `+workspace-entity-list`。
 
 ## Page
 
