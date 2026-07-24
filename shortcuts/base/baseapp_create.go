@@ -16,8 +16,7 @@ var BaseAppCreate = common.Shortcut{
 	Risk:        "write",
 	Scopes: []string{
 		"base:appmode:create",
-		"base:app:create",
-		"base:workspace:write",
+		"base:workspace:update",
 	},
 	AuthTypes: authTypes(),
 	Flags: []common.Flag{

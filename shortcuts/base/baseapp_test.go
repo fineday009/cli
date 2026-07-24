@@ -194,11 +194,11 @@ func TestBaseappRisksAndScopes(t *testing.T) {
 		"+workspace-entity-add":    {BaseWorkspaceEntityAdd, "write", "base:workspace:update"},
 		"+workspace-entity-remove": {BaseWorkspaceEntityRemove, "high-risk-write", "base:workspace:update"},
 		"+app-page-delete":         {BaseAppPageDelete, "high-risk-write", "base:appmode_page:delete"},
-		"+app-rename":              {BaseAppRename, "write", "base:app:update"},
+		"+app-rename":              {BaseAppRename, "write", "base:appmode:update"},
 		"+app-block-create":        {BaseAppBlockCreate, "write", "base:appmode_block:create"},
 		"+app-block-get-data":      {BaseAppBlockGetData, "read", "base:dashboard:read"},
 	}
-	if got := strings.Join(BaseAppCreate.Scopes, ","); got != "base:appmode:create,base:app:create,base:workspace:write" {
+	if got := strings.Join(BaseAppCreate.Scopes, ","); got != "base:appmode:create,base:workspace:update" {
 		t.Errorf("+app-create scopes=%v", BaseAppCreate.Scopes)
 	}
 	for name, tc := range cases {

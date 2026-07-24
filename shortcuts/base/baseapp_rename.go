@@ -14,7 +14,7 @@ var BaseAppRename = common.Shortcut{
 	Command:     "+app-rename",
 	Description: "Rename a BaseApp",
 	Risk:        "write",
-	Scopes:      []string{"base:app:update"},
+	Scopes:      []string{"base:appmode:update"},
 	AuthTypes:   authTypes(),
 	Flags: []common.Flag{
 		appTokenFlag(true),
