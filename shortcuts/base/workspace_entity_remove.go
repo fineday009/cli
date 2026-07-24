@@ -14,7 +14,7 @@ var BaseWorkspaceEntityRemove = common.Shortcut{
 	Command:     "+workspace-entity-remove",
 	Description: "Remove a base or BaseApp from a workspace",
 	Risk:        "high-risk-write",
-	Scopes:      []string{"base:workspace:write"},
+	Scopes:      []string{"base:workspace:update"},
 	AuthTypes:   authTypes(),
 	Flags: []common.Flag{
 		workspaceTokenFlag(true),

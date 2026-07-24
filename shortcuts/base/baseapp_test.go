@@ -191,7 +191,8 @@ func TestBaseappRisksAndScopes(t *testing.T) {
 		risk     string
 		scope    string
 	}{
-		"+workspace-entity-remove": {BaseWorkspaceEntityRemove, "high-risk-write", "base:workspace:write"},
+		"+workspace-entity-add":    {BaseWorkspaceEntityAdd, "write", "base:workspace:update"},
+		"+workspace-entity-remove": {BaseWorkspaceEntityRemove, "high-risk-write", "base:workspace:update"},
 		"+app-page-delete":         {BaseAppPageDelete, "high-risk-write", "base:appmode_page:delete"},
 		"+app-rename":              {BaseAppRename, "write", "base:app:update"},
 		"+app-block-create":        {BaseAppBlockCreate, "write", "base:appmode_block:create"},

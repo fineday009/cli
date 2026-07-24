@@ -14,7 +14,7 @@ var BaseWorkspaceEntityAdd = common.Shortcut{
 	Command:     "+workspace-entity-add",
 	Description: "Add a base or BaseApp to a workspace",
 	Risk:        "write",
-	Scopes:      []string{"base:workspace:write"},
+	Scopes:      []string{"base:workspace:update"},
 	AuthTypes:   authTypes(),
 	Flags: []common.Flag{
 		workspaceTokenFlag(true),
