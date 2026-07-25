@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Lark Technologies Pte. Ltd.
 # SPDX-License-Identifier: MIT
 #
-# larkenv —— 一个脚本搞定 lark-cli 的 boe / pre / online 环境切换。
+# larkenv —— 一个脚本搞定 lark-cli 的 boe / pre / ppe / online 环境切换。
 #
 #   ./env/larkenv setup          编译 + 安装 + 自动配 PATH（只需跑这一次）
 #   larkenv init boe <app-id>    一条龙：配 app（不弹选择）+ 固定 user 身份 + 登录
@@ -11,15 +11,17 @@
 #   larkenv qr <登录URL>          手动把某个 URL 转成终端二维码
 #   larkenv boe <任何 lark-cli 命令>
 #   larkenv pre  <任何 lark-cli 命令>
+#   larkenv ppe  <任何 lark-cli 命令>
 #   larkenv online <任何 lark-cli 命令>
 #
 # 可选：
-#   LARK_LANE=<泳道> larkenv boe ...     指定泳道（注入 X-TT-ENV 头）
+#   LARK_LANE=<泳道> larkenv ...         指定泳道（注入 X-TT-ENV 头）
 #   LARK_CLI_SHOW_LOGID=1 larkenv ...    打印所有请求的 x-tt-logid（默认只在出错时打）
 #   LARK_CLI_SHOW_REQ_DETAIL=1 larkenv ... 打印每次请求/响应的完整 header 和 body（凭证已脱敏）
 #   LARK_CLI_DEBUG_HEADERS=1 larkenv ... 只打印出站 header，不打 body
 #
-# 三个环境的配置和登录态完全隔离在 ~/.lark-cli-env/config/{boe,pre,online}，互不影响。
+# boe / pre / online 的配置和登录态隔离在 ~/.lark-cli-env/config/{boe,pre,online}。
+# ppe 复用正式 CLI 的默认配置和用户登录态，使用 pre endpoint 和 PPE headers。
 set -euo pipefail
 
 BIN_DIR="${LARK_CLI_ENV_BIN:-$HOME/.local/bin}"
@@ -77,14 +79,33 @@ do_setup() {
 
   larkenv boe base +table-list --base-token <t>
   larkenv pre  wiki +node-get --token <url>
+  larkenv ppe  drive +search --query xxx
   larkenv online drive +search --query xxx
 
 EOF
 }
 
+append_extra_header() {
+	local header="$1"
+	case "; ${LARKSUITE_CLI_EXTRA_HEADERS:-};" in
+	*"; $header;"*) return ;;
+	esac
+	if [ -n "${LARKSUITE_CLI_EXTRA_HEADERS:-}" ]; then
+		export LARKSUITE_CLI_EXTRA_HEADERS="${LARKSUITE_CLI_EXTRA_HEADERS}; $header"
+	else
+		export LARKSUITE_CLI_EXTRA_HEADERS="$header"
+	fi
+}
+
 # ---------- 环境变量注入 ----------
 apply_env() {
-	export LARKSUITE_CLI_CONFIG_DIR="$CONFIG_ROOT/config/$1"
+	if [ "$1" = "ppe" ]; then
+		# PPE 与正式环境使用同一套应用配置和用户登录态。显式 unset，
+		# 避免调用方继承的配置目录把 PPE 再次隔离。
+		unset LARKSUITE_CLI_CONFIG_DIR
+	else
+		export LARKSUITE_CLI_CONFIG_DIR="$CONFIG_ROOT/config/$1"
+	fi
 	case "$1" in
 	boe)
 		export LARKSUITE_CLI_ENDPOINT_DOMAIN="feishu-boe.cn"
@@ -94,6 +115,13 @@ apply_env() {
 	pre)
 		export LARKSUITE_CLI_ENDPOINT_DOMAIN="feishu-pre.cn"
 		;;
+	ppe)
+		# PPE 复用正式登录态，但请求明确发往 pre 网关，并通过 headers
+		# 选择 pre_release 环境和目标泳道。
+		export LARKSUITE_CLI_ENDPOINT_DOMAIN="feishu-pre.cn"
+		append_extra_header "x-use-ppe:1"
+		append_extra_header "env:pre_release"
+		;;
 	online)
 		# 不覆盖 endpoint，走开源默认 feishu.cn / larksuite.com；仅隔离配置目录
 		;;
@@ -101,13 +129,11 @@ apply_env() {
 	# Append rather than overwrite, so a caller-supplied LARKSUITE_CLI_EXTRA_HEADERS
 	# (e.g. "x-use-boe: 1") survives alongside LARK_LANE.
 	if [ -n "${LARK_LANE:-}" ]; then
-		if [ -n "${LARKSUITE_CLI_EXTRA_HEADERS:-}" ]; then
-			export LARKSUITE_CLI_EXTRA_HEADERS="${LARKSUITE_CLI_EXTRA_HEADERS}; X-TT-ENV: $LARK_LANE"
-		else
-			export LARKSUITE_CLI_EXTRA_HEADERS="X-TT-ENV: $LARK_LANE"
-		fi
+		append_extra_header "X-TT-ENV: $LARK_LANE"
 	fi
-	mkdir -p "$LARKSUITE_CLI_CONFIG_DIR"
+	if [ -n "${LARKSUITE_CLI_CONFIG_DIR:-}" ]; then
+		mkdir -p "$LARKSUITE_CLI_CONFIG_DIR"
+	fi
 }
 
 # json_field extracts a top-level string field from a JSON object on stdin.
@@ -178,7 +204,7 @@ init)
 	case $# in
 	2 | 3) ;;
 	*)
-		echo "用法: larkenv init <boe|pre|online> [app-id]" >&2
+		echo "用法: larkenv init <boe|pre|ppe|online> [app-id]" >&2
 		exit 1
 		;;
 	esac
@@ -206,14 +232,14 @@ init)
 login)
 	# 单独补登录：app 配好了、只是授权失败或过期时用这个，不用重跑 init。
 	[ $# -eq 2 ] || {
-		echo "用法: larkenv login <boe|pre|online>" >&2
+		echo "用法: larkenv login <boe|pre|ppe|online>" >&2
 		exit 1
 	}
 	require_bin
 	apply_env "$2"
 	do_login
 	;;
-boe | pre | online)
+boe | pre | ppe | online)
 	require_bin
 	env_name="$1"
 	shift
@@ -224,7 +250,7 @@ boe | pre | online)
 	usage 0
 	;;
 *)
-	echo "未知命令 '$1'（可用: boe / pre / online / setup / init / login / qr）" >&2
+	echo "未知命令 '$1'（可用: boe / pre / ppe / online / setup / init / login / qr）" >&2
 	exit 1
 	;;
 esac

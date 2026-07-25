@@ -13,10 +13,11 @@ Usage:
   env/codex-dev-lark.sh [options] [--] [codex args or initial prompt]
 
 Options:
-  --lane <lane>       BOE lane injected through LARK_LANE.
+  --lane <lane>       Lane injected through LARK_LANE.
                       Default: boe_bitable_bk11
-  --env <env>         larkenv target: boe, pre, or online.
+  --env <env>         larkenv target: boe, pre, ppe, or online.
                       Default: boe
+  --ppe, --use-ppe    Use PPE: pre endpoint plus x-use-ppe:1 and env:pre_release headers.
   --skill <name>      Link only one local skill, e.g. lark-base.
                       Default: all lark-* skills under ./skills
   --no-build          Reuse the current ./lark-cli binary instead of rebuilding.
@@ -24,6 +25,7 @@ Options:
 
 Examples:
   env/codex-dev-lark.sh
+  env/codex-dev-lark.sh --lane boe_larkcli_baseapp --use-ppe
   env/codex-dev-lark.sh --skill lark-base
   env/codex-dev-lark.sh -- "用 Base Skill 查一下这个 workspace"
 USAGE
@@ -39,8 +41,10 @@ repo_root="$(cd "$script_dir/.." && pwd)"
 
 lane="${LARK_LANE:-boe_bitable_bk11}"
 target_env="${LARKENV_TARGET:-boe}"
+target_env_explicit=0
 skill_filter="all"
 do_build=1
+use_ppe=0
 codex_args=()
 
 while [ $# -gt 0 ]; do
@@ -53,12 +57,17 @@ while [ $# -gt 0 ]; do
 	--env)
 		[ $# -ge 2 ] || die "--env requires a value"
 		target_env="$2"
+		target_env_explicit=1
 		shift 2
 		;;
 	--skill)
 		[ $# -ge 2 ] || die "--skill requires a value"
 		skill_filter="$2"
 		shift 2
+		;;
+	--ppe | --use-ppe)
+		use_ppe=1
+		shift
 		;;
 	--no-build)
 		do_build=0
@@ -80,9 +89,19 @@ while [ $# -gt 0 ]; do
 	esac
 done
 
+if [ "$use_ppe" -eq 1 ] && [ "$target_env_explicit" -eq 0 ]; then
+	target_env="ppe"
+fi
+if [ "$use_ppe" -eq 1 ]; then
+	case "$target_env" in
+	ppe) ;;
+	*) die "--use-ppe uses the pre endpoint; remove --env $target_env or pass --env ppe" ;;
+	esac
+fi
+
 case "$target_env" in
-boe | pre | online) ;;
-*) die "--env must be one of: boe, pre, online" ;;
+boe | pre | ppe | online) ;;
+*) die "--env must be one of: boe, pre, ppe, online" ;;
 esac
 
 command -v codex >/dev/null 2>&1 || die "codex not found in PATH"
@@ -146,8 +165,45 @@ else
 	link_skill "$skill_filter"
 fi
 
+append_extra_header() {
+	local header="$1"
+	case "; ${LARKSUITE_CLI_EXTRA_HEADERS:-};" in
+	*"; $header;"*) return ;;
+	esac
+	if [ -n "${LARKSUITE_CLI_EXTRA_HEADERS:-}" ]; then
+		export LARKSUITE_CLI_EXTRA_HEADERS="${LARKSUITE_CLI_EXTRA_HEADERS}; $header"
+	else
+		export LARKSUITE_CLI_EXTRA_HEADERS="$header"
+	fi
+}
+
 cat >"$bin_dir/lark-cli" <<SHIM
 #!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$use_ppe" -eq 1 ]; then
+  case "; \${LARKSUITE_CLI_EXTRA_HEADERS:-};" in
+    *"; x-use-ppe:1;"*) ;;
+    *)
+      if [ -n "\${LARKSUITE_CLI_EXTRA_HEADERS:-}" ]; then
+        export LARKSUITE_CLI_EXTRA_HEADERS="\${LARKSUITE_CLI_EXTRA_HEADERS}; x-use-ppe:1"
+      else
+        export LARKSUITE_CLI_EXTRA_HEADERS="x-use-ppe:1"
+      fi
+      ;;
+  esac
+  case "; \${LARKSUITE_CLI_EXTRA_HEADERS:-};" in
+    *"; env:pre_release;"*) ;;
+    *)
+      if [ -n "\${LARKSUITE_CLI_EXTRA_HEADERS:-}" ]; then
+        export LARKSUITE_CLI_EXTRA_HEADERS="\${LARKSUITE_CLI_EXTRA_HEADERS}; env:pre_release"
+      else
+        export LARKSUITE_CLI_EXTRA_HEADERS="env:pre_release"
+      fi
+      ;;
+  esac
+fi
+
 exec env \\
   LARK_CLI_ENV_BIN="$bin_dir" \\
   LARK_LANE="$lane" \\
@@ -161,10 +217,17 @@ echo "==> Starting Codex with dev lark-cli and project-local skills" >&2
 echo "    PATH prefix: $bin_dir" >&2
 echo "    Skill root:   $skills_dir" >&2
 echo "    lark-cli ->   LARK_LANE=$lane larkenv $target_env" >&2
+if [ "$use_ppe" -eq 1 ] || [ "$target_env" = "ppe" ]; then
+	echo "    extra headers: x-use-ppe:1; env:pre_release" >&2
+fi
 
 export PATH="$bin_dir:$PATH"
 export LARK_CLI_ENV_BIN="$bin_dir"
 export LARK_LANE="$lane"
+if [ "$use_ppe" -eq 1 ]; then
+	append_extra_header "x-use-ppe:1"
+	append_extra_header "env:pre_release"
+fi
 export LARKSUITE_CLI_NO_UPDATE_NOTIFIER="${LARKSUITE_CLI_NO_UPDATE_NOTIFIER:-1}"
 export LARKSUITE_CLI_NO_SKILLS_NOTIFIER="${LARKSUITE_CLI_NO_SKILLS_NOTIFIER:-1}"
 
