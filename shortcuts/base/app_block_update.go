@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/larksuite/cli/errs"
 	"github.com/larksuite/cli/shortcuts/common"
 )
 
@@ -24,7 +25,6 @@ var BaseAppBlockUpdate = common.Shortcut{
 		appBlockIDFlag(true),
 		{Name: "name", Desc: "new block name"},
 		{Name: "data-config", Desc: "data_config JSON object; read lark-base-baseapp-block-data-config.md for the SSOT"},
-		{Name: "position", Desc: `block position JSON object, e.g. {"x":0,"y":0,"w":12,"h":8}`},
 		{Name: "user-id-type", Desc: "user ID type for user fields in filters: open_id / union_id / user_id"},
 		{Name: "no-validate", Type: "bool", Desc: "skip local data_config normalization; send data_config as-is"},
 	},
@@ -35,15 +35,17 @@ var BaseAppBlockUpdate = common.Shortcut{
 		"Use +app-block-get first to inspect the current data_config before replacing nested values.",
 		"Block type cannot be changed, and this phase has no delete command; a wrong type can only be fixed in the UI.",
 		"Only explicitly provided data_config fields are sent; omitted fields stay unchanged. For charts, passing data_sources replaces the whole ordered array, and changing base_token requires sending the full data_sources.",
+		"Widget layout, position, size and display settings are not part of the public create/update protocol.",
 	},
 	Validate: func(ctx context.Context, runtime *common.RuntimeContext) error {
-		if _, err := parseBlockPosition(runtime); err != nil {
-			return err
+		name := strings.TrimSpace(runtime.Str("name"))
+		raw := strings.TrimSpace(runtime.Str("data-config"))
+		if name == "" && raw == "" {
+			return errs.NewValidationError(errs.SubtypeInvalidArgument, "--name 与 --data-config 至少提供一个").WithParam("--name")
 		}
 		if runtime.Bool("no-validate") {
 			return nil
 		}
-		raw := strings.TrimSpace(runtime.Str("data-config"))
 		if raw == "" {
 			return nil
 		}

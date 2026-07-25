@@ -130,8 +130,7 @@ func TestAppBlockDryRun(t *testing.T) {
 		result := runBaseDryRun(t, 0, "base", "+app-block-create",
 			"--app-token", "app_x", "--page-id", "pg_1",
 			"--name", "Sales by month", "--type", "line",
-			"--data-config", `{"base_token":"basx","data_sources":[{"table_name":"Orders","series":[{"field_name":"Amount","rollup":"sum"}]}]}`,
-			"--position", `{"x":0,"y":0,"w":12,"h":8}`)
+			"--data-config", `{"base_token":"basx","data_sources":[{"table_name":"Orders","series":[{"field_name":"Amount","rollup":"sum"}]}]}`)
 		output := strings.TrimSpace(result.Stdout)
 		assert.Contains(t, output, "/open-apis/base/v3/base_apps/app_x/pages/pg_1/blocks")
 		assert.Contains(t, output, `"method": "POST"`)
@@ -151,15 +150,37 @@ func TestAppBlockDryRun(t *testing.T) {
 		assert.Contains(t, result.Stderr, "base_token")
 	})
 
+	t.Run("create chart requires data_config", func(t *testing.T) {
+		result := runBaseDryRun(t, 2, "base", "+app-block-create",
+			"--app-token", "app_x", "--page-id", "pg_1",
+			"--name", "Sales by month", "--type", "line")
+		assert.Contains(t, result.Stderr, "data-config")
+	})
+
 	t.Run("create list", func(t *testing.T) {
 		result := runBaseDryRun(t, 0, "base", "+app-block-create",
 			"--app-token", "app_x", "--page-id", "pg_1",
-			"--name", "Open orders", "--type", "list", "--sub-type", "standard",
-			"--data-config", `{"base_token":"basx","table_name":"Orders","columns":[]}`)
+			"--name", "Open orders", "--type", "list",
+			"--data-config", `{"base_token":"basx","table_name":"Orders"}`)
 		output := strings.TrimSpace(result.Stdout)
 		assert.Contains(t, output, `"type": "list"`)
-		assert.Contains(t, output, `"sub_type": "standard"`)
 		assert.Contains(t, output, "basx")
+		assert.NotContains(t, output, `"columns"`)
+		assert.NotContains(t, output, `"sub_type"`)
+	})
+
+	t.Run("create list requires data_config", func(t *testing.T) {
+		result := runBaseDryRun(t, 2, "base", "+app-block-create",
+			"--app-token", "app_x", "--page-id", "pg_1",
+			"--name", "Open orders", "--type", "list", "--sub-type", "standard")
+		assert.Contains(t, result.Stderr, "data-config")
+	})
+
+	t.Run("create rich text allows omitted data_config", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+app-block-create",
+			"--app-token", "app_x", "--page-id", "pg_1",
+			"--name", "Notes", "--type", "richText")
+		assert.NotContains(t, result.Stdout, `"data_config"`)
 	})
 
 	t.Run("create rejects an unsupported type", func(t *testing.T) {
@@ -193,6 +214,12 @@ func TestAppBlockDryRun(t *testing.T) {
 		output := strings.TrimSpace(result.Stdout)
 		assert.Contains(t, output, "/open-apis/base/v3/base_apps/app_x/pages/pg_1/blocks/wid_1")
 		assert.Contains(t, output, `"method": "PATCH"`)
+	})
+
+	t.Run("update requires name or data_config", func(t *testing.T) {
+		result := runBaseDryRun(t, 2, "base", "+app-block-update",
+			"--app-token", "app_x", "--page-id", "pg_1", "--block-id", "wid_1")
+		assert.Contains(t, result.Stderr, "至少提供一个")
 	})
 }
 

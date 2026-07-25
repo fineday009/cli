@@ -10,6 +10,14 @@
 - 列表省略 `--sub-type` 时默认 `standard`
 - `type/sub_type` 创建后不可修改
 
+## 外层请求字段
+
+- Create 只发送 `name`、`type`、按需发送的 `sub_type` 和 `data_config`。`name`、`type` 必填；图表和列表的 `data_config` 必填，富文本可省略。
+- 标准列表未显式指定 `--sub-type` 时，不发送 `sub_type`，由服务端使用 `standard` 默认值；其他列表类型必须发送对应 `sub_type`。
+- 图表和富文本不得发送 `sub_type`。
+- Update 只发送 `name`、`data_config`，且至少提供一个；未传字段保持不变，不允许修改 `type`、`sub_type`。
+- 布局、位置、尺寸、`show_title` 等展示配置不属于本期公开 Create/Update 请求字段，CLI 不提供或提升这些字段。
+
 ## 列表配置
 
 列表公共数据源字段为单值 `base_token` 和 `table_name`。每个列表最多关联一个 Base，且该 Base 必须位于 App 所在的同一 Workspace。
@@ -20,6 +28,11 @@
 - `standard/grouped/collapsible`：`columns`、`group_by`
 - `card`：`fields`、`card_config`
 - `detail`：`fields`、`detail_config`
+- `columns` 和 `fields` 都是可选字段。未指定时 CLI 不发送，由服务端使用产品默认字段。
+- 只有用户显式指定 `columns` / `fields` 时才发送；显式传 `[]` 表示明确发送空数组，不能作为默认值自动补入。
+- `filter`、`sort_by`、`group_by`、`card_config`、`detail_config` 也都是可选字段；未指定时不发送。
+- 列表 Create 的 `data_config` 必填，其中只有 `base_token` 和 `table_name` 是顶层必填字段。
+- 可选对象一旦传入，其内部必填项仍须满足协议，例如 `filter` 必须包含 `conjunction` 和 1～50 项 `conditions`。
 
 不要添加协议未定义的语义校验，尤其不要假设：
 
@@ -36,7 +49,7 @@ lark-cli base +app-block-create \
   --app-token <app_token> --page-id <page_id> \
   --name "订单列表" \
   --type list --sub-type standard \
-  --data-config '{"base_token":"<base_token>","table_name":"订单","columns":[]}'
+  --data-config '{"base_token":"<base_token>","table_name":"订单"}'
 ```
 
 字段的具体对象结构与必填性直接查服务端协议，不在这里猜测或复制。
@@ -56,7 +69,7 @@ lark-cli base +app-block-update \
 
 ## 图表与富文本
 
-**App 图表是多数据源结构（`ChartDataConfig`），与 Dashboard 的扁平单源结构不同。** 顶层用一个 `base_token`（所有数据源共用），`table_name` / `series` / `count_all` / `group_by` / `filter` 下沉到每个 `data_sources[]` 元素里；顶层另有可选的 `data_source_mode` 和 `sort`。每个数据源内部各字段的取值逻辑与 [dashboard-block-data-config.md](dashboard-block-data-config.md) 完全一致（`series[].rollup` 大写、`group_by[].sort` 小写等），CLI 对每个 `data_sources[]` 元素复用同一套规范化与校验。富文本按服务端协议使用 `richText` 配置，无数据源。
+**App 图表是多数据源结构（`ChartDataConfig`），与 Dashboard 的扁平单源结构不同。** 顶层用一个 `base_token`（所有数据源共用），`table_name` / `series` / `count_all` / `group_by` / `filter` 下沉到每个 `data_sources[]` 元素里；顶层另有可选的 `data_source_mode` 和 `sort`。每个数据源内部各字段的取值逻辑与 [dashboard-block-data-config.md](dashboard-block-data-config.md) 完全一致（`series[].rollup` 大写、`group_by[].sort` 小写等），CLI 对每个 `data_sources[]` 元素复用同一套规范化与校验。富文本按服务端协议使用 `richText` 配置，无数据源；Create 时可省略 `data_config`，等价于空文本。
 
 顶层参数：
 
@@ -102,4 +115,4 @@ lark-cli base +app-block-create \
   --data-config '{"base_token":"bas_xxx","data_source_mode":"compare","data_sources":[{"table_name":"销售表","group_by":[{"field_name":"月份","sort":{"type":"group","order":"asc"}}],"series":[{"field_name":"销售额","rollup":"SUM"}]},{"table_name":"成本表","group_by":[{"field_name":"月份","sort":{"type":"group","order":"asc"}}],"series":[{"field_name":"成本","rollup":"SUM"}]}],"sort":{"type":"group","order":"asc"}}'
 ```
 
-Update 语义：传入 `data_sources` 即全量替换整个有序数组；修改 `base_token` 时必须同时传入完整 `data_sources`。请求不得包含 `sub_type`（平滑/堆积/百分比等展示变体走产品默认值）。`position` 是独立 flag。具体请求字段仍以服务端协议为准。
+Update 语义：传入 `data_sources` 即全量替换整个有序数组；修改 `base_token` 时必须同时传入完整 `data_sources`。请求不得包含 `sub_type`（平滑/堆积/百分比等展示变体走产品默认值）。布局、位置、尺寸和展示配置不属于本期公开 Create/Update 协议。具体请求字段仍以服务端协议为准。

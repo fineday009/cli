@@ -320,6 +320,65 @@ func TestBaseAppBlockCreateUsesWorkspaceIDAsWorkspaceToken(t *testing.T) {
 	if config["base_token"] != "bas_x" || config["table_name"] != "Orders" {
 		t.Fatalf("data_config=%#v", config)
 	}
+	fields, ok := config["fields"].([]interface{})
+	if !ok || len(fields) != 0 {
+		t.Fatalf("explicit fields must be preserved: %#v", config["fields"])
+	}
+}
+
+func TestBaseAppListCreateOmitsUnspecifiedOptionalFields(t *testing.T) {
+	for _, tc := range []struct {
+		subType     string
+		optionalKey string
+	}{
+		{subType: "standard", optionalKey: "columns"},
+		{subType: "grouped", optionalKey: "columns"},
+		{subType: "collapsible", optionalKey: "columns"},
+		{subType: "card", optionalKey: "fields"},
+		{subType: "detail", optionalKey: "fields"},
+	} {
+		t.Run(tc.subType, func(t *testing.T) {
+			factory, stdout, reg := newExecuteFactory(t)
+			reg.Register(&httpmock.Stub{
+				Method: "GET",
+				URL:    "/open-apis/base/v3/base_apps/app_x",
+				Body: map[string]interface{}{
+					"code": 0,
+					"data": map[string]interface{}{
+						"app_token":   "app_x",
+						"base_tokens": []interface{}{"bas_x"},
+					},
+				},
+			})
+			createStub := &httpmock.Stub{
+				Method: "POST",
+				URL:    "/open-apis/base/v3/base_apps/app_x/pages/pge_x/blocks",
+				Body: map[string]interface{}{
+					"code": 0,
+					"data": map[string]interface{}{"block_id": "blk_x"},
+				},
+			}
+			reg.Register(createStub)
+
+			err := runShortcut(t, BaseAppBlockCreate, []string{
+				"+app-block-create",
+				"--app-token", "app_x",
+				"--page-id", "pge_x",
+				"--name", "Orders",
+				"--type", "list",
+				"--sub-type", tc.subType,
+				"--data-config", `{"base_token":"bas_x","table_name":"Orders"}`,
+			}, factory, stdout)
+			if err != nil {
+				t.Fatalf("err=%v", err)
+			}
+			body := decodeCapturedJSONBody(t, createStub)
+			config, _ := body["data_config"].(map[string]interface{})
+			if _, exists := config[tc.optionalKey]; exists {
+				t.Fatalf("unspecified %s must be omitted: %#v", tc.optionalKey, config)
+			}
+		})
+	}
 }
 
 func TestBaseWorkspaceExecuteCreateWithFields(t *testing.T) {

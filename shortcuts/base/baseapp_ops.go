@@ -5,7 +5,6 @@ package base
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -59,35 +58,9 @@ func validateWorkspaceOrdering(runtime *common.RuntimeContext, prevFlag string) 
 	return nil
 }
 
-// parseBlockPosition parses the --position JSON object and validates it against
-// the shared position shape {"x":0,"y":0,"w":12,"h":8}.
-func parseBlockPosition(runtime *common.RuntimeContext) (map[string]interface{}, error) {
-	raw := strings.TrimSpace(runtime.Str("position"))
-	if raw == "" {
-		return nil, nil
-	}
-	pc := newParseCtx(runtime)
-	parsed, err := parseJSONObject(pc, raw, "position")
-	if err != nil {
-		return nil, err
-	}
-	for _, key := range []string{"x", "y", "w", "h"} {
-		value, has := parsed[key]
-		if !has {
-			continue
-		}
-		switch value.(type) {
-		case float64, int, int64, json.Number:
-		default:
-			return nil, errs.NewValidationError(errs.SubtypeInvalidArgument, "--position.%s 必须是数字", key).WithParam("--position")
-		}
-	}
-	return parsed, nil
-}
-
-// appBlockBody builds the shared create/update request body for app page
-// blocks. show_title lives at the top level of the OpenAPI body but is
-// authored inside --data-config, so it is lifted out here.
+// appBlockBody builds the public create/update request body for app page
+// blocks. Layout, position, size and display settings are intentionally not
+// exposed because they are outside the public protocol.
 func appBlockBody(runtime *common.RuntimeContext, includeType bool) (map[string]interface{}, error) {
 	body := map[string]interface{}{}
 	if name := strings.TrimSpace(runtime.Str("name")); name != "" {
@@ -103,7 +76,8 @@ func appBlockBody(runtime *common.RuntimeContext, includeType bool) (map[string]
 			body["type"] = blockType
 		}
 		if strings.EqualFold(strings.TrimSpace(runtime.Str("type")), "list") {
-			if subType, ok := normalizeAppListSubType(runtime.Str("sub-type")); ok {
+			rawSubType := strings.TrimSpace(runtime.Str("sub-type"))
+			if subType, ok := normalizeAppListSubType(rawSubType); ok && rawSubType != "" {
 				body["sub_type"] = subType
 			}
 		}
@@ -114,18 +88,7 @@ func appBlockBody(runtime *common.RuntimeContext, includeType bool) (map[string]
 		if err != nil {
 			return nil, err
 		}
-		if showTitle, has := parsed["show_title"]; has {
-			body["show_title"] = showTitle
-			delete(parsed, "show_title")
-		}
 		body["data_config"] = parsed
-	}
-	position, err := parseBlockPosition(runtime)
-	if err != nil {
-		return nil, err
-	}
-	if position != nil {
-		body["position"] = position
 	}
 	return body, nil
 }

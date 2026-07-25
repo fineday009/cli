@@ -81,7 +81,7 @@ lark-cli base +app-block-create \
   --name "待处理订单" \
   --type list \
   --sub-type standard \
-  --data-config '{"base_token":"<base_token>","table_name":"订单","columns":[]}'
+  --data-config '{"base_token":"<base_token>","table_name":"订单"}'
 ```
 
 - `data_config.base_token` 是单值：每个列表最多选择一个 Base。

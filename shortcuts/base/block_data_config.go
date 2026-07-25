@@ -251,6 +251,14 @@ func normalizeAppChartDataConfig(cfg map[string]interface{}) map[string]interfac
 func validateAppChartDataConfig(blockType string, cfg map[string]interface{}) []string {
 	var problems []string
 	isStatistics := matchesBlockType(blockType, []string{"statistics"})
+	allowed := map[string]bool{
+		"base_token": true, "data_sources": true, "data_source_mode": true, "sort": true,
+	}
+	for key := range cfg {
+		if !allowed[key] {
+			problems = append(problems, fmt.Sprintf("图表 data_config 不支持字段 %s", key))
+		}
+	}
 
 	// 顶层 base_token 必填；App 命令不带 --base-token，所有数据源共用它。
 	if bt, _ := cfg["base_token"].(string); strings.TrimSpace(bt) == "" {
@@ -327,7 +335,7 @@ func validateAppChartDataConfig(blockType string, cfg map[string]interface{}) []
 // here.
 func validateAppBlockDataConfig(blockType string, cfg map[string]interface{}) []string {
 	if isTextBlockType(blockType) {
-		return validateTextDataConfig(blockType, cfg)
+		return nil
 	}
 	return validateAppChartDataConfig(blockType, cfg)
 }

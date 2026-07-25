@@ -67,5 +67,125 @@ func validateAppListDataConfig(subType string, cfg map[string]interface{}) []str
 			}
 		}
 	}
+	problems = append(problems, validateListFilter(cfg)...)
+	problems = append(problems, validateListNamedItems(cfg, "sort_by")...)
+	problems = append(problems, validateListNamedItems(cfg, "group_by")...)
+	problems = append(problems, validateListColumns(cfg)...)
+	problems = append(problems, validateListStringFields(cfg)...)
+	problems = append(problems, validateListOptionalStringConfig(cfg, "card_config", "title_field_name", "image_field_name")...)
+	problems = append(problems, validateListOptionalStringConfig(cfg, "detail_config", "image_field_name")...)
+	return problems
+}
+
+func validateListFilter(cfg map[string]interface{}) []string {
+	filter, exists := cfg["filter"]
+	if !exists {
+		return nil
+	}
+	obj, ok := filter.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	var problems []string
+	conjunction, _ := obj["conjunction"].(string)
+	if conjunction != "and" && conjunction != "or" {
+		problems = append(problems, "filter.conjunction 必填且仅支持 and|or")
+	}
+	conditions, ok := obj["conditions"].([]interface{})
+	if !ok || len(conditions) < 1 || len(conditions) > 50 {
+		problems = append(problems, "filter.conditions 必须是包含 1～50 项的数组")
+	}
+	problems = append(problems, validateBlockFilter(cfg, "filter", false)...)
+	return problems
+}
+
+func validateListNamedItems(cfg map[string]interface{}, key string) []string {
+	items, ok := cfg[key].([]interface{})
+	if !ok {
+		return nil
+	}
+	var problems []string
+	for i, raw := range items {
+		item, ok := raw.(map[string]interface{})
+		if !ok {
+			problems = append(problems, fmt.Sprintf("%s[%d] 必须是对象", key, i))
+			continue
+		}
+		if value, _ := item["field_name"].(string); strings.TrimSpace(value) == "" {
+			problems = append(problems, fmt.Sprintf("%s[%d].field_name 必填", key, i))
+		}
+		if order, exists := item["order"]; exists {
+			value, _ := order.(string)
+			if value != "asc" && value != "desc" {
+				problems = append(problems, fmt.Sprintf("%s[%d].order 仅支持 asc|desc", key, i))
+			}
+		}
+	}
+	return problems
+}
+
+func validateListColumns(cfg map[string]interface{}) []string {
+	items, ok := cfg["columns"].([]interface{})
+	if !ok {
+		return nil
+	}
+	var problems []string
+	for i, raw := range items {
+		column, ok := raw.(map[string]interface{})
+		if !ok {
+			problems = append(problems, fmt.Sprintf("columns[%d] 必须是对象", i))
+			continue
+		}
+		columnType, _ := column["type"].(string)
+		switch columnType {
+		case "field":
+			if value, _ := column["field_name"].(string); strings.TrimSpace(value) == "" {
+				problems = append(problems, fmt.Sprintf("columns[%d].field_name 必填", i))
+			}
+		case "combined":
+			fieldNames, ok := column["field_names"].([]interface{})
+			if !ok || len(fieldNames) == 0 {
+				problems = append(problems, fmt.Sprintf("columns[%d].field_names 必须至少包含一个字段", i))
+				continue
+			}
+			for j, rawName := range fieldNames {
+				if _, ok := rawName.(string); !ok {
+					problems = append(problems, fmt.Sprintf("columns[%d].field_names[%d] 必须是字符串", i, j))
+				}
+			}
+		default:
+			problems = append(problems, fmt.Sprintf("columns[%d].type 必填且仅支持 field|combined", i))
+		}
+	}
+	return problems
+}
+
+func validateListStringFields(cfg map[string]interface{}) []string {
+	items, ok := cfg["fields"].([]interface{})
+	if !ok {
+		return nil
+	}
+	var problems []string
+	for i, raw := range items {
+		if _, ok := raw.(string); !ok {
+			problems = append(problems, fmt.Sprintf("fields[%d] 必须是字符串", i))
+		}
+	}
+	return problems
+}
+
+func validateListOptionalStringConfig(cfg map[string]interface{}, key string, fields ...string) []string {
+	obj, ok := cfg[key].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	var problems []string
+	for _, field := range fields {
+		if raw, exists := obj[field]; exists {
+			if _, ok := raw.(string); !ok {
+				problems = append(problems, key+"."+field+" 必须是字符串")
+			}
+		}
+	}
 	return problems
 }

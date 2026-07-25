@@ -105,21 +105,15 @@ func TestDryRunAppBlockOps(t *testing.T) {
 		"page-id":     "pg_1",
 		"name":        "Sales by month",
 		"type":        "line",
-		"data-config": `{"base_token":"basx","show_title":true,"data_sources":[{"table_name":"Orders","series":[{"field_name":"Amount","rollup":"SUM"}]}]}`,
-		"position":    `{"x":0,"y":0,"w":12,"h":8}`,
+		"data-config": `{"base_token":"basx","data_sources":[{"table_name":"Orders","series":[{"field_name":"Amount","rollup":"SUM"}]}]}`,
 	}, nil, nil)
 	assertDryRunContains(t, dryRunAppBlockCreate(ctx, createRT),
 		"POST /open-apis/base/v3/base_apps/app_x/pages/pg_1/blocks",
 		`"type":"line"`,
 		`"name":"Sales by month"`,
-		`"show_title":true`,
 		`"base_token":"basx"`,
 		`"data_sources"`,
-		`"position":{"h":8,"w":12,"x":0,"y":0}`,
 	)
-	if out := dryRunAppBlockCreate(ctx, createRT).Format(); strings.Contains(out, `"data_config":{"show_title"`) {
-		t.Fatalf("show_title must be lifted out of data_config:\n%s", out)
-	}
 
 	listCreateRT := newBaseTestRuntime(map[string]string{
 		"app-token":   "app_x",
@@ -130,6 +124,17 @@ func TestDryRunAppBlockOps(t *testing.T) {
 		"data-config": `{"base_token":"bas_x","table_name":"Orders","fields":[],"card_config":{}}`,
 	}, nil, nil)
 	assertDryRunContains(t, dryRunAppBlockCreate(ctx, listCreateRT), `"type":"list"`, `"sub_type":"card"`, `"base_token":"bas_x"`)
+
+	standardListRT := newBaseTestRuntime(map[string]string{
+		"app-token":   "app_x",
+		"page-id":     "pg_1",
+		"name":        "Orders",
+		"type":        "list",
+		"data-config": `{"base_token":"bas_x","table_name":"Orders"}`,
+	}, nil, nil)
+	if out := dryRunAppBlockCreate(ctx, standardListRT).Format(); strings.Contains(out, `"sub_type"`) {
+		t.Fatalf("default standard sub_type must be omitted:\n%s", out)
+	}
 
 	updateRT := newBaseTestRuntime(map[string]string{
 		"app-token":   "app_x",
@@ -248,10 +253,43 @@ func TestValidateListDataConfig(t *testing.T) {
 		problems := validateAppListDataConfig("standard", map[string]interface{}{
 			"base_token": "basx",
 			"table_name": "Orders",
-			"columns":    []interface{}{},
 		})
 		if len(problems) != 0 {
 			t.Fatalf("problems=%v", problems)
+		}
+	})
+
+	t.Run("accepts omitted optional fields for every subtype", func(t *testing.T) {
+		for _, subType := range appListSubTypes {
+			problems := validateAppListDataConfig(subType, map[string]interface{}{
+				"base_token": "basx",
+				"table_name": "Orders",
+			})
+			if len(problems) != 0 {
+				t.Fatalf("%s problems=%v", subType, problems)
+			}
+		}
+	})
+
+	t.Run("accepts explicitly empty optional arrays", func(t *testing.T) {
+		for _, tc := range []struct {
+			subType string
+			key     string
+		}{
+			{subType: "standard", key: "columns"},
+			{subType: "grouped", key: "group_by"},
+			{subType: "collapsible", key: "sort_by"},
+			{subType: "card", key: "fields"},
+			{subType: "detail", key: "fields"},
+		} {
+			cfg := map[string]interface{}{
+				"base_token": "basx",
+				"table_name": "Orders",
+				tc.key:       []interface{}{},
+			}
+			if problems := validateAppListDataConfig(tc.subType, cfg); len(problems) != 0 {
+				t.Fatalf("%s.%s problems=%v", tc.subType, tc.key, problems)
+			}
 		}
 	})
 
@@ -281,6 +319,103 @@ func TestValidateListDataConfig(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("validates optional nested fields only when present", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			subType string
+			extra   map[string]interface{}
+			want    string
+		}{
+			{
+				name:    "filter requires conjunction",
+				subType: "standard",
+				extra:   map[string]interface{}{"filter": map[string]interface{}{"conditions": []interface{}{map[string]interface{}{"field_name": "Status", "operator": "is", "value": "Open"}}}},
+				want:    "filter.conjunction",
+			},
+			{
+				name:    "filter requires conditions",
+				subType: "standard",
+				extra:   map[string]interface{}{"filter": map[string]interface{}{"conjunction": "and"}},
+				want:    "filter.conditions",
+			},
+			{
+				name:    "sort item requires field name",
+				subType: "standard",
+				extra:   map[string]interface{}{"sort_by": []interface{}{map[string]interface{}{"order": "asc"}}},
+				want:    "sort_by[0].field_name",
+			},
+			{
+				name:    "group order is enumerated",
+				subType: "grouped",
+				extra:   map[string]interface{}{"group_by": []interface{}{map[string]interface{}{"field_name": "Status", "order": "up"}}},
+				want:    "group_by[0].order",
+			},
+			{
+				name:    "field column requires field name",
+				subType: "standard",
+				extra:   map[string]interface{}{"columns": []interface{}{map[string]interface{}{"type": "field"}}},
+				want:    "columns[0].field_name",
+			},
+			{
+				name:    "combined column requires field names",
+				subType: "standard",
+				extra:   map[string]interface{}{"columns": []interface{}{map[string]interface{}{"type": "combined", "field_names": []interface{}{}}}},
+				want:    "columns[0].field_names",
+			},
+			{
+				name:    "card fields are strings",
+				subType: "card",
+				extra:   map[string]interface{}{"fields": []interface{}{123}},
+				want:    "fields[0]",
+			},
+			{
+				name:    "card config values are strings",
+				subType: "card",
+				extra:   map[string]interface{}{"card_config": map[string]interface{}{"title_field_name": true}},
+				want:    "card_config.title_field_name",
+			},
+			{
+				name:    "detail config values are strings",
+				subType: "detail",
+				extra:   map[string]interface{}{"detail_config": map[string]interface{}{"image_field_name": true}},
+				want:    "detail_config.image_field_name",
+			},
+		}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				cfg := map[string]interface{}{"base_token": "basx", "table_name": "Orders"}
+				for key, value := range tc.extra {
+					cfg[key] = value
+				}
+				problems := validateAppListDataConfig(tc.subType, cfg)
+				if !strings.Contains(strings.Join(problems, " "), tc.want) {
+					t.Fatalf("problems=%v want substring %q", problems, tc.want)
+				}
+			})
+		}
+	})
+
+	t.Run("accepts valid optional nested fields", func(t *testing.T) {
+		problems := validateAppListDataConfig("standard", map[string]interface{}{
+			"base_token": "basx",
+			"table_name": "Orders",
+			"filter": map[string]interface{}{
+				"conjunction": "and",
+				"conditions": []interface{}{
+					map[string]interface{}{"field_name": "Status", "operator": "is", "value": "Open"},
+				},
+			},
+			"sort_by": []interface{}{map[string]interface{}{"field_name": "Created", "order": "desc"}},
+			"columns": []interface{}{
+				map[string]interface{}{"type": "field", "field_name": "Status"},
+				map[string]interface{}{"type": "combined", "field_names": []interface{}{"Owner", "Created"}},
+			},
+		})
+		if len(problems) != 0 {
+			t.Fatalf("problems=%v", problems)
+		}
+	})
 }
 
 func TestValidateTextDataConfigCoversRichText(t *testing.T) {
@@ -298,16 +433,22 @@ func TestValidateTextDataConfigCoversRichText(t *testing.T) {
 	}
 }
 
-func TestParseBlockPositionRejectsNonNumeric(t *testing.T) {
-	rt := newBaseTestRuntime(map[string]string{"position": `{"x":"0","y":0,"w":12,"h":8}`}, nil, nil)
-	if _, err := parseBlockPosition(rt); err == nil || !strings.Contains(err.Error(), "position.x") {
-		t.Fatalf("err=%v", err)
+func TestValidateAppTextDataConfigIsOptional(t *testing.T) {
+	if problems := validateAppBlockDataConfig("richText", map[string]interface{}{}); len(problems) != 0 {
+		t.Fatalf("problems=%v", problems)
 	}
+}
 
-	okRT := newBaseTestRuntime(map[string]string{"position": `{"x":0,"y":0,"w":12,"h":8}`}, nil, nil)
-	position, err := parseBlockPosition(okRT)
-	if err != nil || position == nil {
-		t.Fatalf("position=%v err=%v", position, err)
+func TestValidateAppChartRejectsFieldsOutsideProtocol(t *testing.T) {
+	problems := validateAppBlockDataConfig("line", map[string]interface{}{
+		"base_token": "basx",
+		"data_sources": []interface{}{
+			map[string]interface{}{"table_name": "Orders", "count_all": true},
+		},
+		"show_title": true,
+	})
+	if !strings.Contains(strings.Join(problems, " "), "show_title") {
+		t.Fatalf("problems=%v", problems)
 	}
 }
 
