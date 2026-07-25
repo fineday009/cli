@@ -31,7 +31,9 @@ var BaseAppBlockCreate = common.Shortcut{
 		{Name: "no-validate", Type: "bool", Desc: "skip local data_config validation and normalization; send data_config as-is"},
 	},
 	Tips: []string{
-		`lark-cli base +app-block-create --app-token <app_token> --page-id <page_id> --name "Order Count" --type statistics --data-config '{"table_name":"Orders","count_all":true}'`,
+		`lark-cli base +app-block-create --app-token <app_token> --page-id <page_id> --name "Order Count" --type statistics --data-config '{"base_token":"basxxx","data_sources":[{"table_name":"Orders","count_all":true}]}'`,
+		`lark-cli base +app-block-create --app-token <app_token> --page-id <page_id> --name "Monthly sales" --type column --data-config '{"base_token":"basxxx","data_sources":[{"table_name":"Orders","series":[{"field_name":"Amount","rollup":"SUM"}],"group_by":[{"field_name":"Month","sort":{"type":"group","order":"asc"}}]}]}'`,
+		"Chart blocks use multi-datasource data_config: one top-level base_token shared by all sources, with table_name/series/count_all/group_by/filter inside each data_sources[] element (richText needs none). App block commands carry no --base-token.",
 		`lark-cli base +app-block-create --app-token <app_token> --page-id <page_id> --name "Notes" --type richText --data-config '{"text":"# Sales overview"}'`,
 		`lark-cli base +app-block-create --app-token <app_token> --page-id <page_id> --name "Open orders" --type list --sub-type standard --data-config '{"base_token":"basxxx","table_name":"Orders","columns":[]}'`,
 		"Before creating data-backed blocks, use +table-list and +field-list to confirm real table and field names.",
@@ -82,10 +84,15 @@ var BaseAppBlockCreate = common.Shortcut{
 		}
 		norm := cfg
 		if !strings.EqualFold(blockType, "list") {
-			norm = normalizeDataConfig(cfg)
-		}
-		if !strings.EqualFold(blockType, "list") {
-			if problems := validateBlockDataConfig(blockType, norm); len(problems) > 0 {
+			// Chart blocks use the multi-datasource ChartDataConfig shape
+			// (base_token top-level, table_name/series/count_all/group_by/filter
+			// per data_sources[] element); richText keeps the flat text shape.
+			if isChartBlockType(blockType) {
+				norm = normalizeAppChartDataConfig(cfg)
+			} else {
+				norm = normalizeDataConfig(cfg)
+			}
+			if problems := validateAppBlockDataConfig(blockType, norm); len(problems) > 0 {
 				return formatDataConfigErrors(problems)
 			}
 		}

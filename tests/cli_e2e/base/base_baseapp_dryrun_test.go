@@ -130,14 +130,25 @@ func TestAppBlockDryRun(t *testing.T) {
 		result := runBaseDryRun(t, 0, "base", "+app-block-create",
 			"--app-token", "app_x", "--page-id", "pg_1",
 			"--name", "Sales by month", "--type", "line",
-			"--data-config", `{"table_name":"Orders","series":[{"field_name":"Amount","rollup":"sum"}]}`,
+			"--data-config", `{"base_token":"basx","data_sources":[{"table_name":"Orders","series":[{"field_name":"Amount","rollup":"sum"}]}]}`,
 			"--position", `{"x":0,"y":0,"w":12,"h":8}`)
 		output := strings.TrimSpace(result.Stdout)
 		assert.Contains(t, output, "/open-apis/base/v3/base_apps/app_x/pages/pg_1/blocks")
 		assert.Contains(t, output, `"method": "POST"`)
 		assert.Contains(t, output, `"type": "line"`)
-		// normalizeDataConfig 把 rollup 归一化为大写
+		// App 图表：顶层 base_token + 多数据源 data_sources
+		assert.Contains(t, output, `"base_token": "basx"`)
+		assert.Contains(t, output, "data_sources")
+		// normalizeAppChartDataConfig 把每个数据源的 rollup 归一化为大写
 		assert.Contains(t, output, "SUM")
+	})
+
+	t.Run("create chart rejects missing base_token", func(t *testing.T) {
+		result := runBaseDryRun(t, 2, "base", "+app-block-create",
+			"--app-token", "app_x", "--page-id", "pg_1",
+			"--name", "Sales by month", "--type", "line",
+			"--data-config", `{"data_sources":[{"table_name":"Orders","series":[{"field_name":"Amount","rollup":"SUM"}]}]}`)
+		assert.Contains(t, result.Stderr, "base_token")
 	})
 
 	t.Run("create list", func(t *testing.T) {
@@ -160,8 +171,20 @@ func TestAppBlockDryRun(t *testing.T) {
 	t.Run("create rejects an invalid chart data_config", func(t *testing.T) {
 		result := runBaseDryRun(t, 2, "base", "+app-block-create",
 			"--app-token", "app_x", "--page-id", "pg_1", "--name", "X", "--type", "line",
-			"--data-config", `{"series":[{"field_name":"Amount","rollup":"SUM"}]}`)
+			"--data-config", `{"base_token":"basx","data_sources":[{"series":[{"field_name":"Amount","rollup":"SUM"}]}]}`)
 		assert.Contains(t, result.Stderr, "table_name")
+	})
+
+	t.Run("create multi-datasource chart", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+app-block-create",
+			"--app-token", "app_x", "--page-id", "pg_1",
+			"--name", "Sales vs cost", "--type", "combo",
+			"--data-config", `{"base_token":"basx","data_source_mode":"compare","data_sources":[{"table_name":"Sales","series":[{"field_name":"Amount","rollup":"SUM"}]},{"table_name":"Cost","series":[{"field_name":"Cost","rollup":"SUM"}]}],"sort":{"type":"group","order":"asc"}}`)
+		output := strings.TrimSpace(result.Stdout)
+		assert.Contains(t, output, `"type": "combo"`)
+		assert.Contains(t, output, `"compare"`)
+		assert.Contains(t, output, "Sales")
+		assert.Contains(t, output, "Cost")
 	})
 
 	t.Run("update", func(t *testing.T) {

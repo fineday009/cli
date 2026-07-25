@@ -30,11 +30,11 @@ var BaseAppBlockUpdate = common.Shortcut{
 	},
 	Tips: []string{
 		`lark-cli base +app-block-update --app-token <app_token> --page-id <page_id> --block-id <block_id> --name "Monthly sales"`,
-		`lark-cli base +app-block-update --app-token <app_token> --page-id <page_id> --block-id <block_id> --data-config '{"filter":{"conjunction":"and","conditions":[{"field_name":"Status","operator":"is","value":"Closed"}]}}'`,
+		`lark-cli base +app-block-update --app-token <app_token> --page-id <page_id> --block-id <block_id> --data-config '{"base_token":"basxxx","data_sources":[{"table_name":"Orders","count_all":true,"filter":{"conjunction":"and","conditions":[{"field_name":"Status","operator":"is","value":"Closed"}]}}]}'`,
 		"Read lark-base-baseapp-block-data-config.md as the SSOT; do not invent data_config from natural language.",
 		"Use +app-block-get first to inspect the current data_config before replacing nested values.",
 		"Block type cannot be changed, and this phase has no delete command; a wrong type can only be fixed in the UI.",
-		"Only explicitly provided data_config fields are sent. Omitted fields remain unchanged; each provided array/object field is replaced according to the API protocol.",
+		"Only explicitly provided data_config fields are sent; omitted fields stay unchanged. For charts, passing data_sources replaces the whole ordered array, and changing base_token requires sending the full data_sources.",
 	},
 	Validate: func(ctx context.Context, runtime *common.RuntimeContext) error {
 		if _, err := parseBlockPosition(runtime); err != nil {
@@ -52,8 +52,9 @@ var BaseAppBlockUpdate = common.Shortcut{
 		if err != nil {
 			return err
 		}
-		// update 不传 type，无法做强类型校验；只归一化后交给后端验证具体字段
-		norm := normalizeDataConfig(cfg)
+		// update 不传 type，无法做强类型校验；按多数据源图表结构归一化
+		// （data_sources[] 存在时逐项归一化，否则原样透传），交给后端验证具体字段。
+		norm := normalizeAppChartDataConfig(cfg)
 		b, _ := json.Marshal(norm)
 		_ = runtime.Cmd.Flags().Set("data-config", string(b))
 		return nil

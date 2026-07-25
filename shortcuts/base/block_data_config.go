@@ -213,6 +213,126 @@ func validateChartDataConfig(cfg map[string]interface{}) []string {
 	return errs
 }
 
+// ── BaseApp chart data_config (multi-datasource) ─────────────────────
+//
+// BaseApp page charts differ from dashboard charts by supporting multiple
+// data sources (section 8 图表协议 of the App CLI RPC 协议): base_token is a
+// single top-level value shared by every source, while
+// table_name/series/count_all/group_by/filter move into each data_sources[]
+// element. The per-source value semantics are identical to the dashboard
+// chart rules, so each element reuses normalizeDataConfig /
+// validateChartDataConfig; the wrapper only adds the top-level structure.
+
+// normalizeAppChartDataConfig normalizes each data_sources[] element with the
+// shared chart normalization (series[].rollup upper-case, group_by[].sort
+// lower-case). Top-level base_token/data_source_mode/sort pass through. It is
+// also safe for partial updates and non-chart configs: when data_sources is
+// absent the config is returned unchanged.
+func normalizeAppChartDataConfig(cfg map[string]interface{}) map[string]interface{} {
+	if cfg == nil {
+		return nil
+	}
+	out := cloneMap(cfg)
+	if sources, ok := out["data_sources"].([]interface{}); ok {
+		normalized := make([]interface{}, len(sources))
+		for i, s := range sources {
+			if m, ok := s.(map[string]interface{}); ok {
+				normalized[i] = normalizeDataConfig(m)
+			} else {
+				normalized[i] = s
+			}
+		}
+		out["data_sources"] = normalized
+	}
+	return out
+}
+
+// validateAppChartDataConfig validates the multi-datasource ChartDataConfig
+// shape used by BaseApp page charts.
+func validateAppChartDataConfig(blockType string, cfg map[string]interface{}) []string {
+	var problems []string
+	isStatistics := matchesBlockType(blockType, []string{"statistics"})
+
+	// 顶层 base_token 必填；App 命令不带 --base-token，所有数据源共用它。
+	if bt, _ := cfg["base_token"].(string); strings.TrimSpace(bt) == "" {
+		problems = append(problems, "缺少必填字段 base_token；App 图表所有数据源共用顶层同一个 base_token")
+	}
+
+	// data_source_mode 可选枚举：aggregate（默认）/ compare。
+	if mode, has := cfg["data_source_mode"]; has {
+		s, _ := mode.(string)
+		switch strings.ToLower(strings.TrimSpace(s)) {
+		case "aggregate", "compare":
+		default:
+			problems = append(problems, "data_source_mode 仅支持 aggregate|compare")
+		}
+	}
+
+	// 顶层 sort：statistics 不允许；其余校验 type/order。
+	if sortRaw, has := cfg["sort"]; has {
+		switch {
+		case isStatistics:
+			problems = append(problems, "statistics 不允许配置顶层 sort")
+		default:
+			if sub, ok := sortRaw.(map[string]interface{}); ok {
+				t, _ := sub["type"].(string)
+				switch strings.ToLower(strings.TrimSpace(t)) {
+				case "group", "value", "record":
+				default:
+					problems = append(problems, "sort.type 仅支持 group|value|record")
+				}
+				if o, hasOrder := sub["order"]; hasOrder {
+					os, isString := o.(string)
+					os = strings.ToLower(strings.TrimSpace(os))
+					if !isString || (os != "asc" && os != "desc") {
+						problems = append(problems, "sort.order 仅支持 asc|desc")
+					}
+				}
+			} else {
+				problems = append(problems, "sort 必须是对象")
+			}
+		}
+	}
+
+	// data_sources 必填、非空数组；每项复用图表通用校验。
+	rawSources, has := cfg["data_sources"]
+	if !has {
+		return append(problems, "缺少必填字段 data_sources；至少提供一个数据源")
+	}
+	sources, ok := rawSources.([]interface{})
+	if !ok || len(sources) == 0 {
+		return append(problems, "data_sources 必须是至少包含一项的数组")
+	}
+	for i, s := range sources {
+		m, ok := s.(map[string]interface{})
+		if !ok {
+			problems = append(problems, fmt.Sprintf("data_sources[%d] 必须是对象", i))
+			continue
+		}
+		for _, p := range validateChartDataConfig(m) {
+			problems = append(problems, fmt.Sprintf("data_sources[%d]: %s", i, p))
+		}
+		// statistics 不配置分组。
+		if isStatistics {
+			if gb, ok := m["group_by"].([]interface{}); ok && len(gb) > 0 {
+				problems = append(problems, fmt.Sprintf("data_sources[%d]: statistics 不允许配置 group_by", i))
+			}
+		}
+	}
+	return problems
+}
+
+// validateAppBlockDataConfig routes BaseApp block validation: text blocks use
+// the shared text rule; chart/statistics blocks use the multi-datasource chart
+// rule. List blocks validate in app_list_block_data_config.go and never reach
+// here.
+func validateAppBlockDataConfig(blockType string, cfg map[string]interface{}) []string {
+	if isTextBlockType(blockType) {
+		return validateTextDataConfig(blockType, cfg)
+	}
+	return validateAppChartDataConfig(blockType, cfg)
+}
+
 // validateBlockFilter validates the filter object shared by chart and list
 // data_config. key is the config key holding the filter ("filter").
 // allowFieldID lets list blocks reference a field by ID; chart blocks keep the

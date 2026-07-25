@@ -56,6 +56,50 @@ lark-cli base +app-block-update \
 
 ## 图表与富文本
 
-图表沿用 [dashboard-block-data-config.md](dashboard-block-data-config.md) 的既有协议与规范化逻辑。列表使用独立实现，不修改 Dashboard 校验器。富文本按 RPC 协议使用 `richText` 配置。
+**App 图表是多数据源结构（`ChartDataConfig`），与 Dashboard 的扁平单源结构不同。** 顶层用一个 `base_token`（所有数据源共用），`table_name` / `series` / `count_all` / `group_by` / `filter` 下沉到每个 `data_sources[]` 元素里；顶层另有可选的 `data_source_mode` 和 `sort`。每个数据源内部各字段的取值逻辑与 [dashboard-block-data-config.md](dashboard-block-data-config.md) 完全一致（`series[].rollup` 大写、`group_by[].sort` 小写等），CLI 对每个 `data_sources[]` 元素复用同一套规范化与校验。富文本按 RPC 协议使用 `richText` 配置，无数据源。
 
-`show_title` 与 `position` 属于 Block 顶层映射；`--position` 是独立 flag。具体请求字段仍以 RPC 协议为准。
+顶层参数：
+
+| 参数 | 必填 | 取值 | 说明 |
+|-|-|-|-|
+| `base_token` | 是 | `string` | 数据所在 Base 的 token；所有数据源共用同一个值。App 命令不带 `--base-token`，只能写在 data_config 内 |
+| `data_sources` | 是 | `ChartDataSourceConfig[]` | 有序数组，至少一项 |
+| `data_source_mode` | 否 | `aggregate` / `compare` | `aggregate`（默认）在横轴聚合数据源；`compare` 按数据源拆分系列 |
+| `sort` | 否 | `{type: group\|value\|record, order?: asc\|desc}` | 顶层排序；`statistics` 不允许 |
+
+每个 `data_sources[]` 元素：`table_name`（必填）、`series` 与 `count_all=true` 二选一、`group_by`（最多 2 项，`statistics` 不允许）、`filter`。
+
+```json
+{
+  "base_token": "A2f5boKjfazMzesI9zKbmugTc4T",
+  "data_sources": [
+    {
+      "table_name": "数据表",
+      "count_all": true,
+      "group_by": [
+        { "field_name": "文本", "mode": "integrated", "sort": { "type": "value", "order": "desc" } }
+      ]
+    }
+  ]
+}
+```
+
+对应命令（单数据源计数柱状图）：
+
+```bash
+lark-cli base +app-block-create \
+  --app-token <app_token> --page-id <page_id> \
+  --name "文本分布" --type column \
+  --data-config '{"base_token":"A2f5boKjfazMzesI9zKbmugTc4T","data_sources":[{"table_name":"数据表","count_all":true,"group_by":[{"field_name":"文本","mode":"integrated","sort":{"type":"value","order":"desc"}}]}]}'
+```
+
+多数据源示例（两张表各出一条系列，按数据源拆分）：
+
+```bash
+lark-cli base +app-block-create \
+  --app-token <app_token> --page-id <page_id> \
+  --name "销售与成本" --type combo \
+  --data-config '{"base_token":"bas_xxx","data_source_mode":"compare","data_sources":[{"table_name":"销售表","group_by":[{"field_name":"月份","sort":{"type":"group","order":"asc"}}],"series":[{"field_name":"销售额","rollup":"SUM"}]},{"table_name":"成本表","group_by":[{"field_name":"月份","sort":{"type":"group","order":"asc"}}],"series":[{"field_name":"成本","rollup":"SUM"}]}],"sort":{"type":"group","order":"asc"}}'
+```
+
+Update 语义：传入 `data_sources` 即全量替换整个有序数组；修改 `base_token` 时必须同时传入完整 `data_sources`。请求不得包含 `sub_type`（平滑/堆积/百分比等展示变体走产品默认值）。`position` 是独立 flag。具体请求字段仍以 RPC 协议为准。

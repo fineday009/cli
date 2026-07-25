@@ -94,7 +94,7 @@ func TestDryRunAppBlockOps(t *testing.T) {
 		"page-id":     "pg_1",
 		"name":        "Sales by month",
 		"type":        "line",
-		"data-config": `{"table_name":"Orders","show_title":true,"series":[{"field_name":"Amount","rollup":"SUM"}]}`,
+		"data-config": `{"base_token":"basx","show_title":true,"data_sources":[{"table_name":"Orders","series":[{"field_name":"Amount","rollup":"SUM"}]}]}`,
 		"position":    `{"x":0,"y":0,"w":12,"h":8}`,
 	}, nil, nil)
 	assertDryRunContains(t, dryRunAppBlockCreate(ctx, createRT),
@@ -102,6 +102,8 @@ func TestDryRunAppBlockOps(t *testing.T) {
 		`"type":"line"`,
 		`"name":"Sales by month"`,
 		`"show_title":true`,
+		`"base_token":"basx"`,
+		`"data_sources"`,
 		`"position":{"h":8,"w":12,"x":0,"y":0}`,
 	)
 	if out := dryRunAppBlockCreate(ctx, createRT).Format(); strings.Contains(out, `"data_config":{"show_title"`) {
