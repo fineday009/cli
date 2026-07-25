@@ -1,6 +1,6 @@
 # BaseApp Block `data_config`
 
-接口信封、Widget 公共结构、列表字段与更新语义以 [App CLI RPC 协议](https://bytedance.larkoffice.com/docx/M2D4dKijgoVKP1xVxuhcvu7tn0v) 为唯一事实来源。本文件只说明 CLI 映射与操作约束，不复制 Schema，避免双份维护。
+本文件说明 BaseApp 组件 data_config 的 CLI 映射与操作约束，不复制完整字段 Schema。具体字段以服务端返回和校验为准。
 
 ## 类型映射
 
@@ -14,7 +14,7 @@
 
 列表公共数据源字段为单值 `base_token` 和 `table_name`。每个列表最多关联一个 Base，且该 Base 必须位于 App 所在的同一 Workspace。
 
-按 RPC 协议，各 subtype 使用以下字段组：
+按服务端协议，各 subtype 使用以下字段组：
 
 - 公共：`base_token`、`table_name`、`filter`、`sort_by`
 - `standard/grouped/collapsible`：`columns`、`group_by`
@@ -39,7 +39,7 @@ lark-cli base +app-block-create \
   --data-config '{"base_token":"<base_token>","table_name":"订单","columns":[]}'
 ```
 
-字段的具体对象结构与必填性直接查 RPC 协议，不在这里猜测或复制。
+字段的具体对象结构与必填性直接查服务端协议，不在这里猜测或复制。
 
 ## 更新语义
 
@@ -52,11 +52,11 @@ lark-cli base +app-block-update \
 - CLI 只发送用户显式传入的字段。
 - 未传字段由服务端保持不变。
 - 不为 update 注入 create 默认值，不先读取后拼成全量配置。
-- 数组/对象字段的替换粒度以 RPC 协议为准。
+- 数组/对象字段的替换粒度以服务端协议为准。
 
 ## 图表与富文本
 
-**App 图表是多数据源结构（`ChartDataConfig`），与 Dashboard 的扁平单源结构不同。** 顶层用一个 `base_token`（所有数据源共用），`table_name` / `series` / `count_all` / `group_by` / `filter` 下沉到每个 `data_sources[]` 元素里；顶层另有可选的 `data_source_mode` 和 `sort`。每个数据源内部各字段的取值逻辑与 [dashboard-block-data-config.md](dashboard-block-data-config.md) 完全一致（`series[].rollup` 大写、`group_by[].sort` 小写等），CLI 对每个 `data_sources[]` 元素复用同一套规范化与校验。富文本按 RPC 协议使用 `richText` 配置，无数据源。
+**App 图表是多数据源结构（`ChartDataConfig`），与 Dashboard 的扁平单源结构不同。** 顶层用一个 `base_token`（所有数据源共用），`table_name` / `series` / `count_all` / `group_by` / `filter` 下沉到每个 `data_sources[]` 元素里；顶层另有可选的 `data_source_mode` 和 `sort`。每个数据源内部各字段的取值逻辑与 [dashboard-block-data-config.md](dashboard-block-data-config.md) 完全一致（`series[].rollup` 大写、`group_by[].sort` 小写等），CLI 对每个 `data_sources[]` 元素复用同一套规范化与校验。富文本按服务端协议使用 `richText` 配置，无数据源。
 
 顶层参数：
 
@@ -102,4 +102,4 @@ lark-cli base +app-block-create \
   --data-config '{"base_token":"bas_xxx","data_source_mode":"compare","data_sources":[{"table_name":"销售表","group_by":[{"field_name":"月份","sort":{"type":"group","order":"asc"}}],"series":[{"field_name":"销售额","rollup":"SUM"}]},{"table_name":"成本表","group_by":[{"field_name":"月份","sort":{"type":"group","order":"asc"}}],"series":[{"field_name":"成本","rollup":"SUM"}]}],"sort":{"type":"group","order":"asc"}}'
 ```
 
-Update 语义：传入 `data_sources` 即全量替换整个有序数组；修改 `base_token` 时必须同时传入完整 `data_sources`。请求不得包含 `sub_type`（平滑/堆积/百分比等展示变体走产品默认值）。`position` 是独立 flag。具体请求字段仍以 RPC 协议为准。
+Update 语义：传入 `data_sources` 即全量替换整个有序数组；修改 `base_token` 时必须同时传入完整 `data_sources`。请求不得包含 `sub_type`（平滑/堆积/百分比等展示变体走产品默认值）。`position` 是独立 flag。具体请求字段仍以服务端协议为准。

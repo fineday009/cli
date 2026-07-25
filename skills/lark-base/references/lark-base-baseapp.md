@@ -1,6 +1,6 @@
 # BaseApp（应用模式）操作指引
 
-> 先读 [`../lark-shared/SKILL.md`](../../lark-shared/SKILL.md)。接口和组件字段协议以 [App CLI RPC 协议](https://bytedance.larkoffice.com/docx/M2D4dKijgoVKP1xVxuhcvu7tn0v) 为唯一事实来源；不要从组件名称推断额外约束。
+> 先读 [`../lark-shared/SKILL.md`](../../lark-shared/SKILL.md)。接口和组件字段以服务端返回和校验为准；不要从组件名称推断额外约束。
 
 ## Token 与命令
 
@@ -89,7 +89,7 @@ lark-cli base +app-block-create \
 
 ## 更新组件
 
-`+app-block-update` 只发送显式传入的 `data_config` 字段。未传字段保持不变；数组或对象字段是否整体替换，以 RPC 协议为准。不要为了“补全”先读取并提交全量配置。
+`+app-block-update` 只发送显式传入的 `data_config` 字段。未传字段保持不变；数组或对象字段是否整体替换，以服务端协议为准。不要为了“补全”先读取并提交全量配置。
 
 ## 常见恢复
 

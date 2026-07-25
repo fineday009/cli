@@ -138,7 +138,7 @@ func TestDryRunAppBlockOps(t *testing.T) {
 }
 
 // richText is the CLI-facing alias for the rich-text widget; on the wire the
-// API type is "text" (RPC 协议 §10), so the request body must carry "text".
+// API type is "text", so the request body must carry "text".
 func TestAppRichTextTypeMapsToText(t *testing.T) {
 	ctx := context.Background()
 	rt := newBaseTestRuntime(map[string]string{

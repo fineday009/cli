@@ -216,9 +216,8 @@ func validateChartDataConfig(cfg map[string]interface{}) []string {
 // ── BaseApp chart data_config (multi-datasource) ─────────────────────
 //
 // BaseApp page charts differ from dashboard charts by supporting multiple
-// data sources (section 8 图表协议 of the App CLI RPC 协议): base_token is a
-// single top-level value shared by every source, while
-// table_name/series/count_all/group_by/filter move into each data_sources[]
+// data sources: base_token is a single top-level value shared by every
+// source, while table_name/series/count_all/group_by/filter move into each data_sources[]
 // element. The per-source value semantics are identical to the dashboard
 // chart rules, so each element reuses normalizeDataConfig /
 // validateChartDataConfig; the wrapper only adds the top-level structure.
