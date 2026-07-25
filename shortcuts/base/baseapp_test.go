@@ -42,8 +42,19 @@ func TestDryRunBaseappOps(t *testing.T) {
 	)
 
 	minimalCreateRT := newBaseTestRuntime(map[string]string{"name": "Blank app"}, nil, nil)
-	if out := dryRunBaseappCreate(ctx, minimalCreateRT).Format(); strings.Contains(out, `"base_token"`) {
-		t.Fatalf("app create must not expose a base-token input:\n%s", out)
+	minimalOut := dryRunBaseappCreate(ctx, minimalCreateRT).Format()
+	for _, want := range []string{
+		`POST /open-apis/base/v3/workspaces`,
+		`"name":"Blank app"`,
+		`"workspace_token"`,
+		`created_workspace_token`,
+	} {
+		if !strings.Contains(minimalOut, want) {
+			t.Fatalf("app create without workspace token must contain %q:\n%s", want, minimalOut)
+		}
+	}
+	if strings.Contains(minimalOut, `"base_token"`) {
+		t.Fatalf("app create must not expose a base-token input:\n%s", minimalOut)
 	}
 
 	getRT := newBaseTestRuntime(map[string]string{"app-token": "app_x"}, map[string]bool{"with-pages": true}, nil)
@@ -219,7 +230,7 @@ func TestBaseappRisksAndScopes(t *testing.T) {
 		"+app-block-create":        {BaseAppBlockCreate, "write", "base:appmode_block:create"},
 		"+app-block-get-data":      {BaseAppBlockGetData, "read", "base:dashboard:read"},
 	}
-	if got := strings.Join(BaseAppCreate.Scopes, ","); got != "base:appmode:create,base:workspace:update" {
+	if got := strings.Join(BaseAppCreate.Scopes, ","); got != "base:appmode:create,base:workspace:create,base:workspace:update" {
 		t.Errorf("+app-create scopes=%v", BaseAppCreate.Scopes)
 	}
 	for name, tc := range cases {

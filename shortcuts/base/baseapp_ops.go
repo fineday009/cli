@@ -243,23 +243,31 @@ func executeWorkspaceEntityRemove(runtime *common.RuntimeContext) error {
 
 // ── BaseApp: dry-run ─────────────────────────────────────────────────
 
-func baseappCreateBody(runtime *common.RuntimeContext) map[string]interface{} {
+func baseappCreateBodyWithWorkspace(runtime *common.RuntimeContext, workspaceToken string) map[string]interface{} {
 	body := map[string]interface{}{"name": strings.TrimSpace(runtime.Str("name"))}
-	if workspaceToken := strings.TrimSpace(runtime.Str("workspace-token")); workspaceToken != "" {
+	if workspaceToken != "" {
 		body["workspace_token"] = workspaceToken
 	}
 	return body
 }
 
 func dryRunBaseappCreate(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
-	dryRun := common.NewDryRunAPI().
-		POST("/open-apis/base/v3/base_apps").
-		Body(baseappCreateBody(runtime))
+	workspaceToken := strings.TrimSpace(runtime.Str("workspace-token"))
+	dryRun := common.NewDryRunAPI()
+	if workspaceToken == "" {
+		dryRun.POST("/open-apis/base/v3/workspaces").
+			Body(map[string]interface{}{"name": strings.TrimSpace(runtime.Str("name"))}).
+			Desc("No Workspace was specified, so create one first with the same name as the app.")
+		workspaceToken = "<created_workspace_token>"
+	}
+	dryRun.POST("/open-apis/base/v3/base_apps").
+		Body(baseappCreateBodyWithWorkspace(runtime, workspaceToken)).
+		Desc("Create the app in the selected or newly created Workspace.")
 	dryRun.POST("/open-apis/base/v3/bases").
 		Body(baseappBlankBaseBody(runtime)).
 		Desc("After App creation succeeds, create a blank candidate Base.")
 	dryRun.POST("/open-apis/base/v3/workspaces/:workspace_token/move_in").
-		Set("workspace_token", firstNonEmpty(strings.TrimSpace(runtime.Str("workspace-token")), "<created_app_workspace_token>")).
+		Set("workspace_token", workspaceToken).
 		Body(map[string]interface{}{"entity_token": "<created_base_token>"}).
 		Desc("Move the blank Base into the App Workspace. A failure here returns a partial-completion result and a retry command.")
 	return dryRun
@@ -271,6 +279,21 @@ func baseappBlankBaseBody(runtime *common.RuntimeContext) map[string]interface{}
 		name = strings.TrimSpace(runtime.Str("name")) + " Base"
 	}
 	return map[string]interface{}{"name": name}
+}
+
+func baseappCreateRetryCommand(runtime *common.RuntimeContext, workspaceToken string) string {
+	command := fmt.Sprintf(
+		"lark-cli base +app-create --name %q --workspace-token %s",
+		strings.TrimSpace(runtime.Str("name")),
+		workspaceToken,
+	)
+	if baseName := strings.TrimSpace(runtime.Str("base-name")); baseName != "" {
+		command += fmt.Sprintf(" --base-name %q", baseName)
+	}
+	if tableName := strings.TrimSpace(runtime.Str("table-name")); tableName != "" {
+		command += fmt.Sprintf(" --table-name %q", tableName)
+	}
+	return command
 }
 
 func baseappGetParams(runtime *common.RuntimeContext) map[string]interface{} {
@@ -302,20 +325,74 @@ func dryRunBaseappRename(_ context.Context, runtime *common.RuntimeContext) *com
 // ── BaseApp: execute ─────────────────────────────────────────────────
 
 func executeBaseappCreate(runtime *common.RuntimeContext) error {
-	app, err := baseV3Call(runtime, "POST", baseV3Path("base_apps"), nil, baseappCreateBody(runtime))
+	workspaceToken := strings.TrimSpace(runtime.Str("workspace-token"))
+	var workspace map[string]interface{}
+	workspaceCreated := false
+	if workspaceToken == "" {
+		var err error
+		workspace, err = baseV3Call(runtime, "POST", baseV3Path("workspaces"), nil, map[string]interface{}{
+			"name": strings.TrimSpace(runtime.Str("name")),
+		})
+		if err != nil {
+			return err
+		}
+		workspaceCreated = true
+		workspaceToken = firstNonEmpty(
+			common.GetString(workspace, "workspace_token"),
+			common.GetString(workspace, "token"),
+		)
+		if workspaceToken == "" {
+			return runtime.OutPartialFailure(map[string]interface{}{
+				"status":            "partial",
+				"failed_step":       "workspace_token_resolve",
+				"message":           "Workspace 已创建，但响应中缺少 workspace_token，CLI 无法继续创建应用模式；Workspace 未回滚。",
+				"workspace":         workspace,
+				"workspace_created": true,
+				"app_created":       false,
+				"completed_steps":   []interface{}{"workspace_create"},
+			}, nil)
+		}
+	}
+
+	app, err := baseV3Call(runtime, "POST", baseV3Path("base_apps"), nil, baseappCreateBodyWithWorkspace(runtime, workspaceToken))
 	if err != nil {
+		if workspaceCreated {
+			out := map[string]interface{}{
+				"status":            "partial",
+				"failed_step":       "app_create",
+				"cause":             err.Error(),
+				"message":           "Workspace 已创建，但应用模式创建失败；Workspace 未回滚。请按 retry.command 在该 Workspace 中重试创建应用。",
+				"workspace":         workspace,
+				"workspace_token":   workspaceToken,
+				"workspace_created": true,
+				"app_created":       false,
+				"completed_steps":   []interface{}{"workspace_create"},
+				"retry": map[string]interface{}{
+					"command": baseappCreateRetryCommand(runtime, workspaceToken),
+				},
+			}
+			return runtime.OutPartialFailure(out, nil)
+		}
 		return err
 	}
+	completedSteps := []interface{}{"app_create"}
+	if workspaceCreated {
+		completedSteps = []interface{}{"workspace_create", "app_create"}
+	}
 	out := map[string]interface{}{
-		"status":          "in_progress",
-		"app":             app,
-		"app_created":     true,
-		"base_created":    false,
-		"base_moved":      false,
-		"completed_steps": []interface{}{"app_create"},
+		"status":            "in_progress",
+		"app":               app,
+		"workspace_token":   workspaceToken,
+		"workspace_created": workspaceCreated,
+		"app_created":       true,
+		"base_created":      false,
+		"base_moved":        false,
+		"completed_steps":   completedSteps,
+	}
+	if workspaceCreated {
+		out["workspace"] = workspace
 	}
 	appToken := firstNonEmpty(common.GetString(app, "app_token"), common.GetString(app, "token"))
-	workspaceToken := firstNonEmpty(strings.TrimSpace(runtime.Str("workspace-token")), common.GetString(app, "workspace_token"))
 
 	base, err := baseV3Call(runtime, "POST", baseV3Path("bases"), nil, baseappBlankBaseBody(runtime))
 	if err != nil {
@@ -334,7 +411,7 @@ func executeBaseappCreate(runtime *common.RuntimeContext) error {
 	out["base"] = base
 	out["base_token"] = baseToken
 	out["base_created"] = true
-	out["completed_steps"] = []interface{}{"app_create", "base_create"}
+	out["completed_steps"] = append(completedSteps, "base_create")
 	if baseToken == "" {
 		out["status"] = "partial"
 		out["failed_step"] = "base_token_resolve"
@@ -363,7 +440,7 @@ func executeBaseappCreate(runtime *common.RuntimeContext) error {
 	out["workspace_token"] = workspaceToken
 	out["workspace_entity"] = entity
 	out["base_moved"] = true
-	out["completed_steps"] = []interface{}{"app_create", "base_create", "base_move"}
+	out["completed_steps"] = append(completedSteps, "base_create", "base_move")
 
 	if strings.TrimSpace(runtime.Str("table-name")) != "" {
 		renamedTable, _, renameErr := renameBaseDefaultTable(runtime, base)
@@ -376,7 +453,7 @@ func executeBaseappCreate(runtime *common.RuntimeContext) error {
 			return runtime.OutPartialFailure(out, nil)
 		}
 		out["table"] = renamedTable
-		out["completed_steps"] = []interface{}{"app_create", "base_create", "base_move", "base_initial_table_rename"}
+		out["completed_steps"] = append(completedSteps, "base_create", "base_move", "base_initial_table_rename")
 	}
 	out["status"] = "completed"
 	runtime.Out(out, nil)
@@ -676,7 +753,10 @@ func validateListBaseWorkspace(runtime *common.RuntimeContext) error {
 			return nil
 		}
 	}
-	workspaceToken := strings.TrimSpace(common.GetString(app, "workspace_token"))
+	workspaceToken := firstNonEmpty(
+		strings.TrimSpace(common.GetString(app, "workspace_token")),
+		strings.TrimSpace(common.GetString(app, "workspace_id")),
+	)
 	if workspaceToken == "" {
 		return errs.NewValidationError(errs.SubtypeInvalidArgument, "无法确认列表 Base 与 App 是否位于同一 Workspace：App 响应缺少 workspace_token").WithParam("--data-config")
 	}

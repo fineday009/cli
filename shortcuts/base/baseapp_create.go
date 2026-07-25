@@ -16,6 +16,7 @@ var BaseAppCreate = common.Shortcut{
 	Risk:        "write",
 	Scopes: []string{
 		"base:appmode:create",
+		"base:workspace:create",
 		"base:workspace:update",
 	},
 	AuthTypes: authTypes(),
@@ -27,10 +28,11 @@ var BaseAppCreate = common.Shortcut{
 	},
 	Tips: []string{
 		`lark-cli base +app-create --name "Sales app" --workspace-token <workspace_token>`,
+		`lark-cli base +app-create --name "Sales app"`,
+		"When --workspace-token is omitted, the CLI first creates a Workspace with the same name as the app.",
 		"After the app is created, the CLI creates one blank Base and moves it into the same Workspace.",
 		"Record both tokens: page/block commands take app_token, while table/field/record commands take base_token.",
-		"Omitting --workspace-token lets the platform pick the default location.",
-		"If Base creation or moving fails after the app is created, the result is marked partial and includes a retry command. Do not create the app again.",
+		"If a later step fails after a resource is created, the result is marked partial and includes a retry command. Do not recreate completed resources.",
 	},
 	DryRun: dryRunBaseappCreate,
 	Execute: func(ctx context.Context, runtime *common.RuntimeContext) error {

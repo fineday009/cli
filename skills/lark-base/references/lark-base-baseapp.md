@@ -24,19 +24,20 @@ lark-cli base +app-create \
 ```
 
 - `+app-create` 没有 `--base-token`。
+- `--workspace-token` 可选；不传时，CLI 会先创建一个与应用同名的新 Workspace，再把该 token 作为必传参数创建 App。
 - App 创建成功后，CLI 创建一个空 Base，并将其移入 App 所在 Workspace，作为备选关联 Base。
 - 可用 `--base-name` 和 `--table-name` 设置新建 Base 与首张表的名称；不传则使用默认名称。
 - 记录输出中的 `app_token`、`base_token` 和 `workspace_token`。
 
 ### 部分完成后的续跑
 
-如果 App 已创建而 Base 创建或移动失败，CLI 返回 `status=partial`、`failed_step`、已得到的 token、说明和 `retry.command`。此时：
+如果 Workspace、App 或 Base 已经创建，而后续步骤失败，CLI 返回 `status=partial`、`failed_step`、已得到的 token、说明和 `retry.command`。此时：
 
-1. 明确告诉用户 App 已创建且不会回滚。
-2. 不要再次执行 `+app-create`。
-3. 用户要求继续时，执行输出中的 `retry.command`。
-4. `failed_step=base_create` 时，先重试 `+base-create`，再用 `+workspace-move-in` 移入同一 Workspace。
-5. `failed_step=base_move` 时，只重试 `+workspace-move-in`，不要重复创建 Base。
+1. 明确告诉用户哪些资源已创建且不会回滚。
+2. 用户要求继续时，执行输出中的 `retry.command`，不要重复创建已经完成的资源。
+3. `failed_step=app_create` 时，Workspace 已创建；使用返回的 `workspace_token` 重试 `+app-create`。
+4. `failed_step=base_create` 时，App 已创建；先重试 `+base-create`，再用 `+workspace-move-in` 移入同一 Workspace。
+5. `failed_step=base_move` 时，只重试 `+workspace-move-in`，不要重复创建 App 或 Base。
 
 ## 重命名应用
 
