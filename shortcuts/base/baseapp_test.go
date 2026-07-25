@@ -137,6 +137,24 @@ func TestDryRunAppBlockOps(t *testing.T) {
 	}
 }
 
+// richText is the CLI-facing alias for the rich-text widget; on the wire the
+// API type is "text" (RPC 协议 §10), so the request body must carry "text".
+func TestAppRichTextTypeMapsToText(t *testing.T) {
+	ctx := context.Background()
+	rt := newBaseTestRuntime(map[string]string{
+		"app-token":   "app_x",
+		"page-id":     "pg_1",
+		"name":        "说明",
+		"type":        "richText",
+		"data-config": `{"text":"hi"}`,
+	}, nil, nil)
+	dr := dryRunAppBlockCreate(ctx, rt)
+	assertDryRunContains(t, dr, `"type":"text"`, `"text":"hi"`)
+	if out := dr.Format(); strings.Contains(out, `"richText"`) {
+		t.Fatalf("richText must map to the wire type text:\n%s", out)
+	}
+}
+
 // +app-block-get-data is a thin wrapper: it must hit exactly the same method
 // and path as +dashboard-block-get-data, and must take --base-token instead of
 // the --app-token every other +app-block-* command uses.
