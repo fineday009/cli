@@ -98,7 +98,6 @@ func Shortcuts() []common.Shortcut {
 		BaseWorkspaceCreate,
 		BaseWorkspaceEntityList,
 		BaseWorkspaceMoveIn,
-		BaseWorkspaceEntityRemove,
 		BaseAppCreate,
 		BaseAppGet,
 		BaseAppRename,

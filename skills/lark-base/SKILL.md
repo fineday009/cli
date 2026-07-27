@@ -67,7 +67,7 @@ metadata:
 | 其他表单管理 | `+form-list/get/detail/create/update/delete` / `+form-questions-list/delete` | `+form-detail` 读 [lark-base-form-detail.md](references/lark-base-form-detail.md)；删除前确认目标表单 |
 | 仪表盘与组件 | `+dashboard-*` / `+dashboard-block-*` | 提到图表/看板/block 时先读 [lark-base-dashboard.md](references/lark-base-dashboard.md)；组件 `data_config` 读 [dashboard-block-data-config.md](references/dashboard-block-data-config.md)；读取图表计算结果用 `+dashboard-block-get-data` |
 | 应用模式（BaseApp）与页面组件 | `+app-*` / `+app-page-*` / `+app-block-*` | 提到应用/页面/组件时先读 [lark-base-baseapp.md](references/lark-base-baseapp.md)；组件 `data_config` 读 [lark-base-baseapp-block-data-config.md](references/lark-base-baseapp-block-data-config.md)；页面组件命令吃 `app_token`，只有 `+app-block-get-data` 吃 `base_token` |
-| Workspace 目录 | `+workspace-create` / `+workspace-entity-list` / `+workspace-move-in` / `+workspace-entity-remove` | 新建 Workspace、列出或移入/移出其中的 Base/应用；`+workspace-entity-remove` 只解除目录关系，不删底层资源 |
+| Workspace 目录 | `+workspace-create` / `+workspace-entity-list` / `+workspace-move-in` | 新建 Workspace、列出或移入其中的 Base/应用 |
 | Workflow | `+workflow-*` | 创建/更新或理解 steps 时读入口 [lark-base-workflow-guide.md](references/lark-base-workflow-guide.md) 和 steps JSON SSOT [lark-base-workflow-schema.md](references/lark-base-workflow-schema.md)；list/get/enable/disable 只处理 workflow ID 与启停状态 |
 | 高级权限与角色 | `+advperm-*` / `+role-*` | 角色操作先读入口 [lark-base-role-guide.md](references/lark-base-role-guide.md)；角色 create/update 或解读完整配置再读权限 JSON SSOT [role-config.md](references/role-config.md)；系统角色不可删除；关闭高级权限会影响自定义角色 |
 

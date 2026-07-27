@@ -151,13 +151,6 @@ func dryRunWorkspaceMoveIn(_ context.Context, runtime *common.RuntimeContext) *c
 		Body(workspaceMoveInBody(runtime))
 }
 
-func dryRunWorkspaceEntityRemove(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
-	return common.NewDryRunAPI().
-		DELETE("/open-apis/base/v3/workspaces/:workspace_token/entities/:entity_id").
-		Set("workspace_token", runtime.Str("workspace-token")).
-		Set("entity_id", runtime.Str("entity-id"))
-}
-
 // ── Workspace: execute ───────────────────────────────────────────────
 
 func executeWorkspaceCreate(runtime *common.RuntimeContext) error {
@@ -192,15 +185,6 @@ func executeWorkspaceMoveIn(runtime *common.RuntimeContext) error {
 		return err
 	}
 	runtime.Out(map[string]interface{}{"entity": data, "moved_in": true}, nil)
-	return nil
-}
-
-func executeWorkspaceEntityRemove(runtime *common.RuntimeContext) error {
-	_, err := baseV3Call(runtime, "DELETE", baseV3Path("workspaces", runtime.Str("workspace-token"), "entities", runtime.Str("entity-id")), nil, nil)
-	if err != nil {
-		return err
-	}
-	runtime.Out(map[string]interface{}{"deleted": true, "entity_id": runtime.Str("entity-id")}, nil)
 	return nil
 }
 

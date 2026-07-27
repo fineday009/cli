@@ -6,7 +6,7 @@
 
 | 对象 | 标识 | 命令 |
 |---|---|---|
-| Workspace | `workspace_token` | `+workspace-create` / `+workspace-entity-list` / `+workspace-move-in` / `+workspace-entity-remove` |
+| Workspace | `workspace_token` | `+workspace-create` / `+workspace-entity-list` / `+workspace-move-in` |
 | BaseApp | `app_token` | `+app-create/get/rename`；删除见下方 |
 | Base | `base_token` | `+app-create` 返回；表、字段、记录命令使用它 |
 | Page | `page_id` | `+app-page-list/get/create/update/delete` |

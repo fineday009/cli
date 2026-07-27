@@ -35,12 +35,6 @@ func TestBaseWorkspaceDryRun(t *testing.T) {
 		assert.Contains(t, output, `"entity_token": "bascn_1"`)
 	})
 
-	t.Run("entity-remove", func(t *testing.T) {
-		result := runBaseDryRun(t, 0, "base", "+workspace-entity-remove", "--workspace-token", "ws_x", "--entity-id", "789")
-		output := strings.TrimSpace(result.Stdout)
-		assert.Contains(t, output, "/open-apis/base/v3/workspaces/ws_x/entities/789")
-		assert.Contains(t, output, `"method": "DELETE"`)
-	})
 }
 
 func TestBaseappDryRun(t *testing.T) {

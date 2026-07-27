@@ -24,7 +24,6 @@ var BaseWorkspaceEntityList = common.Shortcut{
 	},
 	Tips: []string{
 		"lark-cli base +workspace-entity-list --workspace-token <workspace_token> --type baseapp",
-		"entity_id is the workspace tree node ID; +workspace-entity-remove takes it, not the base/app token.",
 	},
 	Validate: func(ctx context.Context, runtime *common.RuntimeContext) error {
 		if _, err := common.ValidatePageSizeTyped(runtime, "page-size", 100, 1, 100); err != nil {

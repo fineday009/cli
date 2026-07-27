@@ -22,9 +22,6 @@ func TestDryRunWorkspaceOps(t *testing.T) {
 
 	moveInRT := newBaseTestRuntime(map[string]string{"workspace-token": "ws_x", "entity-token": "bascn_1"}, nil, nil)
 	assertDryRunContains(t, dryRunWorkspaceMoveIn(ctx, moveInRT), "POST /open-apis/base/v3/workspaces/ws_x/move_in", `"entity_token":"bascn_1"`)
-
-	removeRT := newBaseTestRuntime(map[string]string{"workspace-token": "ws_x", "entity-id": "789"}, nil, nil)
-	assertDryRunContains(t, dryRunWorkspaceEntityRemove(ctx, removeRT), "DELETE /open-apis/base/v3/workspaces/ws_x/entities/789")
 }
 
 func TestDryRunBaseappOps(t *testing.T) {
@@ -228,12 +225,11 @@ func TestBaseappRisksAndScopes(t *testing.T) {
 		risk     string
 		scope    string
 	}{
-		"+workspace-move-in":       {BaseWorkspaceMoveIn, "write", "base:workspace:update"},
-		"+workspace-entity-remove": {BaseWorkspaceEntityRemove, "high-risk-write", "base:workspace:update"},
-		"+app-page-delete":         {BaseAppPageDelete, "high-risk-write", "base:appmode_page:delete"},
-		"+app-rename":              {BaseAppRename, "write", "base:appmode:update"},
-		"+app-block-create":        {BaseAppBlockCreate, "write", "base:appmode_block:create"},
-		"+app-block-get-data":      {BaseAppBlockGetData, "read", "base:dashboard:read"},
+		"+workspace-move-in":  {BaseWorkspaceMoveIn, "write", "base:workspace:update"},
+		"+app-page-delete":    {BaseAppPageDelete, "high-risk-write", "base:appmode_page:delete"},
+		"+app-rename":         {BaseAppRename, "write", "base:appmode:update"},
+		"+app-block-create":   {BaseAppBlockCreate, "write", "base:appmode_block:create"},
+		"+app-block-get-data": {BaseAppBlockGetData, "read", "base:dashboard:read"},
 	}
 	if got := strings.Join(BaseAppCreate.Scopes, ","); got != "base:appmode:create,base:workspace:create,base:workspace:update" {
 		t.Errorf("+app-create scopes=%v", BaseAppCreate.Scopes)
