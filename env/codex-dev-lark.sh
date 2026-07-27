@@ -17,7 +17,7 @@ Options:
                       Default: boe_bitable_bk11
   --env <env>         larkenv target: boe, pre, ppe, or online.
                       Default: boe
-  --ppe, --use-ppe    Use PPE: pre endpoint plus x-use-ppe:1 and env:pre_release headers.
+  --ppe, --use-ppe    Use PPE for business APIs; auth/config remain on production.
   --skill <name>      Link only one local skill, e.g. lark-base.
                       Default: all lark-* skills under ./skills
   --no-build          Reuse the current ./lark-cli binary instead of rebuilding.

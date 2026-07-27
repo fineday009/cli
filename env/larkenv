@@ -21,7 +21,8 @@
 #   LARK_CLI_DEBUG_HEADERS=1 larkenv ... 只打印出站 header，不打 body
 #
 # boe / pre / online 的配置和登录态隔离在 ~/.lark-cli-env/config/{boe,pre,online}。
-# ppe 复用正式 CLI 的默认配置和用户登录态，使用 pre endpoint 和 PPE headers。
+# ppe 复用正式 CLI 的默认配置和用户登录态；业务 API 使用 pre endpoint 和
+# PPE headers，auth/config 控制面仍使用正式 endpoint。
 set -euo pipefail
 
 BIN_DIR="${LARK_CLI_ENV_BIN:-$HOME/.local/bin}"
@@ -97,14 +98,61 @@ append_extra_header() {
 	fi
 }
 
+remove_extra_header() {
+	local target="$1"
+	local raw="${LARKSUITE_CLI_EXTRA_HEADERS:-}"
+	local item result=""
+	local IFS=';'
+
+	for item in $raw; do
+		item="${item#"${item%%[![:space:]]*}"}"
+		item="${item%"${item##*[![:space:]]}"}"
+		[ -n "$item" ] || continue
+		[ "$item" = "$target" ] && continue
+		if [ -n "$result" ]; then
+			result="$result; $item"
+		else
+			result="$item"
+		fi
+	done
+
+	if [ -n "$result" ]; then
+		export LARKSUITE_CLI_EXTRA_HEADERS="$result"
+	else
+		unset LARKSUITE_CLI_EXTRA_HEADERS
+	fi
+}
+
+# PPE reuses the production app config and user token, so authentication and
+# configuration must stay on the production control plane. The launcher may
+# already have injected PPE routing into the parent environment; remove only
+# those routing values while preserving unrelated caller-supplied headers.
+apply_ppe_control_env() {
+	unset LARKSUITE_CLI_CONFIG_DIR
+	unset LARKSUITE_CLI_ENDPOINT_DOMAIN
+	unset LARK_CLI_NO_PROXY
+	remove_extra_header "x-use-ppe:1"
+	remove_extra_header "env:pre_release"
+	if [ -n "${LARK_LANE:-}" ]; then
+		remove_extra_header "X-TT-ENV: $LARK_LANE"
+	fi
+	unset LARK_LANE
+}
+
 # ---------- 环境变量注入 ----------
 apply_env() {
+	# Normalize values that may have been inherited from a previously selected
+	# environment before applying the requested target.
+	unset LARKSUITE_CLI_ENDPOINT_DOMAIN
+	unset LARK_CLI_NO_PROXY
 	if [ "$1" = "ppe" ]; then
 		# PPE 与正式环境使用同一套应用配置和用户登录态。显式 unset，
 		# 避免调用方继承的配置目录把 PPE 再次隔离。
 		unset LARKSUITE_CLI_CONFIG_DIR
 	else
 		export LARKSUITE_CLI_CONFIG_DIR="$CONFIG_ROOT/config/$1"
+		remove_extra_header "x-use-ppe:1"
+		remove_extra_header "env:pre_release"
 	fi
 	case "$1" in
 	boe)
@@ -123,7 +171,7 @@ apply_env() {
 		append_extra_header "env:pre_release"
 		;;
 	online)
-		# 不覆盖 endpoint，走开源默认 feishu.cn / larksuite.com；仅隔离配置目录
+		# endpoint 已清除，走开源默认 feishu.cn / larksuite.com；仅隔离配置目录
 		;;
 	esac
 	# Append rather than overwrite, so a caller-supplied LARKSUITE_CLI_EXTRA_HEADERS
@@ -133,6 +181,14 @@ apply_env() {
 	fi
 	if [ -n "${LARKSUITE_CLI_CONFIG_DIR:-}" ]; then
 		mkdir -p "$LARKSUITE_CLI_CONFIG_DIR"
+	fi
+}
+
+apply_control_env() {
+	if [ "$1" = "ppe" ]; then
+		apply_ppe_control_env
+	else
+		apply_env "$1"
 	fi
 }
 
@@ -209,7 +265,7 @@ init)
 		;;
 	esac
 	require_bin
-	apply_env "$2"
+	apply_control_env "$2"
 
 	if [ $# -eq 3 ]; then
 		printf 'App Secret (输入不回显): ' >&2
@@ -236,14 +292,18 @@ login)
 		exit 1
 	}
 	require_bin
-	apply_env "$2"
+	apply_control_env "$2"
 	do_login
 	;;
 boe | pre | ppe | online)
 	require_bin
 	env_name="$1"
 	shift
-	apply_env "$env_name"
+	if [ "$env_name" = "ppe" ] && { [ "${1:-}" = "auth" ] || [ "${1:-}" = "config" ]; }; then
+		apply_ppe_control_env
+	else
+		apply_env "$env_name"
+	fi
 	exec "$BIN" "$@"
 	;;
 -h | --help | help)
