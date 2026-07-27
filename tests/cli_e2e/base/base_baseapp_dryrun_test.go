@@ -49,10 +49,11 @@ func TestBaseappDryRun(t *testing.T) {
 	})
 
 	t.Run("get", func(t *testing.T) {
-		result := runBaseDryRun(t, 0, "base", "+app-get", "--app-token", "app_x", "--with-pages")
+		result := runBaseDryRun(t, 0, "base", "+app-get", "--app-token", "app_x")
 		output := strings.TrimSpace(result.Stdout)
 		assert.Contains(t, output, "/open-apis/base/v3/base_apps/app_x")
-		assert.Contains(t, output, "with_pages")
+		assert.NotContains(t, output, "with_pages")
+		assert.NotContains(t, output, "with_components")
 	})
 
 	t.Run("rename", func(t *testing.T) {

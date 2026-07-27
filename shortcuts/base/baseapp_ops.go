@@ -243,22 +243,10 @@ func baseappCreateRetryCommand(runtime *common.RuntimeContext, workspaceToken st
 	return command
 }
 
-func baseappGetParams(runtime *common.RuntimeContext) map[string]interface{} {
-	params := map[string]interface{}{}
-	if runtime.Bool("with-pages") {
-		params["with_pages"] = true
-	}
-	if runtime.Bool("with-components") {
-		params["with_components"] = true
-	}
-	return params
-}
-
 func dryRunBaseappGet(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
 	return common.NewDryRunAPI().
 		GET("/open-apis/base/v3/base_apps/:app_token").
-		Set("app_token", runtime.Str("app-token")).
-		Params(baseappGetParams(runtime))
+		Set("app_token", runtime.Str("app-token"))
 }
 
 func dryRunBaseappRename(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
@@ -408,7 +396,7 @@ func executeBaseappCreate(runtime *common.RuntimeContext) error {
 }
 
 func executeBaseappGet(runtime *common.RuntimeContext) error {
-	data, err := baseV3Call(runtime, "GET", baseV3Path("base_apps", runtime.Str("app-token")), baseappGetParams(runtime), nil)
+	data, err := baseV3Call(runtime, "GET", baseV3Path("base_apps", runtime.Str("app-token")), nil, nil)
 	if err != nil {
 		return err
 	}
@@ -695,10 +683,8 @@ func validateListBaseWorkspace(runtime *common.RuntimeContext) error {
 	if err != nil {
 		return err
 	}
-	for _, token := range stringValues(app["base_tokens"]) {
-		if token == baseToken {
-			return nil
-		}
+	if appRefContainsBase(app["ref"], baseToken) {
+		return nil
 	}
 	workspaceToken := firstNonEmpty(
 		strings.TrimSpace(common.GetString(app, "workspace_token")),
@@ -729,15 +715,17 @@ func validateListBaseWorkspace(runtime *common.RuntimeContext) error {
 	return errs.NewValidationError(errs.SubtypeInvalidArgument, "列表组件只能选择 App 所在 Workspace 内的一个 Base；%s 不在当前 Workspace", baseToken).WithParam("--data-config")
 }
 
-func stringValues(raw interface{}) []string {
-	values, _ := raw.([]interface{})
-	out := make([]string, 0, len(values))
-	for _, value := range values {
-		if text, ok := value.(string); ok {
-			out = append(out, strings.TrimSpace(text))
-		}
+func appRefContainsBase(raw interface{}, baseToken string) bool {
+	switch refs := raw.(type) {
+	case map[string]interface{}:
+		_, ok := refs[baseToken]
+		return ok
+	case map[string][]string:
+		_, ok := refs[baseToken]
+		return ok
+	default:
+		return false
 	}
-	return out
 }
 
 func workspaceContainsBase(data map[string]interface{}, baseToken string) bool {

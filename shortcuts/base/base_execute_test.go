@@ -345,8 +345,10 @@ func TestBaseAppListCreateOmitsUnspecifiedOptionalFields(t *testing.T) {
 				Body: map[string]interface{}{
 					"code": 0,
 					"data": map[string]interface{}{
-						"app_token":   "app_x",
-						"base_tokens": []interface{}{"bas_x"},
+						"app_token": "app_x",
+						"ref": map[string]interface{}{
+							"bas_x": []interface{}{"Orders"},
+						},
 					},
 				},
 			})

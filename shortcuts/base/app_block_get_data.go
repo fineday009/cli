@@ -33,7 +33,7 @@ var BaseAppBlockGetData = common.Shortcut{
 	Tips: []string{
 		"lark-cli base +app-block-get-data --base-token <base_token> --block-id <block_id>",
 		"Unlike every other +app-block-* command this one takes --base-token and needs neither --app-token nor --page-id.",
-		"--base-token is the base backing the app; read it from +app-get (base_tokens) or +app-create.",
+		"--base-token is the Base backing the app; read it from a +app-get ref key or +app-create.",
 		"It shares the dashboard endpoint, so the response is the same chart protocol JSON as +dashboard-block-get-data.",
 		"List and richText blocks have no computed data; use +app-block-get for their metadata instead.",
 	},

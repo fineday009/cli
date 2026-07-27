@@ -54,11 +54,26 @@ func TestDryRunBaseappOps(t *testing.T) {
 		t.Fatalf("app create must not expose a base-token input:\n%s", minimalOut)
 	}
 
-	getRT := newBaseTestRuntime(map[string]string{"app-token": "app_x"}, map[string]bool{"with-pages": true}, nil)
-	assertDryRunContains(t, dryRunBaseappGet(ctx, getRT), "GET /open-apis/base/v3/base_apps/app_x", "with_pages=true")
+	getRT := newBaseTestRuntime(map[string]string{"app-token": "app_x"}, nil, nil)
+	assertDryRunContains(t, dryRunBaseappGet(ctx, getRT), "GET /open-apis/base/v3/base_apps/app_x")
 
 	renameRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "name": "New name"}, nil, nil)
 	assertDryRunContains(t, dryRunBaseappRename(ctx, renameRT), "PATCH /open-apis/drive/v1/files/app_x", "type=bitable", `"new_title":"New name"`)
+}
+
+func TestBaseAppGetOnlyAcceptsAppToken(t *testing.T) {
+	if len(BaseAppGet.Flags) != 1 || BaseAppGet.Flags[0].Name != "app-token" {
+		t.Fatalf("+app-get flags=%v", BaseAppGet.Flags)
+	}
+}
+
+func TestAppRefContainsBase(t *testing.T) {
+	if !appRefContainsBase(map[string]interface{}{"bas_x": []interface{}{"Orders"}}, "bas_x") {
+		t.Fatal("expected ref key to identify a referenced Base")
+	}
+	if appRefContainsBase(map[string]interface{}{"bas_y": []interface{}{"Orders"}}, "bas_x") {
+		t.Fatal("unexpected Base match")
+	}
 }
 
 func TestAppCreateDoesNotExposeBaseToken(t *testing.T) {

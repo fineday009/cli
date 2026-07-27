@@ -14,6 +14,16 @@
 
 页面和组件命令使用 `app_token`；Base 数据命令使用 `base_token`。唯一例外是 `+app-block-get-data`，它使用 `base_token + block_id`。
 
+## 查询应用
+
+```bash
+lark-cli base +app-get --app-token <app_token>
+```
+
+- 响应中的 `pages` 是页面摘要。
+- `ref` 的结构是 `Base token -> 当前组件引用的 Table 名称数组`。需要操作被引用 Base 时，使用 `ref` 的 key 作为 `base_token`。
+- `ref` 只描述当前组件已经引用的数据源；没有被组件引用的 Base 不会出现在其中。
+
 ## 创建应用
 
 ```bash

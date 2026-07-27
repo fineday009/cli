@@ -37,7 +37,7 @@
 | ✓ | base +base-create | shortcut | base/helpers_test.go::createBaseWithRetry | `--name`; `--time-zone` | helper asserts created base token |
 | ✓ | base +base-get | shortcut | base_basic_workflow_test.go::TestBase_BasicWorkflow/get base as bot | `--base-token` | |
 | ✓ | base +app-create | shortcut | base_baseapp_dryrun_test.go::TestBaseappDryRun/create | `--name`; `--workspace-token`; `--base-name`; `--table-name` | App → Base → Workspace; partial result unit-tested |
-| ✓ | base +app-get | shortcut | base_baseapp_dryrun_test.go::TestBaseappDryRun/get | `--app-token`; `--with-pages` | request shape |
+| ✓ | base +app-get | shortcut | base_baseapp_dryrun_test.go::TestBaseappDryRun/get | `--app-token` | request shape |
 | ✓ | base +app-page-create | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/create,create rejects conflicting ordering flags | `--app-token`; `--name`; `--to-last`; `--prev-page-id` | request shape, ordering and uniqueness |
 | ✓ | base +app-page-delete | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/delete | `--app-token`; `--page-id` | request shape |
 | ✓ | base +app-page-get | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/get | `--app-token`; `--page-id`; `--with-components` | request shape |
