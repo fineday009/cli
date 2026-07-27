@@ -27,39 +27,24 @@ func TestDryRunWorkspaceOps(t *testing.T) {
 func TestDryRunBaseappOps(t *testing.T) {
 	ctx := context.Background()
 
-	createRT := newBaseTestRuntime(map[string]string{"name": "Sales app", "workspace-token": "ws_x", "theme-style": "cloudBlue", "base-name": "Sales data", "table-name": "Orders"}, nil, nil)
+	createRT := newBaseTestRuntime(map[string]string{"name": "Sales app", "workspace-token": "ws_x", "theme-style": "cloudBlue"}, nil, nil)
 	assertDryRunContains(t, dryRunBaseappCreate(ctx, createRT),
 		"POST /open-apis/base/v3/base_apps",
 		`"name":"Sales app"`,
 		`"workspace_token":"ws_x"`,
 		`"theme":{"theme_style":"cloudBlue"}`,
-		"POST /open-apis/base/v3/bases",
-		`"name":"Sales data"`,
-		"POST /open-apis/base/v3/workspaces/ws_x/move_in",
-		`"entity_token"`,
 	)
 
-	minimalCreateRT := newBaseTestRuntime(map[string]string{"name": "Blank app"}, nil, nil)
-	minimalOut := dryRunBaseappCreate(ctx, minimalCreateRT).Format()
-	for _, want := range []string{
-		`POST /open-apis/base/v3/workspaces`,
-		`"name":"Blank app"`,
-		`"workspace_token"`,
-		`created_workspace_token`,
-	} {
-		if !strings.Contains(minimalOut, want) {
-			t.Fatalf("app create without workspace token must contain %q:\n%s", want, minimalOut)
+	createOut := dryRunBaseappCreate(ctx, createRT).Format()
+	for _, unwanted := range []string{"/workspaces/ws_x/move_in", "/base/v3/bases", `"base_token"`} {
+		if strings.Contains(createOut, unwanted) {
+			t.Fatalf("atomic app create must not contain %q:\n%s", unwanted, createOut)
 		}
-	}
-	if strings.Contains(minimalOut, `"base_token"`) {
-		t.Fatalf("app create must not expose a base-token input:\n%s", minimalOut)
 	}
 
 	getRT := newBaseTestRuntime(map[string]string{"app-token": "app_x"}, nil, nil)
 	assertDryRunContains(t, dryRunBaseappGet(ctx, getRT), "GET /open-apis/base/v3/base_apps/app_x")
 
-	renameRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "name": "New name"}, nil, nil)
-	assertDryRunContains(t, dryRunBaseappRename(ctx, renameRT), "PATCH /open-apis/drive/v1/files/app_x", "type=bitable", `"new_title":"New name"`)
 }
 
 func TestBaseAppGetOnlyAcceptsAppToken(t *testing.T) {
@@ -77,10 +62,17 @@ func TestAppRefContainsBase(t *testing.T) {
 	}
 }
 
-func TestAppCreateDoesNotExposeBaseToken(t *testing.T) {
+func TestAppCreateFlags(t *testing.T) {
+	flags := map[string]common.Flag{}
 	for _, flag := range BaseAppCreate.Flags {
-		if flag.Name == "base-token" {
-			t.Fatal("+app-create must not expose --base-token")
+		flags[flag.Name] = flag
+	}
+	if len(flags) != 3 || !flags["name"].Required || !flags["workspace-token"].Required {
+		t.Fatalf("+app-create flags=%v, want required name/workspace-token and optional theme-style", BaseAppCreate.Flags)
+	}
+	for _, removed := range []string{"base-token", "base-name", "table-name"} {
+		if _, ok := flags[removed]; ok {
+			t.Fatalf("+app-create must not expose --%s", removed)
 		}
 	}
 }
@@ -94,8 +86,12 @@ func TestDryRunBaseappPageOps(t *testing.T) {
 	getRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "page-id": "pg_1"}, nil, nil)
 	assertDryRunContains(t, dryRunBaseappPageGet(ctx, getRT), "GET /open-apis/base/v3/base_apps/app_x/pages/pg_1")
 
-	createRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "name": "Overview", "page-group-id": "pgrp_root"}, nil, nil)
-	assertDryRunContains(t, dryRunBaseappPageCreate(ctx, createRT), "POST /open-apis/base/v3/base_apps/app_x/pages", `"name":"Overview"`, `"page_group_id":"pgrp_root"`)
+	createRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "name": "Overview"}, nil, nil)
+	createOut := dryRunBaseappPageCreate(ctx, createRT).Format()
+	assertDryRunContains(t, dryRunBaseappPageCreate(ctx, createRT), "POST /open-apis/base/v3/base_apps/app_x/pages", `"name":"Overview"`)
+	if strings.Contains(createOut, "page_group_id") {
+		t.Fatalf("page create must not send page_group_id:\n%s", createOut)
+	}
 
 	renameRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "page-id": "pg_1", "name": "Sales"}, nil, nil)
 	assertDryRunContains(t, dryRunBaseappPageRename(ctx, renameRT), "PATCH /open-apis/base/v3/base_apps/app_x/pages/pg_1", `"name":"Sales"`)
@@ -184,20 +180,25 @@ func TestAppRichTextTypeMapsToText(t *testing.T) {
 	}
 }
 
-// +app-block-get-data is a thin wrapper: it must hit exactly the same method
-// and path as +dashboard-block-get-data, and must take --base-token instead of
-// the --app-token every other +app-block-* command uses.
-func TestAppBlockGetDataMirrorsDashboard(t *testing.T) {
+func TestAppBlockGetDataUsesDashboardPathWithAppHeader(t *testing.T) {
 	ctx := context.Background()
-	rt := newBaseTestRuntime(map[string]string{"base-token": "app_x", "block-id": "blk_chart"}, nil, nil)
+	rt := newBaseTestRuntime(map[string]string{
+		"app-token":  "app_x",
+		"base-token": "bas_x",
+		"block-id":   "blk_chart",
+	}, nil, nil)
 
 	appOut := BaseAppBlockGetData.DryRun(ctx, rt).Format()
-	dashboardOut := BaseDashboardBlockGetData.DryRun(ctx, rt).Format()
-	if appOut != dashboardOut {
-		t.Fatalf("dry-run drifted from dashboard\napp:\n%s\ndashboard:\n%s", appOut, dashboardOut)
-	}
-	if !strings.Contains(appOut, "GET /open-apis/base/v3/bases/app_x/dashboards/blocks/blk_chart/data") {
+	if !strings.Contains(appOut, "GET /open-apis/base/v3/bases/bas_x/dashboards/blocks/blk_chart/data") {
 		t.Fatalf("unexpected path:\n%s", appOut)
+	}
+	if !strings.Contains(appOut, appTokenPersistHeader+": app_x") {
+		t.Fatalf("app token header missing:\n%s", appOut)
+	}
+
+	dashboardOut := BaseDashboardBlockGetData.DryRun(ctx, rt).Format()
+	if strings.Contains(dashboardOut, appTokenPersistHeader) {
+		t.Fatalf("dashboard request must not contain App header:\n%s", dashboardOut)
 	}
 }
 
@@ -208,11 +209,13 @@ func TestAppBlockGetDataRequiredFlags(t *testing.T) {
 			required[flag.Name] = true
 		}
 	}
-	if !required["base-token"] || !required["block-id"] {
-		t.Fatalf("required flags=%v want base-token and block-id", required)
+	if !required["app-token"] || !required["base-token"] || !required["block-id"] {
+		t.Fatalf("required flags=%v want app-token, base-token and block-id", required)
 	}
-	if required["app-token"] || required["page-id"] {
-		t.Fatalf("app-token/page-id must stay optional compatibility flags: %v", required)
+	for _, flag := range BaseAppBlockGetData.Flags {
+		if flag.Name == "page-id" {
+			t.Fatalf("page-id must not be accepted: %v", BaseAppBlockGetData.Flags)
+		}
 	}
 }
 
@@ -243,11 +246,10 @@ func TestBaseappRisksAndScopes(t *testing.T) {
 	}{
 		"+workspace-move-in":  {BaseWorkspaceMoveIn, "write", "base:workspace:update"},
 		"+app-page-delete":    {BaseAppPageDelete, "high-risk-write", "base:appmode_page:delete"},
-		"+app-rename":         {BaseAppRename, "write", "base:appmode:update"},
 		"+app-block-create":   {BaseAppBlockCreate, "write", "base:appmode_block:create"},
-		"+app-block-get-data": {BaseAppBlockGetData, "read", "base:dashboard:read"},
+		"+app-block-get-data": {BaseAppBlockGetData, "read", "base:appmode_block:read"},
 	}
-	if got := strings.Join(BaseAppCreate.Scopes, ","); got != "base:appmode:create,base:workspace:create,base:workspace:update" {
+	if got := strings.Join(BaseAppCreate.Scopes, ","); got != "base:appmode:create,base:workspace:update" {
 		t.Errorf("+app-create scopes=%v", BaseAppCreate.Scopes)
 	}
 	for name, tc := range cases {

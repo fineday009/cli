@@ -5,7 +5,6 @@ package base
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/larksuite/cli/errs"
@@ -185,51 +184,9 @@ func baseappCreateBodyWithWorkspace(runtime *common.RuntimeContext, workspaceTok
 }
 
 func dryRunBaseappCreate(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
-	workspaceToken := strings.TrimSpace(runtime.Str("workspace-token"))
-	dryRun := common.NewDryRunAPI()
-	if workspaceToken == "" {
-		dryRun.POST("/open-apis/base/v3/workspaces").
-			Body(map[string]interface{}{"name": strings.TrimSpace(runtime.Str("name"))}).
-			Desc("No Workspace was specified, so create one first with the same name as the app.")
-		workspaceToken = "<created_workspace_token>"
-	}
-	dryRun.POST("/open-apis/base/v3/base_apps").
-		Body(baseappCreateBodyWithWorkspace(runtime, workspaceToken)).
-		Desc("Create the app in the selected or newly created Workspace.")
-	dryRun.POST("/open-apis/base/v3/bases").
-		Body(baseappBlankBaseBody(runtime)).
-		Desc("After App creation succeeds, create a blank candidate Base.")
-	dryRun.POST("/open-apis/base/v3/workspaces/:workspace_token/move_in").
-		Set("workspace_token", workspaceToken).
-		Body(map[string]interface{}{"entity_token": "<created_base_token>"}).
-		Desc("Move the blank Base into the App Workspace. A failure here returns a partial-completion result and a retry command.")
-	return dryRun
-}
-
-func baseappBlankBaseBody(runtime *common.RuntimeContext) map[string]interface{} {
-	name := strings.TrimSpace(runtime.Str("base-name"))
-	if name == "" {
-		name = strings.TrimSpace(runtime.Str("name")) + " Base"
-	}
-	return map[string]interface{}{"name": name}
-}
-
-func baseappCreateRetryCommand(runtime *common.RuntimeContext, workspaceToken string) string {
-	command := fmt.Sprintf(
-		"lark-cli base +app-create --name %q --workspace-token %s",
-		strings.TrimSpace(runtime.Str("name")),
-		workspaceToken,
-	)
-	if baseName := strings.TrimSpace(runtime.Str("base-name")); baseName != "" {
-		command += fmt.Sprintf(" --base-name %q", baseName)
-	}
-	if tableName := strings.TrimSpace(runtime.Str("table-name")); tableName != "" {
-		command += fmt.Sprintf(" --table-name %q", tableName)
-	}
-	if themeStyle := strings.TrimSpace(runtime.Str("theme-style")); themeStyle != "" {
-		command += fmt.Sprintf(" --theme-style %s", themeStyle)
-	}
-	return command
+	return common.NewDryRunAPI().
+		POST("/open-apis/base/v3/base_apps").
+		Body(baseappCreateBodyWithWorkspace(runtime, strings.TrimSpace(runtime.Str("workspace-token"))))
 }
 
 func dryRunBaseappGet(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
@@ -238,149 +195,15 @@ func dryRunBaseappGet(_ context.Context, runtime *common.RuntimeContext) *common
 		Set("app_token", runtime.Str("app-token"))
 }
 
-func dryRunBaseappRename(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
-	return common.NewDryRunAPI().
-		PATCH("/open-apis/drive/v1/files/:file_token").
-		Set("file_token", runtime.Str("app-token")).
-		Params(map[string]interface{}{"type": "bitable"}).
-		Body(map[string]interface{}{"new_title": strings.TrimSpace(runtime.Str("name"))})
-}
-
 // ── BaseApp: execute ─────────────────────────────────────────────────
 
 func executeBaseappCreate(runtime *common.RuntimeContext) error {
 	workspaceToken := strings.TrimSpace(runtime.Str("workspace-token"))
-	var workspace map[string]interface{}
-	workspaceCreated := false
-	if workspaceToken == "" {
-		var err error
-		workspace, err = baseV3Call(runtime, "POST", baseV3Path("workspaces"), nil, map[string]interface{}{
-			"name": strings.TrimSpace(runtime.Str("name")),
-		})
-		if err != nil {
-			return err
-		}
-		workspaceCreated = true
-		workspaceToken = firstNonEmpty(
-			common.GetString(workspace, "workspace_token"),
-			common.GetString(workspace, "token"),
-		)
-		if workspaceToken == "" {
-			return runtime.OutPartialFailure(map[string]interface{}{
-				"status":            "partial",
-				"failed_step":       "workspace_token_resolve",
-				"message":           "Workspace 已创建，但响应中缺少 workspace_token，CLI 无法继续创建应用模式；Workspace 未回滚。",
-				"workspace":         workspace,
-				"workspace_created": true,
-				"app_created":       false,
-				"completed_steps":   []interface{}{"workspace_create"},
-			}, nil)
-		}
-	}
-
 	app, err := baseV3Call(runtime, "POST", baseV3Path("base_apps"), nil, baseappCreateBodyWithWorkspace(runtime, workspaceToken))
 	if err != nil {
-		if workspaceCreated {
-			out := map[string]interface{}{
-				"status":            "partial",
-				"failed_step":       "app_create",
-				"cause":             err.Error(),
-				"message":           "Workspace 已创建，但应用模式创建失败；Workspace 未回滚。请按 retry.command 在该 Workspace 中重试创建应用。",
-				"workspace":         workspace,
-				"workspace_token":   workspaceToken,
-				"workspace_created": true,
-				"app_created":       false,
-				"completed_steps":   []interface{}{"workspace_create"},
-				"retry": map[string]interface{}{
-					"command": baseappCreateRetryCommand(runtime, workspaceToken),
-				},
-			}
-			return runtime.OutPartialFailure(out, nil)
-		}
 		return err
 	}
-	completedSteps := []interface{}{"app_create"}
-	if workspaceCreated {
-		completedSteps = []interface{}{"workspace_create", "app_create"}
-	}
-	out := map[string]interface{}{
-		"status":            "in_progress",
-		"app":               app,
-		"workspace_token":   workspaceToken,
-		"workspace_created": workspaceCreated,
-		"app_created":       true,
-		"base_created":      false,
-		"base_moved":        false,
-		"completed_steps":   completedSteps,
-	}
-	if workspaceCreated {
-		out["workspace"] = workspace
-	}
-	appToken := firstNonEmpty(common.GetString(app, "app_token"), common.GetString(app, "token"))
-
-	base, err := baseV3Call(runtime, "POST", baseV3Path("bases"), nil, baseappBlankBaseBody(runtime))
-	if err != nil {
-		out["status"] = "partial"
-		out["failed_step"] = "base_create"
-		out["cause"] = err.Error()
-		out["message"] = "App 已创建，但空 Base 创建失败；App 未回滚。请保留 app_token，并按 retry.command 重试后再把 Base 移入同一 Workspace。"
-		out["retry"] = map[string]interface{}{
-			"command": fmt.Sprintf("lark-cli base +base-create --name %q", common.GetString(baseappBlankBaseBody(runtime), "name")),
-			"next":    fmt.Sprintf("lark-cli base +workspace-move-in --workspace-token %s --entity-token <base_token>", workspaceToken),
-		}
-		out["app_token"] = appToken
-		return runtime.OutPartialFailure(out, nil)
-	}
-	baseToken := extractBasePermissionToken(base)
-	out["base"] = base
-	out["base_token"] = baseToken
-	out["base_created"] = true
-	out["completed_steps"] = append(completedSteps, "base_create")
-	if baseToken == "" {
-		out["status"] = "partial"
-		out["failed_step"] = "base_token_resolve"
-		out["message"] = "App 和空 Base 已创建，但 Base 创建响应缺少 base_token，CLI 无法继续移动；资源未回滚。"
-		out["retry"] = map[string]interface{}{"command": "lark-cli base +title-resolve --title <base_name>"}
-		return runtime.OutPartialFailure(out, nil)
-	}
-
-	if workspaceToken == "" {
-		out["status"] = "partial"
-		out["failed_step"] = "workspace_resolve"
-		out["message"] = "App 和空 Base 已创建，但响应中没有 Workspace token，CLI 无法自动移动 Base；资源未回滚。"
-		out["retry"] = map[string]interface{}{"command": fmt.Sprintf("lark-cli base +workspace-move-in --workspace-token <workspace_token> --entity-token %s", baseToken)}
-		return runtime.OutPartialFailure(out, nil)
-	}
-	moveBody := map[string]interface{}{"entity_token": baseToken}
-	entity, err := baseV3Call(runtime, "POST", baseV3Path("workspaces", workspaceToken, "move_in"), nil, moveBody)
-	if err != nil {
-		out["status"] = "partial"
-		out["failed_step"] = "base_move"
-		out["cause"] = err.Error()
-		out["message"] = "App 和空 Base 已创建，但 Base 移入 App Workspace 失败；资源未回滚。再次执行 retry.command 即可继续，不要重复创建 App 或 Base。"
-		out["retry"] = map[string]interface{}{"command": fmt.Sprintf("lark-cli base +workspace-move-in --workspace-token %s --entity-token %s", workspaceToken, baseToken)}
-		return runtime.OutPartialFailure(out, nil)
-	}
-	out["workspace_token"] = workspaceToken
-	out["workspace_entity"] = entity
-	out["base_moved"] = true
-	out["completed_steps"] = append(completedSteps, "base_create", "base_move")
-
-	if strings.TrimSpace(runtime.Str("table-name")) != "" {
-		renamedTable, _, renameErr := renameBaseDefaultTable(runtime, base)
-		if renameErr != nil {
-			out["status"] = "partial"
-			out["failed_step"] = "base_initial_table_rename"
-			out["cause"] = renameErr.Error()
-			out["message"] = "App 和空 Base 已创建，Base 也已移入同一 Workspace，但首张表重命名失败；资源未回滚。"
-			out["retry"] = map[string]interface{}{"command": fmt.Sprintf("lark-cli base +table-list --base-token %s", baseToken)}
-			return runtime.OutPartialFailure(out, nil)
-		}
-		out["table"] = renamedTable
-		out["completed_steps"] = append(completedSteps, "base_create", "base_move", "base_initial_table_rename")
-	}
-	out["status"] = "completed"
-	runtime.Out(out, nil)
+	runtime.Out(map[string]interface{}{"app": app, "created": true, "workspace_token": workspaceToken}, nil)
 	return nil
 }
 
@@ -390,16 +213,6 @@ func executeBaseappGet(runtime *common.RuntimeContext) error {
 		return err
 	}
 	runtime.Out(data, nil)
-	return nil
-}
-
-func executeBaseappRename(runtime *common.RuntimeContext) error {
-	body := map[string]interface{}{"new_title": strings.TrimSpace(runtime.Str("name"))}
-	data, err := runtime.CallAPITyped("PATCH", "/open-apis/drive/v1/files/"+runtime.Str("app-token"), map[string]interface{}{"type": "bitable"}, body)
-	if err != nil {
-		return err
-	}
-	runtime.Out(map[string]interface{}{"file": data, "updated": true, "app_token": runtime.Str("app-token"), "type": "bitable"}, nil)
 	return nil
 }
 
@@ -420,11 +233,7 @@ func dryRunBaseappPageGet(_ context.Context, runtime *common.RuntimeContext) *co
 }
 
 func baseappPageCreateBody(runtime *common.RuntimeContext) map[string]interface{} {
-	body := map[string]interface{}{"name": strings.TrimSpace(runtime.Str("name"))}
-	if pageGroupID := strings.TrimSpace(runtime.Str("page-group-id")); pageGroupID != "" {
-		body["page_group_id"] = pageGroupID
-	}
-	return body
+	return map[string]interface{}{"name": strings.TrimSpace(runtime.Str("name"))}
 }
 
 func dryRunBaseappPageCreate(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {

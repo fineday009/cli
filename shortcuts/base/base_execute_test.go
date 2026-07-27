@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -164,108 +163,56 @@ func TestBaseWorkspaceExecuteCreate(t *testing.T) {
 	}
 }
 
-func TestBaseAppCreateOrchestrationSuccess(t *testing.T) {
+func TestBaseAppCreateIsAtomic(t *testing.T) {
 	factory, stdout, reg := newExecuteFactory(t)
 	reg.Register(&httpmock.Stub{
 		Method: "POST",
-		URL:    "/open-apis/base/v3/workspaces",
-		Body:   map[string]interface{}{"code": 0, "data": map[string]interface{}{"workspace_token": "ws_x", "name": "Sales"}},
-	})
-	reg.Register(&httpmock.Stub{
-		Method: "POST",
 		URL:    "/open-apis/base/v3/base_apps",
-		Body:   map[string]interface{}{"code": 0, "data": map[string]interface{}{"app_token": "app_x", "workspace_token": "ws_x"}},
+		Body: map[string]interface{}{
+			"code": 0,
+			"data": map[string]interface{}{"app_token": "app_x", "workspace_token": "ws_x"},
+		},
 	})
-	reg.Register(&httpmock.Stub{
-		Method: "POST",
-		URL:    "/open-apis/base/v3/bases",
-		Body:   map[string]interface{}{"code": 0, "data": map[string]interface{}{"base_token": "bas_x"}},
-	})
-	reg.Register(&httpmock.Stub{
-		Method: "POST",
-		URL:    "/open-apis/base/v3/workspaces/ws_x/move_in",
-		Body:   map[string]interface{}{"code": 0, "data": map[string]interface{}{"entity_id": "ent_x"}},
-	})
-	if err := runShortcut(t, BaseAppCreate, []string{"+app-create", "--name", "Sales"}, factory, stdout); err != nil {
+	if err := runShortcut(t, BaseAppCreate, []string{"+app-create", "--name", "Sales", "--workspace-token", "ws_x"}, factory, stdout); err != nil {
 		t.Fatalf("err=%v", err)
 	}
 	data := decodeBaseEnvelope(t, stdout)
-	if data["status"] != "completed" || data["app_created"] != true || data["base_created"] != true || data["base_moved"] != true {
+	if data["created"] != true || data["workspace_token"] != "ws_x" {
 		t.Fatalf("unexpected result: %#v", data)
 	}
-	if data["workspace_created"] != true || data["workspace_token"] != "ws_x" {
-		t.Fatalf("workspace result: %#v", data)
-	}
-	steps, _ := data["completed_steps"].([]interface{})
-	if got := fmt.Sprint(steps); got != "[workspace_create app_create base_create base_move]" {
-		t.Fatalf("completed_steps=%s", got)
+	app, _ := data["app"].(map[string]interface{})
+	if common.GetString(app, "app_token") != "app_x" {
+		t.Fatalf("app=%#v", app)
 	}
 }
 
-func TestBaseAppCreateReturnsPartialResultWhenAppFailsAfterWorkspaceCreate(t *testing.T) {
+func TestBaseAppBlockGetDataSendsAppTokenHeader(t *testing.T) {
 	factory, stdout, reg := newExecuteFactory(t)
-	reg.Register(&httpmock.Stub{
-		Method: "POST",
-		URL:    "/open-apis/base/v3/workspaces",
-		Body:   map[string]interface{}{"code": 0, "data": map[string]interface{}{"workspace_token": "ws_x", "name": "Sales"}},
-	})
-	reg.Register(&httpmock.Stub{
-		Method: "POST",
-		URL:    "/open-apis/base/v3/base_apps",
-		Body:   map[string]interface{}{"code": 1255001, "msg": "app failed"},
-	})
-	err := runShortcut(t, BaseAppCreate, []string{
-		"+app-create",
-		"--name", "Sales",
-		"--base-name", "Sales data",
-		"--table-name", "Orders",
+	stub := &httpmock.Stub{
+		Method: "GET",
+		URL:    "/open-apis/base/v3/bases/bas_x/dashboards/blocks/blk_x/data",
+		Body: map[string]interface{}{
+			"code": 0,
+			"data": map[string]interface{}{"main_data": []interface{}{}},
+		},
+	}
+	reg.Register(stub)
+
+	err := runShortcut(t, BaseAppBlockGetData, []string{
+		"+app-block-get-data",
+		"--app-token", "app_x",
+		"--base-token", "bas_x",
+		"--block-id", "blk_x",
 	}, factory, stdout)
-	var partial *output.PartialFailureError
-	if !errors.As(err, &partial) {
-		t.Fatalf("err=%T %v, want PartialFailureError", err, err)
+	if err != nil {
+		t.Fatalf("err=%v", err)
 	}
-	raw := stdout.String()
-	for _, want := range []string{
-		`"status": "partial"`,
-		`"failed_step": "app_create"`,
-		`"workspace_created": true`,
-		`"workspace_token": "ws_x"`,
-		`+app-create --name \"Sales\" --workspace-token ws_x`,
-		`--base-name \"Sales data\" --table-name \"Orders\"`,
-	} {
-		if !strings.Contains(raw, want) {
-			t.Fatalf("partial output missing %q:\n%s", want, raw)
-		}
+	if got := stub.CapturedHeaders.Get(appTokenPersistHeader); got != "app_x" {
+		t.Fatalf("%s=%q, want app_x", appTokenPersistHeader, got)
 	}
-}
-
-func TestBaseAppCreateReturnsPartialResultWhenMoveFails(t *testing.T) {
-	factory, stdout, reg := newExecuteFactory(t)
-	reg.Register(&httpmock.Stub{
-		Method: "POST",
-		URL:    "/open-apis/base/v3/base_apps",
-		Body:   map[string]interface{}{"code": 0, "data": map[string]interface{}{"app_token": "app_x", "workspace_token": "ws_x"}},
-	})
-	reg.Register(&httpmock.Stub{
-		Method: "POST",
-		URL:    "/open-apis/base/v3/bases",
-		Body:   map[string]interface{}{"code": 0, "data": map[string]interface{}{"base_token": "bas_x"}},
-	})
-	reg.Register(&httpmock.Stub{
-		Method: "POST",
-		URL:    "/open-apis/base/v3/workspaces/ws_x/move_in",
-		Body:   map[string]interface{}{"code": 1255001, "msg": "move failed"},
-	})
-	err := runShortcut(t, BaseAppCreate, []string{"+app-create", "--name", "Sales", "--workspace-token", "ws_x"}, factory, stdout)
-	var partial *output.PartialFailureError
-	if !errors.As(err, &partial) {
-		t.Fatalf("err=%T %v, want PartialFailureError", err, err)
-	}
-	raw := stdout.String()
-	for _, want := range []string{`"status": "partial"`, `"failed_step": "base_move"`, `"app_token": "app_x"`, `"base_token": "bas_x"`, "+workspace-move-in"} {
-		if !strings.Contains(raw, want) {
-			t.Fatalf("partial output missing %q:\n%s", want, raw)
-		}
+	data := decodeBaseEnvelope(t, stdout)
+	if _, ok := data["main_data"]; !ok {
+		t.Fatalf("unexpected response: %#v", data)
 	}
 }
 

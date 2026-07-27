@@ -40,14 +40,18 @@ func TestBaseWorkspaceDryRun(t *testing.T) {
 func TestBaseappDryRun(t *testing.T) {
 	t.Run("create", func(t *testing.T) {
 		result := runBaseDryRun(t, 0, "base", "+app-create",
-			"--name", "Sales app", "--workspace-token", "ws_x", "--theme-style", "cloudBlue",
-			"--base-name", "Sales data", "--table-name", "Orders")
+			"--name", "Sales app", "--workspace-token", "ws_x", "--theme-style", "cloudBlue")
 		output := strings.TrimSpace(result.Stdout)
 		assert.Contains(t, output, "/open-apis/base/v3/base_apps")
 		assert.Contains(t, output, `"method": "POST"`)
-		assert.Contains(t, output, "/open-apis/base/v3/bases")
-		assert.Contains(t, output, "/open-apis/base/v3/workspaces/ws_x/move_in")
 		assert.Contains(t, output, `"theme_style": "cloudBlue"`)
+		assert.NotContains(t, output, "/open-apis/base/v3/bases")
+		assert.NotContains(t, output, "/move_in")
+	})
+
+	t.Run("create requires workspace", func(t *testing.T) {
+		result := runBaseDryRun(t, 2, "base", "+app-create", "--name", "Sales app")
+		assert.Contains(t, result.Stderr, "workspace-token")
 	})
 
 	t.Run("get", func(t *testing.T) {
@@ -58,14 +62,6 @@ func TestBaseappDryRun(t *testing.T) {
 		assert.NotContains(t, output, "with_components")
 	})
 
-	t.Run("rename", func(t *testing.T) {
-		result := runBaseDryRun(t, 0, "base", "+app-rename", "--app-token", "app_x", "--name", "New name")
-		output := strings.TrimSpace(result.Stdout)
-		assert.Contains(t, output, "/open-apis/drive/v1/files/app_x")
-		assert.Contains(t, output, `"method": "PATCH"`)
-		assert.Contains(t, output, `"new_title": "New name"`)
-		assert.Contains(t, output, "bitable")
-	})
 }
 
 func TestBaseappPageDryRun(t *testing.T) {
@@ -82,11 +78,17 @@ func TestBaseappPageDryRun(t *testing.T) {
 	})
 
 	t.Run("create", func(t *testing.T) {
-		result := runBaseDryRun(t, 0, "base", "+app-page-create", "--app-token", "app_x", "--name", "Overview", "--page-group-id", "pgrp_1")
+		result := runBaseDryRun(t, 0, "base", "+app-page-create", "--app-token", "app_x", "--name", "Overview")
 		output := strings.TrimSpace(result.Stdout)
 		assert.Contains(t, output, "/open-apis/base/v3/base_apps/app_x/pages")
 		assert.Contains(t, output, `"name": "Overview"`)
-		assert.Contains(t, output, `"page_group_id": "pgrp_1"`)
+		assert.NotContains(t, output, "page_group_id")
+	})
+
+	t.Run("create rejects page group", func(t *testing.T) {
+		result := runBaseDryRun(t, 2, "base", "+app-page-create",
+			"--app-token", "app_x", "--name", "Overview", "--page-group-id", "pgrp_1")
+		assert.Contains(t, result.Stderr, "unknown flag")
 	})
 
 	t.Run("rename", func(t *testing.T) {
@@ -214,14 +216,31 @@ func TestAppBlockDryRun(t *testing.T) {
 	})
 }
 
-// +app-block-get-data is the one command in the group that takes --base-token
-// and reuses the dashboard endpoint verbatim.
 func TestAppBlockGetDataDryRun(t *testing.T) {
-	result := runBaseDryRun(t, 0, "base", "+app-block-get-data", "--base-token", "app_x", "--block-id", "blk_chart")
+	result := runBaseDryRun(t, 0, "base", "+app-block-get-data",
+		"--app-token", "app_x", "--base-token", "bas_x", "--block-id", "blk_chart")
 	output := strings.TrimSpace(result.Stdout)
-	assert.Contains(t, output, "/open-apis/base/v3/bases/app_x/dashboards/blocks/blk_chart/data")
+	assert.Contains(t, output, "/open-apis/base/v3/bases/bas_x/dashboards/blocks/blk_chart/data")
 	assert.Contains(t, output, `"method": "GET"`)
+	assert.Contains(t, output, `"rpc-persist-x-base-apptoken": "app_x"`)
 
-	missing := runBaseDryRun(t, 2, "base", "+app-block-get-data", "--app-token", "app_x", "--block-id", "blk_chart")
-	assert.Contains(t, missing.Stderr, "base-token")
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "app token", args: []string{"--base-token", "bas_x", "--block-id", "blk_chart"}, want: "app-token"},
+		{name: "base token", args: []string{"--app-token", "app_x", "--block-id", "blk_chart"}, want: "base-token"},
+		{name: "block id", args: []string{"--app-token", "app_x", "--base-token", "bas_x"}, want: "block-id"},
+	} {
+		t.Run("missing "+tc.name, func(t *testing.T) {
+			args := append([]string{"base", "+app-block-get-data"}, tc.args...)
+			missing := runBaseDryRun(t, 2, args...)
+			assert.Contains(t, missing.Stderr, tc.want)
+		})
+	}
+
+	unknownPage := runBaseDryRun(t, 2, "base", "+app-block-get-data",
+		"--app-token", "app_x", "--base-token", "bas_x", "--block-id", "blk_chart", "--page-id", "pg_x")
+	assert.Contains(t, unknownPage.Stderr, "unknown flag")
 }

@@ -19,14 +19,12 @@ var BaseAppPageCreate = common.Shortcut{
 	Flags: []common.Flag{
 		appTokenFlag(true),
 		{Name: "name", Desc: "page name", Required: true},
-		{Name: "page-group-id", Desc: "existing PageGroup ID; omit to create a top-level page"},
 	},
 	Tips: []string{
 		`lark-cli base +app-page-create --app-token <app_token> --name "Overview"`,
-		`lark-cli base +app-page-create --app-token <app_token> --name "Overview" --page-group-id <page_group_id>`,
 		"Page names must be unique within an app; the CLI checks existing pages before creation.",
 		"Record the returned page_id; every +app-block-* command needs it.",
-		"This command can place a page under an existing PageGroup but does not create PageGroups.",
+		"This release creates top-level pages only; PageGroup placement is not supported.",
 	},
 	DryRun: dryRunBaseappPageCreate,
 	Execute: func(ctx context.Context, runtime *common.RuntimeContext) error {

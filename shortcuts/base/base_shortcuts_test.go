@@ -176,7 +176,7 @@ func TestShortcutsCatalog(t *testing.T) {
 		"+dashboard-list", "+dashboard-get", "+dashboard-create", "+dashboard-update", "+dashboard-delete", "+dashboard-arrange",
 		"+dashboard-block-list", "+dashboard-block-get", "+dashboard-block-get-data", "+dashboard-block-create", "+dashboard-block-update", "+dashboard-block-delete",
 		"+workspace-create", "+workspace-entity-list", "+workspace-move-in",
-		"+app-create", "+app-get", "+app-rename",
+		"+app-create", "+app-get",
 		"+app-page-list", "+app-page-get", "+app-page-create", "+app-page-update", "+app-page-delete",
 		"+app-block-list", "+app-block-get", "+app-block-get-data", "+app-block-create", "+app-block-update",
 	}

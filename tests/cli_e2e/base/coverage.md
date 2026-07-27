@@ -13,8 +13,8 @@
 - TestBaseRecordBatchUpdatePerRecordWorkflow: creates two records, updates different field types in one request, asserts the minimal response contract, reads both records back, verifies a missing record ID is not prevalidated, and cleans up the temporary Base.
 - TestBase_RoleWorkflow: proves `+advperm-enable`, `+role-create`, `+role-list`, `+role-get`, and `+role-update`; key `t.Run(...)` proof points are `list as bot`, `get as bot`, and `update as bot`.
 - Cleanup note: `+table-delete` and `+role-delete` only run in cleanup and are intentionally left uncovered.
-- TestBaseWorkspaceDryRun / TestBaseappDryRun / TestBaseappPageDryRun / TestAppBlockDryRun: prove the BaseApp and Workspace request shapes, App → Base → Workspace orchestration, Page validation, and chart/list `data_config` handling.
-- TestAppBlockGetDataDryRun: proves `+app-block-get-data` hits the dashboard block data endpoint and that it requires `--base-token`, not the `--app-token` every other `+app-block-*` command takes.
+- TestBaseWorkspaceDryRun / TestBaseappDryRun / TestBaseappPageDryRun / TestAppBlockDryRun: prove the atomic BaseApp and Workspace request shapes, Page validation, and chart/list `data_config` handling.
+- TestAppBlockGetDataDryRun: proves `+app-block-get-data` uses the dashboard block data path with required App context in `rpc-persist-x-base-apptoken`.
 - Blocked area: dashboard, field, most record operations, form, view, and workflow operations still lack deterministic create/read/update workflows in this suite. BaseApp and Workspace commands are dry-run only until the downstream OpenAPI ships; live workflows come with the joint debugging phase.
 
 ## Command Table
@@ -25,7 +25,7 @@
 | ✓ | base +advperm-enable | shortcut | base_role_workflow_test.go::TestBase_RoleWorkflow | `--base-token` | |
 | ✓ | base +app-block-create | shortcut | base_baseapp_dryrun_test.go::TestAppBlockDryRun/create chart,create list,create rejects an unsupported type,create rejects an invalid chart data_config | `--app-token`; `--page-id`; `--name`; `--type`; `--sub-type`; `--data-config`; dry-run only | request shape and local data_config validation only |
 | ✓ | base +app-block-get | shortcut | base_baseapp_dryrun_test.go::TestAppBlockDryRun/get | `--app-token`; `--page-id`; `--block-id`; dry-run only | request shape only |
-| ✓ | base +app-block-get-data | shortcut | base_baseapp_dryrun_test.go::TestAppBlockGetDataDryRun | `--base-token`; `--block-id`; dry-run only | proves the dashboard endpoint reuse and that --app-token is not accepted as a substitute |
+| ✓ | base +app-block-get-data | shortcut | base_baseapp_dryrun_test.go::TestAppBlockGetDataDryRun | `--app-token`; `--base-token`; `--block-id`; App context header | proves dashboard path reuse, required App header, missing flags, and rejection of `--page-id` |
 | ✓ | base +app-block-list | shortcut | base_baseapp_dryrun_test.go::TestAppBlockDryRun/list | `--app-token`; `--page-id`; pagination; dry-run only | request shape only |
 | ✓ | base +app-block-update | shortcut | base_baseapp_dryrun_test.go::TestAppBlockDryRun/update | `--app-token`; `--page-id`; `--block-id`; `--name`; dry-run only | request shape only |
 | ✓ | base +base-block-create | shortcut | base_block_dryrun_test.go::TestBaseBlockDryRun/create | `--base-token`; `--type`; `--name`; `--parent-id`; dry-run only | request shape only |
@@ -36,14 +36,13 @@
 | ✕ | base +base-copy | shortcut |  | none | no copy workflow yet |
 | ✓ | base +base-create | shortcut | base/helpers_test.go::createBaseWithRetry | `--name`; `--time-zone` | helper asserts created base token |
 | ✓ | base +base-get | shortcut | base_basic_workflow_test.go::TestBase_BasicWorkflow/get base as bot | `--base-token` | |
-| ✓ | base +app-create | shortcut | base_baseapp_dryrun_test.go::TestBaseappDryRun/create | `--name`; `--workspace-token`; `--theme-style`; `--base-name`; `--table-name` | App → Base → Workspace; partial result unit-tested |
+| ✓ | base +app-create | shortcut | base_baseapp_dryrun_test.go::TestBaseappDryRun/create | required `--name`; required `--workspace-token`; optional `--theme-style` | atomic App creation only; Base/Workspace orchestration belongs to the Skill |
 | ✓ | base +app-get | shortcut | base_baseapp_dryrun_test.go::TestBaseappDryRun/get | `--app-token` | request shape |
-| ✓ | base +app-page-create | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/create | `--app-token`; `--name`; `--page-group-id` | request shape and uniqueness |
+| ✓ | base +app-page-create | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/create | `--app-token`; `--name`; top-level page only | request shape, uniqueness, and rejection of unsupported `--page-group-id` |
 | ✓ | base +app-page-delete | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/delete | `--app-token`; `--page-id` | request shape |
 | ✓ | base +app-page-get | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/get | `--app-token`; `--page-id` | request shape |
 | ✓ | base +app-page-list | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/list | `--app-token` | request shape |
 | ✓ | base +app-page-update | shortcut | base_baseapp_dryrun_test.go::TestBaseappPageDryRun/rename | `--app-token`; `--page-id`; `--name` | request shape and uniqueness |
-| ✓ | base +app-rename | shortcut | base_baseapp_dryrun_test.go::TestBaseappDryRun/rename | `--app-token`; `--name` | Drive files patch, `type=bitable` |
 | ✕ | base +dashboard-arrange | shortcut |  | none | dashboard workflows not covered |
 | ✕ | base +dashboard-block-create | shortcut |  | none | dashboard workflows not covered |
 | ✕ | base +dashboard-block-delete | shortcut |  | none | dashboard workflows not covered |

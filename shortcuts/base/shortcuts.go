@@ -100,7 +100,6 @@ func Shortcuts() []common.Shortcut {
 		BaseWorkspaceMoveIn,
 		BaseAppCreate,
 		BaseAppGet,
-		BaseAppRename,
 		BaseAppPageList,
 		BaseAppPageGet,
 		BaseAppPageCreate,

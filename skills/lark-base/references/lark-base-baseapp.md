@@ -7,12 +7,12 @@
 | 对象 | 标识 | 命令 |
 |---|---|---|
 | Workspace | `workspace_token` | `+workspace-create` / `+workspace-entity-list` / `+workspace-move-in` |
-| BaseApp | `app_token` | `+app-create/get/rename`；删除见下方 |
-| Base | `base_token` | `+app-create` 返回；表、字段、记录命令使用它 |
+| BaseApp | `app_token` | `+app-create/get`；重命名和删除见下方 |
+| Base | `base_token` | `+base-create` 返回；表、字段、记录命令使用它 |
 | Page | `page_id` | `+app-page-list/get/create/update/delete` |
 | Block | `block_id` | `+app-block-list/get/create/update` |
 
-页面和组件命令使用 `app_token`；Base 数据命令使用 `base_token`。唯一例外是 `+app-block-get-data`，它使用 `base_token + block_id`。
+页面和组件命令使用 `app_token`；Base 数据命令使用 `base_token`。`+app-block-get-data` 使用 `app_token + base_token + block_id`：请求路径与仪表盘图表数据接口相同，并通过 `rpc-persist-x-base-apptoken` 请求头传递 `app_token`。
 
 ## 查询应用
 
@@ -34,29 +34,45 @@ lark-cli base +app-create \
 ```
 
 - `+app-create` 没有 `--base-token`。
-- `--workspace-token` 可选；不传时，CLI 会先创建一个与应用同名的新 Workspace，再把该 token 作为必传参数创建 App。
+- `--workspace-token` 必填；`+app-create` 只调用 App 创建接口，不创建 Workspace、Base，也不移动资源。
 - `--theme-style` 可选，支持 `default|cloudBlue|fresh|softLight|future|technology`。
-- App 创建成功后，CLI 创建一个空 Base，并将其移入 App 所在 Workspace，作为备选关联 Base。
-- 可用 `--base-name` 和 `--table-name` 设置新建 Base 与首张表的名称；不传则使用默认名称。
-- 记录输出中的 `app_token`、`base_token` 和 `workspace_token`。
+- 记录输出中的 `app_token` 和 `workspace_token`。
 
-### 部分完成后的续跑
+### 创建应用的自然语言编排
 
-如果 Workspace、App 或 Base 已经创建，而后续步骤失败，CLI 返回 `status=partial`、`failed_step`、已得到的 token、说明和 `retry.command`。此时：
+先根据用户是否指定 Workspace 和现有 Base 选择流程，再调用原子 shortcut：
 
-1. 明确告诉用户哪些资源已创建且不会回滚。
-2. 用户要求继续时，执行输出中的 `retry.command`，不要重复创建已经完成的资源。
-3. `failed_step=app_create` 时，Workspace 已创建；使用返回的 `workspace_token` 重试 `+app-create`。
-4. `failed_step=base_create` 时，App 已创建；先重试 `+base-create`，再用 `+workspace-move-in` 移入同一 Workspace。
-5. `failed_step=base_move` 时，只重试 `+workspace-move-in`，不要重复创建 App 或 Base。
+| 用户提供的信息 | 执行流程 |
+|---|---|
+| Workspace + 现有 Base | 确认 Base 位于该 Workspace → `+app-create`；不创建备用 Base |
+| Workspace，未指定 Base | `+app-create` → `+base-create` 创建空 Base → `+workspace-move-in` |
+| 未指定 Workspace，指定现有 Base | 先确认该 Base 所属 Workspace；能确定时在该 Workspace 执行 `+app-create`，不能确定时请用户提供 Workspace；不创建备用 Base |
+| Workspace 和 Base 都未指定 | `+workspace-create` → `+app-create` → `+base-create` 创建空 Base → `+workspace-move-in` |
+
+应用模式的列表组件只能引用同一 Workspace 内的一个 Base。用户指定现有 Base 时，不要因为 `+app-create` 没有接收 `base_token` 就额外创建 Base；后续在组件 `data_config.base_token` 中引用该 Base。
+
+多步编排中，每个成功的 shortcut 都会立即产生资源且不自动回滚。后续步骤失败时，明确报告已经成功创建的 Workspace、App 或 Base 及其 token；用户要求继续时，只重试失败步骤，不要重复创建已经成功的资源。
+
+## 读取图表计算结果
+
+```bash
+lark-cli base +app-block-get-data \
+  --app-token <app_token> \
+  --base-token <base_token> \
+  --block-id <block_id>
+```
+
+- `base_token` 使用当前图表组件 `data_config.base_token`；一个 App 引用多个 Base 时，不要从 `+app-get ref` 中任意选择一个 key。
+- `page_id` 不参与请求。
+- 返回协议与 `+dashboard-block-get-data` 完全一致。
 
 ## 重命名应用
 
 ```bash
-lark-cli base +app-rename --app-token <app_token> --name "新名称"
+lark-cli drive +rename --file-token <app_token> --type bitable --name "新名称"
 ```
 
-BaseApp 与 Base 在 Drive 文件接口中都使用 `type=bitable`。`+app-rename` 复用 Drive `files patch`；它不会重命名关联 Base。
+BaseApp 与 Base 在 Drive 文件接口中都使用 `type=bitable`。重命名应用不会重命名它引用的 Base。
 
 ## 删除应用
 
@@ -73,13 +89,12 @@ lark-cli drive +delete --file-token <app_token> --type baseapp --yes
 ```bash
 lark-cli base +app-page-list --app-token <app_token>
 lark-cli base +app-page-create --app-token <app_token> --name "总览"
-lark-cli base +app-page-create --app-token <app_token> --name "分组页面" --page-group-id <page_group_id>
 lark-cli base +app-page-update --app-token <app_token> --page-id <page_id> --name "经营总览"
 lark-cli base +app-page-delete --app-token <app_token> --page-id <page_id> --yes
 ```
 
 - 同一 App 内 Page 名称必须唯一。创建或更新名称前，CLI 会读取页面列表；更新时排除当前 Page。
-- `--page-group-id` 可将新 Page 放入已有 PageGroup；省略时创建顶级 Page。
+- 本期 `+app-page-create` 只支持创建顶级 Page，不支持 PageGroup 归属参数。
 - 本期没有 Page arrange，也没有 Block delete；Block 的 `type/sub_type` 创建后不可修改。
 
 ## 列表组件
