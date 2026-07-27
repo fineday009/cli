@@ -26,7 +26,6 @@ var BaseAppBlockCreate = common.Shortcut{
 		{Name: "type", Desc: "block type: chart(column|bar|line|pie|ring|area|combo|scatter|funnel|wordCloud|radar|statistics) | richText | list. Read lark-base-baseapp-block-data-config.md before creating.", Required: true, Enum: appBlockTypes()},
 		{Name: "sub-type", Desc: "list subtype: standard|grouped|collapsible|card|detail; defaults to standard", Enum: appListSubTypes},
 		{Name: "data-config", Desc: "data_config JSON object; read lark-base-baseapp-block-data-config.md for the SSOT"},
-		{Name: "user-id-type", Desc: "user ID type for user fields in filters: open_id / union_id / user_id"},
 		{Name: "no-validate", Type: "bool", Desc: "skip local data_config validation and normalization; send data_config as-is"},
 	},
 	Tips: []string{

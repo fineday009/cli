@@ -20,11 +20,10 @@ var BaseAppBlockGet = common.Shortcut{
 		appTokenFlag(true),
 		pageIDFlag(true),
 		appBlockIDFlag(true),
-		{Name: "user-id-type", Desc: "user ID type for user fields in filters: open_id / union_id / user_id"},
 	},
 	Tips: []string{
 		"lark-cli base +app-block-get --app-token <app_token> --page-id <page_id> --block-id <block_id>",
-		"Returns metadata such as name, type, show_title, position and data_config.",
+		"Returns WidgetDetail: widget_id, name, type, optional list sub_type, and data_config.",
 		"For the computed chart result use +app-block-get-data, which takes --base-token instead of --app-token.",
 		"Read the current data_config here before replacing nested values with +app-block-update.",
 	},

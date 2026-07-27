@@ -19,11 +19,10 @@ var BaseAppPageGet = common.Shortcut{
 	Flags: []common.Flag{
 		appTokenFlag(true),
 		pageIDFlag(true),
-		{Name: "with-components", Type: "bool", Desc: "include the page blocks in the response"},
 	},
 	Tips: []string{
-		"lark-cli base +app-page-get --app-token <app_token> --page-id <page_id> --with-components",
-		"Without --with-components this returns page metadata only; use +app-block-list when you need paginated blocks.",
+		"lark-cli base +app-page-get --app-token <app_token> --page-id <page_id>",
+		"The response is PageDetail and always includes widget summaries. Use +app-block-list when you need paginated widget details.",
 	},
 	DryRun: dryRunBaseappPageGet,
 	Execute: func(ctx context.Context, runtime *common.RuntimeContext) error {

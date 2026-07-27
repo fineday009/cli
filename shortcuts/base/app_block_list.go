@@ -19,8 +19,7 @@ var BaseAppBlockList = common.Shortcut{
 	Flags: []common.Flag{
 		appTokenFlag(true),
 		pageIDFlag(true),
-		{Name: "type", Desc: "filter by block type, e.g. line or list; omit to list all types", Enum: appBlockTypes()},
-		{Name: "page-size", Type: "int", Default: "100", Desc: "page size, range 1-100"},
+		{Name: "page-size", Type: "int", Default: "20", Desc: "page size; must be positive"},
 		{Name: "page-token", Desc: "pagination token"},
 	},
 	Tips: []string{
@@ -29,7 +28,7 @@ var BaseAppBlockList = common.Shortcut{
 		"These are page blocks, not dashboard blocks: do not pass a block_id from here to +dashboard-block-get.",
 	},
 	Validate: func(ctx context.Context, runtime *common.RuntimeContext) error {
-		_, err := common.ValidatePageSizeTyped(runtime, "page-size", 100, 1, 100)
+		_, err := common.ValidatePageSizeTyped(runtime, "page-size", 20, 1, int(^uint(0)>>1))
 		return err
 	},
 	DryRun: dryRunAppBlockList,

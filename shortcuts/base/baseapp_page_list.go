@@ -18,7 +18,7 @@ var BaseAppPageList = common.Shortcut{
 	AuthTypes:   authTypes(),
 	Flags: []common.Flag{
 		appTokenFlag(true),
-		{Name: "page-size", Type: "int", Default: "100", Desc: "page size, range 1-100"},
+		{Name: "page-size", Type: "int", Default: "20", Desc: "page size; must be positive"},
 		{Name: "page-token", Desc: "pagination token"},
 	},
 	Tips: []string{
@@ -26,7 +26,7 @@ var BaseAppPageList = common.Shortcut{
 		"Use the returned page_id for +app-page-get/update/delete and every +app-block-* command.",
 	},
 	Validate: func(ctx context.Context, runtime *common.RuntimeContext) error {
-		_, err := common.ValidatePageSizeTyped(runtime, "page-size", 100, 1, 100)
+		_, err := common.ValidatePageSizeTyped(runtime, "page-size", 20, 1, int(^uint(0)>>1))
 		return err
 	},
 	DryRun: dryRunBaseappPageList,

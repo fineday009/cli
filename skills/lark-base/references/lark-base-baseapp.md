@@ -35,6 +35,7 @@ lark-cli base +app-create \
 
 - `+app-create` 没有 `--base-token`。
 - `--workspace-token` 可选；不传时，CLI 会先创建一个与应用同名的新 Workspace，再把该 token 作为必传参数创建 App。
+- `--theme-style` 可选，支持 `default|cloudBlue|fresh|softLight|future|technology`。
 - App 创建成功后，CLI 创建一个空 Base，并将其移入 App 所在 Workspace，作为备选关联 Base。
 - 可用 `--base-name` 和 `--table-name` 设置新建 Base 与首张表的名称；不传则使用默认名称。
 - 记录输出中的 `app_token`、`base_token` 和 `workspace_token`。
@@ -71,13 +72,14 @@ lark-cli drive +delete --file-token <app_token> --type baseapp --yes
 
 ```bash
 lark-cli base +app-page-list --app-token <app_token>
-lark-cli base +app-page-create --app-token <app_token> --name "总览" --to-last
+lark-cli base +app-page-create --app-token <app_token> --name "总览"
+lark-cli base +app-page-create --app-token <app_token> --name "分组页面" --page-group-id <page_group_id>
 lark-cli base +app-page-update --app-token <app_token> --page-id <page_id> --name "经营总览"
 lark-cli base +app-page-delete --app-token <app_token> --page-id <page_id> --yes
 ```
 
 - 同一 App 内 Page 名称必须唯一。创建或更新名称前，CLI 会读取页面列表；更新时排除当前 Page。
-- `--prev-page-id` 与 `--to-last` 互斥。
+- `--page-group-id` 可将新 Page 放入已有 PageGroup；省略时创建顶级 Page。
 - 本期没有 Page arrange，也没有 Block delete；Block 的 `type/sub_type` 创建后不可修改。
 
 ## 列表组件

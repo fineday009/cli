@@ -4,6 +4,7 @@
 package base
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -232,11 +233,50 @@ func normalizeAppChartDataConfig(cfg map[string]interface{}) map[string]interfac
 		return nil
 	}
 	out := cloneMap(cfg)
+	if mode, ok := out["data_source_mode"].(string); ok {
+		out["data_source_mode"] = strings.ToLower(strings.TrimSpace(mode))
+	}
+	if sortConfig, ok := out["sort"].(map[string]interface{}); ok {
+		if sortType, ok := sortConfig["type"].(string); ok {
+			sortConfig["type"] = strings.ToLower(strings.TrimSpace(sortType))
+		}
+		if order, ok := sortConfig["order"].(string); ok {
+			sortConfig["order"] = strings.ToLower(strings.TrimSpace(order))
+		}
+		out["sort"] = sortConfig
+	}
 	if sources, ok := out["data_sources"].([]interface{}); ok {
 		normalized := make([]interface{}, len(sources))
 		for i, s := range sources {
 			if m, ok := s.(map[string]interface{}); ok {
-				normalized[i] = normalizeDataConfig(m)
+				source := cloneMap(m)
+				if series, ok := source["series"].([]interface{}); ok {
+					for _, raw := range series {
+						if item, ok := raw.(map[string]interface{}); ok {
+							if rollup, ok := item["rollup"].(string); ok {
+								item["rollup"] = strings.ToUpper(strings.TrimSpace(rollup))
+							}
+						}
+					}
+				}
+				if groups, ok := source["group_by"].([]interface{}); ok {
+					for _, raw := range groups {
+						if group, ok := raw.(map[string]interface{}); ok {
+							if mode, ok := group["mode"].(string); ok {
+								group["mode"] = strings.ToLower(strings.TrimSpace(mode))
+							}
+							if sortConfig, ok := group["sort"].(map[string]interface{}); ok {
+								if sortType, ok := sortConfig["type"].(string); ok {
+									sortConfig["type"] = strings.ToLower(strings.TrimSpace(sortType))
+								}
+								if order, ok := sortConfig["order"].(string); ok {
+									sortConfig["order"] = strings.ToLower(strings.TrimSpace(order))
+								}
+							}
+						}
+					}
+				}
+				normalized[i] = source
 			} else {
 				normalized[i] = s
 			}
@@ -316,7 +356,7 @@ func validateAppChartDataConfig(blockType string, cfg map[string]interface{}) []
 			problems = append(problems, fmt.Sprintf("data_sources[%d] 必须是对象", i))
 			continue
 		}
-		for _, p := range validateChartDataConfig(m) {
+		for _, p := range validateAppChartDataSourceConfig(m) {
 			problems = append(problems, fmt.Sprintf("data_sources[%d]: %s", i, p))
 		}
 		// statistics 不配置分组。
@@ -335,9 +375,177 @@ func validateAppChartDataConfig(blockType string, cfg map[string]interface{}) []
 // here.
 func validateAppBlockDataConfig(blockType string, cfg map[string]interface{}) []string {
 	if isTextBlockType(blockType) {
-		return nil
+		var problems []string
+		for key := range cfg {
+			if key != "text" {
+				problems = append(problems, fmt.Sprintf("富文本 data_config 不支持字段 %s", key))
+			}
+		}
+		if raw, exists := cfg["text"]; exists {
+			if _, ok := raw.(string); !ok {
+				problems = append(problems, "text 必须是字符串")
+			}
+		}
+		return problems
 	}
 	return validateAppChartDataConfig(blockType, cfg)
+}
+
+func validateAppChartDataSourceConfig(cfg map[string]interface{}) []string {
+	var problems []string
+	allowed := map[string]bool{
+		"table_name": true, "series": true, "count_all": true, "group_by": true, "filter": true,
+	}
+	for key := range cfg {
+		if !allowed[key] {
+			problems = append(problems, fmt.Sprintf("不支持字段 %s", key))
+		}
+	}
+	if tableName, _ := cfg["table_name"].(string); strings.TrimSpace(tableName) == "" {
+		problems = append(problems, "缺少必填字段 table_name")
+	}
+	seriesRaw, hasSeries := cfg["series"]
+	countRaw, hasCountAll := cfg["count_all"]
+	if hasSeries == hasCountAll {
+		problems = append(problems, "series 与 count_all 必须二选一")
+	}
+	if hasSeries {
+		series, ok := seriesRaw.([]interface{})
+		if !ok || len(series) < 1 || len(series) > 20 {
+			problems = append(problems, "series 必须是包含 1～20 项的数组")
+		} else {
+			allowedRollups := map[string]bool{"SUM": true, "MAX": true, "MIN": true, "AVERAGE": true}
+			for i, raw := range series {
+				item, ok := raw.(map[string]interface{})
+				if !ok {
+					problems = append(problems, fmt.Sprintf("series[%d] 必须是对象", i))
+					continue
+				}
+				if fieldName, _ := item["field_name"].(string); strings.TrimSpace(fieldName) == "" {
+					problems = append(problems, fmt.Sprintf("series[%d].field_name 必填", i))
+				}
+				rollup, _ := item["rollup"].(string)
+				if !allowedRollups[rollup] {
+					problems = append(problems, fmt.Sprintf("series[%d].rollup 仅支持 SUM|MAX|MIN|AVERAGE", i))
+				}
+			}
+		}
+	}
+	if hasCountAll {
+		if count, ok := countRaw.(bool); !ok || !count {
+			problems = append(problems, "count_all 只允许传 true")
+		}
+	}
+	if groupsRaw, exists := cfg["group_by"]; exists {
+		groups, ok := groupsRaw.([]interface{})
+		if !ok || len(groups) > 2 {
+			problems = append(problems, "group_by 必须是最多包含 2 项的数组")
+		} else {
+			for i, raw := range groups {
+				group, ok := raw.(map[string]interface{})
+				if !ok {
+					problems = append(problems, fmt.Sprintf("group_by[%d] 必须是对象", i))
+					continue
+				}
+				if fieldName, _ := group["field_name"].(string); strings.TrimSpace(fieldName) == "" {
+					problems = append(problems, fmt.Sprintf("group_by[%d].field_name 必填", i))
+				}
+				if modeRaw, exists := group["mode"]; exists {
+					mode, _ := modeRaw.(string)
+					if mode != "enumerated" && mode != "integrated" {
+						problems = append(problems, fmt.Sprintf("group_by[%d].mode 仅支持 enumerated|integrated", i))
+					}
+				}
+				if sortRaw, exists := group["sort"]; exists {
+					sortConfig, ok := sortRaw.(map[string]interface{})
+					if !ok {
+						problems = append(problems, fmt.Sprintf("group_by[%d].sort 必须是对象", i))
+						continue
+					}
+					sortType, _ := sortConfig["type"].(string)
+					if sortType != "group" && sortType != "value" && sortType != "view" {
+						problems = append(problems, fmt.Sprintf("group_by[%d].sort.type 仅支持 group|value|view", i))
+					}
+					if orderRaw, exists := sortConfig["order"]; exists {
+						order, _ := orderRaw.(string)
+						if order != "asc" && order != "desc" {
+							problems = append(problems, fmt.Sprintf("group_by[%d].sort.order 仅支持 asc|desc", i))
+						}
+					}
+				}
+			}
+		}
+	}
+	problems = append(problems, validateProtocolFilter(cfg, "filter")...)
+	return problems
+}
+
+func validateProtocolFilter(cfg map[string]interface{}, key string) []string {
+	raw, exists := cfg[key]
+	if !exists {
+		return nil
+	}
+	filter, ok := raw.(map[string]interface{})
+	if !ok {
+		return []string{key + " 必须是对象"}
+	}
+	var problems []string
+	conjunction, _ := filter["conjunction"].(string)
+	if conjunction != "and" && conjunction != "or" {
+		problems = append(problems, key+".conjunction 必填且仅支持 and|or")
+	}
+	conditions, ok := filter["conditions"].([]interface{})
+	if !ok || len(conditions) < 1 || len(conditions) > 50 {
+		return append(problems, key+".conditions 必须是包含 1～50 项的数组")
+	}
+	allowedOperators := map[string]bool{
+		"is": true, "isNot": true, "contains": true, "doesNotContain": true,
+		"isEmpty": true, "isNotEmpty": true, "isGreater": true, "isGreaterEqual": true,
+		"isLess": true, "isLessEqual": true,
+	}
+	for i, rawCondition := range conditions {
+		condition, ok := rawCondition.(map[string]interface{})
+		if !ok {
+			problems = append(problems, fmt.Sprintf("%s.conditions[%d] 必须是对象", key, i))
+			continue
+		}
+		if fieldName, _ := condition["field_name"].(string); strings.TrimSpace(fieldName) == "" {
+			problems = append(problems, fmt.Sprintf("%s.conditions[%d].field_name 必填", key, i))
+		}
+		operator, _ := condition["operator"].(string)
+		if !allowedOperators[operator] {
+			problems = append(problems, fmt.Sprintf("%s.conditions[%d].operator 不支持: %s", key, i, operator))
+		}
+		value, hasValue := condition["value"]
+		if operator != "isEmpty" && operator != "isNotEmpty" && !hasValue {
+			problems = append(problems, fmt.Sprintf("%s.conditions[%d].value 缺失", key, i))
+		}
+		if hasValue && !validProtocolFilterValue(value) {
+			problems = append(problems, fmt.Sprintf("%s.conditions[%d].value 必须是字符串、数字、布尔值或最多 200 项的对应数组", key, i))
+		}
+	}
+	return problems
+}
+
+func validProtocolFilterValue(value interface{}) bool {
+	switch typed := value.(type) {
+	case string, float64, bool, json.Number:
+		return true
+	case []interface{}:
+		if len(typed) > 200 {
+			return false
+		}
+		for _, item := range typed {
+			switch item.(type) {
+			case string, float64, bool, json.Number:
+			default:
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
 }
 
 // validateBlockFilter validates the filter object shared by chart and list

@@ -6,6 +6,7 @@ package base
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/larksuite/cli/errs"
@@ -25,7 +26,6 @@ var BaseAppBlockUpdate = common.Shortcut{
 		appBlockIDFlag(true),
 		{Name: "name", Desc: "new block name"},
 		{Name: "data-config", Desc: "data_config JSON object; read lark-base-baseapp-block-data-config.md for the SSOT"},
-		{Name: "user-id-type", Desc: "user ID type for user fields in filters: open_id / union_id / user_id"},
 		{Name: "no-validate", Type: "bool", Desc: "skip local data_config normalization; send data_config as-is"},
 	},
 	Tips: []string{
@@ -54,9 +54,32 @@ var BaseAppBlockUpdate = common.Shortcut{
 		if err != nil {
 			return err
 		}
+		if containsJSONNull(cfg) {
+			return formatDataConfigErrors([]string{"Update 不接受 null 作为清空标记"})
+		}
 		// update 不传 type，无法做强类型校验；按多数据源图表结构归一化
-		// （data_sources[] 存在时逐项归一化，否则原样透传），交给后端验证具体字段。
+		// （data_sources[] 存在时逐项归一化，否则原样透传）。
 		norm := normalizeAppChartDataConfig(cfg)
+		if sources, exists := norm["data_sources"]; exists {
+			items, ok := sources.([]interface{})
+			if !ok || len(items) == 0 {
+				return formatDataConfigErrors([]string{"data_sources 一旦传入，必须是至少包含一项的完整有序数组"})
+			}
+			var problems []string
+			for i, rawSource := range items {
+				source, ok := rawSource.(map[string]interface{})
+				if !ok {
+					problems = append(problems, fmt.Sprintf("data_sources[%d] 必须是对象", i))
+					continue
+				}
+				for _, problem := range validateAppChartDataSourceConfig(source) {
+					problems = append(problems, fmt.Sprintf("data_sources[%d]: %s", i, problem))
+				}
+			}
+			if len(problems) > 0 {
+				return formatDataConfigErrors(problems)
+			}
+		}
 		b, _ := json.Marshal(norm)
 		_ = runtime.Cmd.Flags().Set("data-config", string(b))
 		return nil
@@ -65,4 +88,24 @@ var BaseAppBlockUpdate = common.Shortcut{
 	Execute: func(ctx context.Context, runtime *common.RuntimeContext) error {
 		return executeAppBlockUpdate(runtime)
 	},
+}
+
+func containsJSONNull(value interface{}) bool {
+	switch typed := value.(type) {
+	case nil:
+		return true
+	case map[string]interface{}:
+		for _, item := range typed {
+			if containsJSONNull(item) {
+				return true
+			}
+		}
+	case []interface{}:
+		for _, item := range typed {
+			if containsJSONNull(item) {
+				return true
+			}
+		}
+	}
+	return false
 }

@@ -27,11 +27,12 @@ func TestDryRunWorkspaceOps(t *testing.T) {
 func TestDryRunBaseappOps(t *testing.T) {
 	ctx := context.Background()
 
-	createRT := newBaseTestRuntime(map[string]string{"name": "Sales app", "workspace-token": "ws_x", "base-name": "Sales data", "table-name": "Orders"}, nil, nil)
+	createRT := newBaseTestRuntime(map[string]string{"name": "Sales app", "workspace-token": "ws_x", "theme-style": "cloudBlue", "base-name": "Sales data", "table-name": "Orders"}, nil, nil)
 	assertDryRunContains(t, dryRunBaseappCreate(ctx, createRT),
 		"POST /open-apis/base/v3/base_apps",
 		`"name":"Sales app"`,
 		`"workspace_token":"ws_x"`,
+		`"theme":{"theme_style":"cloudBlue"}`,
 		"POST /open-apis/base/v3/bases",
 		`"name":"Sales data"`,
 		"POST /open-apis/base/v3/workspaces/ws_x/move_in",
@@ -87,14 +88,14 @@ func TestAppCreateDoesNotExposeBaseToken(t *testing.T) {
 func TestDryRunBaseappPageOps(t *testing.T) {
 	ctx := context.Background()
 
-	listRT := newBaseTestRuntime(map[string]string{"app-token": "app_x"}, nil, map[string]int{"page-size": 100})
-	assertDryRunContains(t, dryRunBaseappPageList(ctx, listRT), "GET /open-apis/base/v3/base_apps/app_x/pages", "page_size=100")
+	listRT := newBaseTestRuntime(map[string]string{"app-token": "app_x"}, nil, map[string]int{"page-size": 20})
+	assertDryRunContains(t, dryRunBaseappPageList(ctx, listRT), "GET /open-apis/base/v3/base_apps/app_x/pages", "page_size=20")
 
-	getRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "page-id": "pg_1"}, map[string]bool{"with-components": true}, nil)
-	assertDryRunContains(t, dryRunBaseappPageGet(ctx, getRT), "GET /open-apis/base/v3/base_apps/app_x/pages/pg_1", "with_components=true")
+	getRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "page-id": "pg_1"}, nil, nil)
+	assertDryRunContains(t, dryRunBaseappPageGet(ctx, getRT), "GET /open-apis/base/v3/base_apps/app_x/pages/pg_1")
 
-	createRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "name": "Overview", "parent-page-id": "pg_root"}, map[string]bool{"to-last": true}, nil)
-	assertDryRunContains(t, dryRunBaseappPageCreate(ctx, createRT), "POST /open-apis/base/v3/base_apps/app_x/pages", `"name":"Overview"`, `"parent_page_id":"pg_root"`, `"to_last":true`)
+	createRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "name": "Overview", "page-group-id": "pgrp_root"}, nil, nil)
+	assertDryRunContains(t, dryRunBaseappPageCreate(ctx, createRT), "POST /open-apis/base/v3/base_apps/app_x/pages", `"name":"Overview"`, `"page_group_id":"pgrp_root"`)
 
 	renameRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "page-id": "pg_1", "name": "Sales"}, nil, nil)
 	assertDryRunContains(t, dryRunBaseappPageRename(ctx, renameRT), "PATCH /open-apis/base/v3/base_apps/app_x/pages/pg_1", `"name":"Sales"`)
@@ -106,11 +107,11 @@ func TestDryRunBaseappPageOps(t *testing.T) {
 func TestDryRunAppBlockOps(t *testing.T) {
 	ctx := context.Background()
 
-	listRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "page-id": "pg_1", "type": "line"}, nil, map[string]int{"page-size": 20})
-	assertDryRunContains(t, dryRunAppBlockList(ctx, listRT), "GET /open-apis/base/v3/base_apps/app_x/pages/pg_1/blocks", "type=line", "page_size=20")
+	listRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "page-id": "pg_1"}, nil, map[string]int{"page-size": 20})
+	assertDryRunContains(t, dryRunAppBlockList(ctx, listRT), "GET /open-apis/base/v3/base_apps/app_x/pages/pg_1/blocks", "page_size=20")
 
-	getRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "page-id": "pg_1", "block-id": "wid_1", "user-id-type": "open_id"}, nil, nil)
-	assertDryRunContains(t, dryRunAppBlockGet(ctx, getRT), "GET /open-apis/base/v3/base_apps/app_x/pages/pg_1/blocks/wid_1", "user_id_type=open_id")
+	getRT := newBaseTestRuntime(map[string]string{"app-token": "app_x", "page-id": "pg_1", "block-id": "wid_1"}, nil, nil)
+	assertDryRunContains(t, dryRunAppBlockGet(ctx, getRT), "GET /open-apis/base/v3/base_apps/app_x/pages/pg_1/blocks/wid_1")
 
 	createRT := newBaseTestRuntime(map[string]string{
 		"app-token":   "app_x",
@@ -463,10 +464,155 @@ func TestValidateAppChartRejectsFieldsOutsideProtocol(t *testing.T) {
 	}
 }
 
-func TestValidateWorkspaceOrderingRejectsBoth(t *testing.T) {
-	rt := newBaseTestRuntime(map[string]string{"prev-page-id": "456"}, map[string]bool{"to-last": true}, nil)
-	if err := validateWorkspaceOrdering(rt, "prev-page-id"); err == nil || !strings.Contains(err.Error(), "to-last") {
-		t.Fatalf("err=%v", err)
+func TestValidateAppChartProtocolConstraints(t *testing.T) {
+	valid := map[string]interface{}{
+		"table_name": "Orders",
+		"series": []interface{}{
+			map[string]interface{}{"field_name": "Amount", "rollup": "SUM"},
+		},
+		"group_by": []interface{}{
+			map[string]interface{}{
+				"field_name": "Month",
+				"mode":       "integrated",
+				"sort":       map[string]interface{}{"type": "value"},
+			},
+		},
+		"filter": map[string]interface{}{
+			"conjunction": "and",
+			"conditions": []interface{}{
+				map[string]interface{}{"field_name": "Status", "operator": "isNot", "value": "Closed"},
+			},
+		},
+	}
+	if problems := validateAppChartDataSourceConfig(valid); len(problems) != 0 {
+		t.Fatalf("valid config problems=%v", problems)
+	}
+
+	tooManySeries := make([]interface{}, 21)
+	for i := range tooManySeries {
+		tooManySeries[i] = map[string]interface{}{"field_name": "Amount", "rollup": "SUM"}
+	}
+	tooManyConditions := make([]interface{}, 51)
+	for i := range tooManyConditions {
+		tooManyConditions[i] = map[string]interface{}{"field_name": "Status", "operator": "is", "value": "Open"}
+	}
+	tooManyValues := make([]interface{}, 201)
+	for i := range tooManyValues {
+		tooManyValues[i] = "value"
+	}
+	tests := []struct {
+		name string
+		cfg  map[string]interface{}
+		want string
+	}{
+		{
+			name: "count all must be true",
+			cfg:  map[string]interface{}{"table_name": "Orders", "count_all": false},
+			want: "count_all",
+		},
+		{
+			name: "series maximum",
+			cfg:  map[string]interface{}{"table_name": "Orders", "series": tooManySeries},
+			want: "1～20",
+		},
+		{
+			name: "group mode enum",
+			cfg: map[string]interface{}{
+				"table_name": "Orders",
+				"count_all":  true,
+				"group_by":   []interface{}{map[string]interface{}{"field_name": "Month", "mode": "unknown"}},
+			},
+			want: "enumerated|integrated",
+		},
+		{
+			name: "filter conjunction required",
+			cfg: map[string]interface{}{
+				"table_name": "Orders",
+				"count_all":  true,
+				"filter": map[string]interface{}{
+					"conditions": []interface{}{map[string]interface{}{"field_name": "Status", "operator": "is", "value": "Open"}},
+				},
+			},
+			want: "filter.conjunction",
+		},
+		{
+			name: "filter condition maximum",
+			cfg: map[string]interface{}{
+				"table_name": "Orders",
+				"count_all":  true,
+				"filter":     map[string]interface{}{"conjunction": "and", "conditions": tooManyConditions},
+			},
+			want: "1～50",
+		},
+		{
+			name: "filter array value maximum",
+			cfg: map[string]interface{}{
+				"table_name": "Orders",
+				"count_all":  true,
+				"filter": map[string]interface{}{
+					"conjunction": "and",
+					"conditions": []interface{}{
+						map[string]interface{}{"field_name": "Status", "operator": "is", "value": tooManyValues},
+					},
+				},
+			},
+			want: "最多 200",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			problems := validateAppChartDataSourceConfig(tc.cfg)
+			if !strings.Contains(strings.Join(problems, " "), tc.want) {
+				t.Fatalf("problems=%v want substring %q", problems, tc.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeAppChartKeepsOptionalSortOrderOmitted(t *testing.T) {
+	normalized := normalizeAppChartDataConfig(map[string]interface{}{
+		"base_token":       "basx",
+		"data_source_mode": "COMPARE",
+		"sort":             map[string]interface{}{"type": "GROUP"},
+		"data_sources": []interface{}{
+			map[string]interface{}{
+				"table_name": "Orders",
+				"count_all":  true,
+				"group_by": []interface{}{
+					map[string]interface{}{"field_name": "Month", "sort": map[string]interface{}{"type": "VALUE"}},
+				},
+			},
+		},
+	})
+	if normalized["data_source_mode"] != "compare" {
+		t.Fatalf("data_source_mode=%v", normalized["data_source_mode"])
+	}
+	topSort := normalized["sort"].(map[string]interface{})
+	if topSort["type"] != "group" {
+		t.Fatalf("top sort=%v", topSort)
+	}
+	groupSort := normalized["data_sources"].([]interface{})[0].(map[string]interface{})["group_by"].([]interface{})[0].(map[string]interface{})["sort"].(map[string]interface{})
+	if groupSort["type"] != "value" {
+		t.Fatalf("group sort=%v", groupSort)
+	}
+	if _, exists := groupSort["order"]; exists {
+		t.Fatalf("optional sort.order must stay omitted: %v", groupSort)
+	}
+}
+
+func TestValidateAppTextRejectsUnknownFields(t *testing.T) {
+	problems := validateAppBlockDataConfig("richText", map[string]interface{}{"text": "hello", "style": "bold"})
+	if !strings.Contains(strings.Join(problems, " "), "style") {
+		t.Fatalf("problems=%v", problems)
+	}
+}
+
+func TestContainsJSONNull(t *testing.T) {
+	if !containsJSONNull(map[string]interface{}{"filter": map[string]interface{}{"conditions": []interface{}{nil}}}) {
+		t.Fatal("nested null must be rejected")
+	}
+	if containsJSONNull(map[string]interface{}{"fields": []interface{}{}}) {
+		t.Fatal("empty arrays are not null")
 	}
 }
 

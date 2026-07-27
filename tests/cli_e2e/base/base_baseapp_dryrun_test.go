@@ -40,12 +40,14 @@ func TestBaseWorkspaceDryRun(t *testing.T) {
 func TestBaseappDryRun(t *testing.T) {
 	t.Run("create", func(t *testing.T) {
 		result := runBaseDryRun(t, 0, "base", "+app-create",
-			"--name", "Sales app", "--workspace-token", "ws_x", "--base-name", "Sales data", "--table-name", "Orders")
+			"--name", "Sales app", "--workspace-token", "ws_x", "--theme-style", "cloudBlue",
+			"--base-name", "Sales data", "--table-name", "Orders")
 		output := strings.TrimSpace(result.Stdout)
 		assert.Contains(t, output, "/open-apis/base/v3/base_apps")
 		assert.Contains(t, output, `"method": "POST"`)
 		assert.Contains(t, output, "/open-apis/base/v3/bases")
 		assert.Contains(t, output, "/open-apis/base/v3/workspaces/ws_x/move_in")
+		assert.Contains(t, output, `"theme_style": "cloudBlue"`)
 	})
 
 	t.Run("get", func(t *testing.T) {
@@ -73,24 +75,18 @@ func TestBaseappPageDryRun(t *testing.T) {
 	})
 
 	t.Run("get", func(t *testing.T) {
-		result := runBaseDryRun(t, 0, "base", "+app-page-get", "--app-token", "app_x", "--page-id", "pg_1", "--with-components")
+		result := runBaseDryRun(t, 0, "base", "+app-page-get", "--app-token", "app_x", "--page-id", "pg_1")
 		output := strings.TrimSpace(result.Stdout)
 		assert.Contains(t, output, "/open-apis/base/v3/base_apps/app_x/pages/pg_1")
-		assert.Contains(t, output, "with_components")
+		assert.NotContains(t, output, "with_components")
 	})
 
 	t.Run("create", func(t *testing.T) {
-		result := runBaseDryRun(t, 0, "base", "+app-page-create", "--app-token", "app_x", "--name", "Overview", "--to-last")
+		result := runBaseDryRun(t, 0, "base", "+app-page-create", "--app-token", "app_x", "--name", "Overview", "--page-group-id", "pgrp_1")
 		output := strings.TrimSpace(result.Stdout)
 		assert.Contains(t, output, "/open-apis/base/v3/base_apps/app_x/pages")
 		assert.Contains(t, output, `"name": "Overview"`)
-		assert.Contains(t, output, `"to_last": true`)
-	})
-
-	t.Run("create rejects conflicting ordering flags", func(t *testing.T) {
-		result := runBaseDryRun(t, 2, "base", "+app-page-create",
-			"--app-token", "app_x", "--name", "Overview", "--prev-page-id", "pg_0", "--to-last")
-		assert.Contains(t, result.Stderr, "to-last")
+		assert.Contains(t, output, `"page_group_id": "pgrp_1"`)
 	})
 
 	t.Run("rename", func(t *testing.T) {
@@ -110,10 +106,10 @@ func TestBaseappPageDryRun(t *testing.T) {
 
 func TestAppBlockDryRun(t *testing.T) {
 	t.Run("list", func(t *testing.T) {
-		result := runBaseDryRun(t, 0, "base", "+app-block-list", "--app-token", "app_x", "--page-id", "pg_1", "--type", "line")
+		result := runBaseDryRun(t, 0, "base", "+app-block-list", "--app-token", "app_x", "--page-id", "pg_1")
 		output := strings.TrimSpace(result.Stdout)
 		assert.Contains(t, output, "/open-apis/base/v3/base_apps/app_x/pages/pg_1/blocks")
-		assert.Contains(t, output, "line")
+		assert.Contains(t, output, `"page_size": 20`)
 	})
 
 	t.Run("get", func(t *testing.T) {

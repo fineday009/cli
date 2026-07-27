@@ -78,25 +78,7 @@ func validateAppListDataConfig(subType string, cfg map[string]interface{}) []str
 }
 
 func validateListFilter(cfg map[string]interface{}) []string {
-	filter, exists := cfg["filter"]
-	if !exists {
-		return nil
-	}
-	obj, ok := filter.(map[string]interface{})
-	if !ok {
-		return nil
-	}
-	var problems []string
-	conjunction, _ := obj["conjunction"].(string)
-	if conjunction != "and" && conjunction != "or" {
-		problems = append(problems, "filter.conjunction 必填且仅支持 and|or")
-	}
-	conditions, ok := obj["conditions"].([]interface{})
-	if !ok || len(conditions) < 1 || len(conditions) > 50 {
-		problems = append(problems, "filter.conditions 必须是包含 1～50 项的数组")
-	}
-	problems = append(problems, validateBlockFilter(cfg, "filter", false)...)
-	return problems
+	return validateProtocolFilter(cfg, "filter")
 }
 
 func validateListNamedItems(cfg map[string]interface{}, key string) []string {

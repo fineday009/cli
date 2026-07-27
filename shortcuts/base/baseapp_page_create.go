@@ -19,19 +19,14 @@ var BaseAppPageCreate = common.Shortcut{
 	Flags: []common.Flag{
 		appTokenFlag(true),
 		{Name: "name", Desc: "page name", Required: true},
-		{Name: "parent-page-id", Desc: "parent page ID; omit to create a top-level page"},
-		{Name: "prev-page-id", Desc: "insert after this page ID; omit to insert first"},
-		{Name: "to-last", Type: "bool", Desc: "append to the end instead of using --prev-page-id"},
+		{Name: "page-group-id", Desc: "existing PageGroup ID; omit to create a top-level page"},
 	},
 	Tips: []string{
-		`lark-cli base +app-page-create --app-token <app_token> --name "Overview" --to-last`,
+		`lark-cli base +app-page-create --app-token <app_token> --name "Overview"`,
+		`lark-cli base +app-page-create --app-token <app_token> --name "Overview" --page-group-id <page_group_id>`,
 		"Page names must be unique within an app; the CLI checks existing pages before creation.",
-		"--prev-page-id and --to-last both control ordering; pass at most one.",
 		"Record the returned page_id; every +app-block-* command needs it.",
-		"Only page nodes are supported in this phase; page groups are not creatable through the CLI.",
-	},
-	Validate: func(ctx context.Context, runtime *common.RuntimeContext) error {
-		return validateWorkspaceOrdering(runtime, "prev-page-id")
+		"This command can place a page under an existing PageGroup but does not create PageGroups.",
 	},
 	DryRun: dryRunBaseappPageCreate,
 	Execute: func(ctx context.Context, runtime *common.RuntimeContext) error {

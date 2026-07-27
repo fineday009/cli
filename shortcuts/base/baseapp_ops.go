@@ -49,15 +49,6 @@ func normalizeEntityType(raw string) (string, error) {
 	return "", errs.NewValidationError(errs.SubtypeInvalidArgument, "--type 仅支持 base|baseapp，当前值: %s", raw).WithParam("--type")
 }
 
-// validateWorkspaceOrdering rejects passing both an explicit predecessor and
-// --to-last, because the backend would have to pick one silently.
-func validateWorkspaceOrdering(runtime *common.RuntimeContext, prevFlag string) error {
-	if strings.TrimSpace(runtime.Str(prevFlag)) != "" && runtime.Bool("to-last") {
-		return errs.NewValidationError(errs.SubtypeInvalidArgument, "--%s 与 --to-last 互斥，只能指定一种排序方式", prevFlag).WithParam("--" + prevFlag)
-	}
-	return nil
-}
-
 // appBlockBody builds the public create/update request body for app page
 // blocks. Layout, position, size and display settings are intentionally not
 // exposed because they are outside the public protocol.
@@ -91,14 +82,6 @@ func appBlockBody(runtime *common.RuntimeContext, includeType bool) (map[string]
 		body["data_config"] = parsed
 	}
 	return body, nil
-}
-
-func userIDTypeParams(runtime *common.RuntimeContext) map[string]interface{} {
-	params := map[string]interface{}{}
-	if userIDType := strings.TrimSpace(runtime.Str("user-id-type")); userIDType != "" {
-		params["user_id_type"] = userIDType
-	}
-	return params
 }
 
 func pagingParams(runtime *common.RuntimeContext) map[string]interface{} {
@@ -195,6 +178,9 @@ func baseappCreateBodyWithWorkspace(runtime *common.RuntimeContext, workspaceTok
 	if workspaceToken != "" {
 		body["workspace_token"] = workspaceToken
 	}
+	if themeStyle := strings.TrimSpace(runtime.Str("theme-style")); themeStyle != "" {
+		body["theme"] = map[string]interface{}{"theme_style": themeStyle}
+	}
 	return body
 }
 
@@ -239,6 +225,9 @@ func baseappCreateRetryCommand(runtime *common.RuntimeContext, workspaceToken st
 	}
 	if tableName := strings.TrimSpace(runtime.Str("table-name")); tableName != "" {
 		command += fmt.Sprintf(" --table-name %q", tableName)
+	}
+	if themeStyle := strings.TrimSpace(runtime.Str("theme-style")); themeStyle != "" {
+		command += fmt.Sprintf(" --theme-style %s", themeStyle)
 	}
 	return command
 }
@@ -423,32 +412,17 @@ func dryRunBaseappPageList(_ context.Context, runtime *common.RuntimeContext) *c
 		Params(pagingParams(runtime))
 }
 
-func baseappPageGetParams(runtime *common.RuntimeContext) map[string]interface{} {
-	params := map[string]interface{}{}
-	if runtime.Bool("with-components") {
-		params["with_components"] = true
-	}
-	return params
-}
-
 func dryRunBaseappPageGet(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
 	return common.NewDryRunAPI().
 		GET("/open-apis/base/v3/base_apps/:app_token/pages/:page_id").
 		Set("app_token", runtime.Str("app-token")).
-		Set("page_id", runtime.Str("page-id")).
-		Params(baseappPageGetParams(runtime))
+		Set("page_id", runtime.Str("page-id"))
 }
 
 func baseappPageCreateBody(runtime *common.RuntimeContext) map[string]interface{} {
 	body := map[string]interface{}{"name": strings.TrimSpace(runtime.Str("name"))}
-	if parent := strings.TrimSpace(runtime.Str("parent-page-id")); parent != "" {
-		body["parent_page_id"] = parent
-	}
-	if prev := strings.TrimSpace(runtime.Str("prev-page-id")); prev != "" {
-		body["prev_page_id"] = prev
-	}
-	if runtime.Bool("to-last") {
-		body["to_last"] = true
+	if pageGroupID := strings.TrimSpace(runtime.Str("page-group-id")); pageGroupID != "" {
+		body["page_group_id"] = pageGroupID
 	}
 	return body
 }
@@ -487,7 +461,7 @@ func executeBaseappPageList(runtime *common.RuntimeContext) error {
 }
 
 func executeBaseappPageGet(runtime *common.RuntimeContext) error {
-	data, err := baseV3Call(runtime, "GET", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id")), baseappPageGetParams(runtime), nil)
+	data, err := baseV3Call(runtime, "GET", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id")), nil, nil)
 	if err != nil {
 		return err
 	}
@@ -577,15 +551,11 @@ func executeBaseappPageDelete(runtime *common.RuntimeContext) error {
 // ── App block: dry-run ───────────────────────────────────────────────
 
 func dryRunAppBlockList(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
-	params := pagingParams(runtime)
-	if blockType := strings.TrimSpace(runtime.Str("type")); blockType != "" {
-		params["type"] = blockType
-	}
 	return common.NewDryRunAPI().
 		GET("/open-apis/base/v3/base_apps/:app_token/pages/:page_id/blocks").
 		Set("app_token", runtime.Str("app-token")).
 		Set("page_id", runtime.Str("page-id")).
-		Params(params)
+		Params(pagingParams(runtime))
 }
 
 func dryRunAppBlockGet(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
@@ -593,8 +563,7 @@ func dryRunAppBlockGet(_ context.Context, runtime *common.RuntimeContext) *commo
 		GET("/open-apis/base/v3/base_apps/:app_token/pages/:page_id/blocks/:block_id").
 		Set("app_token", runtime.Str("app-token")).
 		Set("page_id", runtime.Str("page-id")).
-		Set("block_id", runtime.Str("block-id")).
-		Params(userIDTypeParams(runtime))
+		Set("block_id", runtime.Str("block-id"))
 }
 
 func dryRunAppBlockCreate(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
@@ -606,7 +575,6 @@ func dryRunAppBlockCreate(_ context.Context, runtime *common.RuntimeContext) *co
 		POST("/open-apis/base/v3/base_apps/:app_token/pages/:page_id/blocks").
 		Set("app_token", runtime.Str("app-token")).
 		Set("page_id", runtime.Str("page-id")).
-		Params(userIDTypeParams(runtime)).
 		Body(body)
 }
 
@@ -620,18 +588,13 @@ func dryRunAppBlockUpdate(_ context.Context, runtime *common.RuntimeContext) *co
 		Set("app_token", runtime.Str("app-token")).
 		Set("page_id", runtime.Str("page-id")).
 		Set("block_id", runtime.Str("block-id")).
-		Params(userIDTypeParams(runtime)).
 		Body(body)
 }
 
 // ── App block: execute ───────────────────────────────────────────────
 
 func executeAppBlockList(runtime *common.RuntimeContext) error {
-	params := pagingParams(runtime)
-	if blockType := strings.TrimSpace(runtime.Str("type")); blockType != "" {
-		params["type"] = blockType
-	}
-	data, err := baseV3Call(runtime, "GET", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks"), params, nil)
+	data, err := baseV3Call(runtime, "GET", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks"), pagingParams(runtime), nil)
 	if err != nil {
 		return err
 	}
@@ -640,7 +603,7 @@ func executeAppBlockList(runtime *common.RuntimeContext) error {
 }
 
 func executeAppBlockGet(runtime *common.RuntimeContext) error {
-	data, err := baseV3Call(runtime, "GET", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks", runtime.Str("block-id")), userIDTypeParams(runtime), nil)
+	data, err := baseV3Call(runtime, "GET", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks", runtime.Str("block-id")), nil, nil)
 	if err != nil {
 		return err
 	}
@@ -658,7 +621,7 @@ func executeAppBlockCreate(runtime *common.RuntimeContext) error {
 	if err != nil {
 		return err
 	}
-	data, err := baseV3Call(runtime, "POST", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks"), userIDTypeParams(runtime), body)
+	data, err := baseV3Call(runtime, "POST", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks"), nil, body)
 	if err != nil {
 		return err
 	}
@@ -747,7 +710,7 @@ func executeAppBlockUpdate(runtime *common.RuntimeContext) error {
 	if err != nil {
 		return err
 	}
-	data, err := baseV3Call(runtime, "PATCH", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks", runtime.Str("block-id")), userIDTypeParams(runtime), body)
+	data, err := baseV3Call(runtime, "PATCH", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks", runtime.Str("block-id")), nil, body)
 	if err != nil {
 		return err
 	}
