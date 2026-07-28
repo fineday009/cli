@@ -112,6 +112,67 @@ func assertInvalidArgumentValidation(t *testing.T, err error, wantParam string, 
 	}
 }
 
+func TestBaseWorkspaceCreateOutputIncludesURL(t *testing.T) {
+	factory, stdout, reg := newExecuteFactory(t)
+	reg.Register(&httpmock.Stub{
+		Method: "POST",
+		URL:    "/open-apis/base/v3/workspaces",
+		Body: map[string]interface{}{
+			"code": 0,
+			"data": map[string]interface{}{
+				"workspace_token": "ws_x",
+				"name":            "Growth",
+			},
+		},
+	})
+	if err := runShortcut(t, BaseWorkspaceCreate, []string{"+workspace-create", "--name", "Growth"}, factory, stdout); err != nil {
+		t.Fatalf("err=%v", err)
+	}
+
+	data := decodeBaseEnvelope(t, stdout)
+	if data["created"] != true {
+		t.Fatalf("created = %#v, want true", data["created"])
+	}
+	if data["workspace_token"] != "ws_x" {
+		t.Fatalf("workspace_token = %#v, want ws_x", data["workspace_token"])
+	}
+	wantURL := "https://www.feishu.cn/base/workspace/ws_x"
+	if data["workspace_url"] != wantURL || data["url"] != wantURL {
+		t.Fatalf("workspace urls = %#v, want %q", data, wantURL)
+	}
+	workspace, _ := data["workspace"].(map[string]interface{})
+	if common.GetString(workspace, "url") != wantURL {
+		t.Fatalf("workspace.url = %#v, want %q", workspace["url"], wantURL)
+	}
+}
+
+func TestBaseWorkspaceEntityListOutputIncludesURL(t *testing.T) {
+	factory, stdout, reg := newExecuteFactory(t)
+	reg.Register(&httpmock.Stub{
+		Method: "GET",
+		URL:    "/open-apis/base/v3/workspaces/ws_x/entities?page_size=100",
+		Body: map[string]interface{}{
+			"code": 0,
+			"data": map[string]interface{}{
+				"entities": []interface{}{},
+				"has_more": false,
+			},
+		},
+	})
+	if err := runShortcut(t, BaseWorkspaceEntityList, []string{"+workspace-entity-list", "--workspace-token", "ws_x"}, factory, stdout); err != nil {
+		t.Fatalf("err=%v", err)
+	}
+
+	data := decodeBaseEnvelope(t, stdout)
+	wantURL := "https://www.feishu.cn/base/workspace/ws_x"
+	if data["workspace_token"] != "ws_x" || data["workspace_url"] != wantURL || data["url"] != wantURL {
+		t.Fatalf("workspace reference fields = %#v, want token ws_x and url %q", data, wantURL)
+	}
+	if data["has_more"] != false {
+		t.Fatalf("has_more = %#v, want false", data["has_more"])
+	}
+}
+
 func TestBaseWorkspaceExecuteCreate(t *testing.T) {
 	factory, stdout, reg := newExecuteFactory(t)
 	stderr, _ := factory.IOStreams.ErrOut.(*bytes.Buffer)

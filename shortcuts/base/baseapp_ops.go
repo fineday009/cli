@@ -140,7 +140,9 @@ func executeWorkspaceCreate(runtime *common.RuntimeContext) error {
 	if err != nil {
 		return err
 	}
-	runtime.Out(map[string]interface{}{"workspace": data, "created": true}, nil)
+	out := map[string]interface{}{"workspace": data, "created": true}
+	augmentWorkspaceCreateOutput(runtime, out, data)
+	runtime.Out(out, nil)
 	return nil
 }
 
@@ -157,6 +159,7 @@ func executeWorkspaceEntityList(runtime *common.RuntimeContext) error {
 	if err != nil {
 		return err
 	}
+	augmentWorkspaceReferenceOutput(runtime, data, runtime.Str("workspace-token"))
 	runtime.Out(data, nil)
 	return nil
 }
@@ -168,6 +171,41 @@ func executeWorkspaceMoveIn(runtime *common.RuntimeContext) error {
 	}
 	runtime.Out(map[string]interface{}{"entity": data, "moved_in": true}, nil)
 	return nil
+}
+
+func augmentWorkspaceCreateOutput(runtime *common.RuntimeContext, out, workspace map[string]interface{}) {
+	workspaceToken := firstNonEmpty(
+		common.GetString(workspace, "workspace_token"),
+		common.GetString(workspace, "token"),
+	)
+	if workspaceToken != "" {
+		out["workspace_token"] = workspaceToken
+	}
+	workspaceURL := strings.TrimSpace(common.GetString(workspace, "url"))
+	if workspaceURL == "" {
+		workspaceURL = common.BuildResourceURL(runtime.Config.Brand, "base_workspace", workspaceToken)
+		if workspaceURL != "" {
+			workspace["url"] = workspaceURL
+		}
+	}
+	if workspaceURL != "" {
+		out["workspace_url"] = workspaceURL
+		out["url"] = workspaceURL
+	}
+}
+
+func augmentWorkspaceReferenceOutput(runtime *common.RuntimeContext, out map[string]interface{}, workspaceToken string) {
+	workspaceToken = strings.TrimSpace(workspaceToken)
+	if workspaceToken == "" {
+		return
+	}
+	out["workspace_token"] = workspaceToken
+	workspaceURL := common.BuildResourceURL(runtime.Config.Brand, "base_workspace", workspaceToken)
+	if workspaceURL == "" {
+		return
+	}
+	out["workspace_url"] = workspaceURL
+	out["url"] = workspaceURL
 }
 
 // ── BaseApp: dry-run ─────────────────────────────────────────────────

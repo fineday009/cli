@@ -24,6 +24,18 @@ lark-cli base +app-get --app-token <app_token>
 - `ref` 的结构是 `Base token -> 当前组件引用的 Table 名称数组`。需要操作被引用 Base 时，使用 `ref` 的 key 作为 `base_token`。
 - `ref` 只描述当前组件已经引用的数据源；没有被组件引用的 Base 不会出现在其中。
 
+## 创建 Workspace
+
+```bash
+lark-cli base +workspace-create \
+  --name "AppMode-空白评测空间" \
+  --as user
+```
+
+- 创建成功后，最终答复必须同时给出 `workspace_token` 和可点击访问链接。
+- CLI 输出中的 `workspace_url` / `url` 是访问链接；如果服务端响应缺少 URL，CLI 会按 `/base/workspace/<workspace_token>` 回填。
+- 若创建后又执行 `+workspace-entity-list` 验证空目录，最终答复仍必须保留创建结果里的访问链接；不要只报告回读的 `entities` / `has_more`。
+
 ## 创建应用
 
 ```bash
