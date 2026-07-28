@@ -81,6 +81,17 @@ func runShortcutWithAuthTypes(t *testing.T, shortcut common.Shortcut, authTypes 
 	return parent.ExecuteContext(context.Background())
 }
 
+func registerEmptyAppBlockList(reg *httpmock.Registry, appToken, pageID string) {
+	reg.Register(&httpmock.Stub{
+		Method: "GET",
+		URL:    "/open-apis/base/v3/base_apps/" + appToken + "/pages/" + pageID + "/blocks?page_size=100",
+		Body: map[string]interface{}{
+			"code": 0,
+			"data": map[string]interface{}{"items": []interface{}{}, "has_more": false},
+		},
+	})
+}
+
 func assertInvalidArgumentValidation(t *testing.T, err error, wantParam string, wantParams []string, messageContains string) {
 	t.Helper()
 	if err == nil {
@@ -279,6 +290,7 @@ func TestBaseAppBlockGetDataSendsAppTokenHeader(t *testing.T) {
 
 func TestBaseAppBlockCreateUsesWorkspaceIDAsWorkspaceToken(t *testing.T) {
 	factory, stdout, reg := newExecuteFactory(t)
+	registerEmptyAppBlockList(reg, "app_x", "pge_x")
 	reg.Register(&httpmock.Stub{
 		Method: "GET",
 		URL:    "/open-apis/base/v3/base_apps/app_x",
@@ -347,6 +359,7 @@ func TestBaseAppListCreateOmitsUnspecifiedOptionalFields(t *testing.T) {
 	} {
 		t.Run(tc.subType, func(t *testing.T) {
 			factory, stdout, reg := newExecuteFactory(t)
+			registerEmptyAppBlockList(reg, "app_x", "pge_x")
 			reg.Register(&httpmock.Stub{
 				Method: "GET",
 				URL:    "/open-apis/base/v3/base_apps/app_x",
@@ -389,6 +402,42 @@ func TestBaseAppListCreateOmitsUnspecifiedOptionalFields(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBaseAppBlockCreateRejectsDuplicateNameAcrossPagination(t *testing.T) {
+	factory, stdout, reg := newExecuteFactory(t)
+	reg.Register(&httpmock.Stub{
+		Method: "GET",
+		URL:    "/open-apis/base/v3/base_apps/app_x/pages/pge_x/blocks?page_size=100",
+		Body: map[string]interface{}{
+			"code": 0,
+			"data": map[string]interface{}{
+				"items":           []interface{}{map[string]interface{}{"block_id": "blk_1", "name": "Other"}},
+				"has_more":        true,
+				"next_page_token": "next_x",
+			},
+		},
+	})
+	reg.Register(&httpmock.Stub{
+		Method: "GET",
+		URL:    "/open-apis/base/v3/base_apps/app_x/pages/pge_x/blocks?page_size=100&page_token=next_x",
+		Body: map[string]interface{}{
+			"code": 0,
+			"data": map[string]interface{}{
+				"items":    []interface{}{map[string]interface{}{"block_id": "blk_2", "name": " cards "}},
+				"has_more": false,
+			},
+		},
+	})
+
+	err := runShortcut(t, BaseAppBlockCreate, []string{
+		"+app-block-create",
+		"--app-token", "app_x",
+		"--page-id", "pge_x",
+		"--name", "Cards",
+		"--type", "richText",
+	}, factory, stdout)
+	assertInvalidArgumentValidation(t, err, "--name", nil, "组件名称必须唯一")
 }
 
 func TestBaseWorkspaceExecuteCreateWithFields(t *testing.T) {

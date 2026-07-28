@@ -246,11 +246,13 @@ func TestBaseappRisksAndScopes(t *testing.T) {
 	}{
 		"+workspace-move-in":  {BaseWorkspaceMoveIn, "write", "base:workspace:update"},
 		"+app-page-delete":    {BaseAppPageDelete, "high-risk-write", "base:appmode_page:delete"},
-		"+app-block-create":   {BaseAppBlockCreate, "write", "base:appmode_block:create"},
 		"+app-block-get-data": {BaseAppBlockGetData, "read", "base:appmode_block:read"},
 	}
 	if got := strings.Join(BaseAppCreate.Scopes, ","); got != "base:appmode:create,base:workspace:update" {
 		t.Errorf("+app-create scopes=%v", BaseAppCreate.Scopes)
+	}
+	if got := strings.Join(BaseAppBlockCreate.Scopes, ","); got != "base:appmode_block:create,base:appmode_block:read" {
+		t.Errorf("+app-block-create scopes=%v", BaseAppBlockCreate.Scopes)
 	}
 	for name, tc := range cases {
 		if tc.shortcut.Risk != tc.risk {

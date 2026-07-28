@@ -107,6 +107,7 @@ lark-cli base +app-page-delete --app-token <app_token> --page-id <page_id> --yes
 
 - 同一 App 内 Page 名称必须唯一。创建或更新名称前，CLI 会读取页面列表；更新时排除当前 Page。
 - 本期 `+app-page-create` 只支持创建顶级 Page，不支持 PageGroup 归属参数。
+- 同一 Page 内组件名称必须唯一。`+app-block-create` 会分页读取该 Page 的全部组件并在创建前检查重名。
 - 本期没有 Page arrange，也没有 Block delete；Block 的 `type/sub_type` 创建后不可修改。
 
 ## 列表组件
@@ -137,6 +138,7 @@ lark-cli base +app-block-create \
 |---|---|
 | `status=partial` | 告知已完成/失败步骤；用户要求继续时执行 `retry.command` |
 | Page 重名 | 先 `+app-page-list`，选择唯一名称后重试 |
+| 组件重名 | 先 `+app-block-list`，为该 Page 内的新组件选择唯一名称后重试 |
 | 列表 Base 不在同一 Workspace | 用 `+workspace-entity-list` 核对；选择同 Workspace Base |
 | 列表协议校验失败 | 读取组件协议文档；不要推断 title、group_by 数量或 field role |
 | Block 类型选错 | 本期无法删除且类型不可改，只能在 UI 处理后重新创建 |

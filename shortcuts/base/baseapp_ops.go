@@ -459,6 +459,9 @@ func executeAppBlockGet(runtime *common.RuntimeContext) error {
 }
 
 func executeAppBlockCreate(runtime *common.RuntimeContext) error {
+	if err := ensureUniqueAppBlockName(runtime, strings.TrimSpace(runtime.Str("name"))); err != nil {
+		return err
+	}
 	if strings.EqualFold(strings.TrimSpace(runtime.Str("type")), "list") {
 		if err := validateListBaseWorkspace(runtime); err != nil {
 			return err
@@ -473,6 +476,55 @@ func executeAppBlockCreate(runtime *common.RuntimeContext) error {
 		return err
 	}
 	runtime.Out(map[string]interface{}{"block": data, "created": true}, nil)
+	return nil
+}
+
+func ensureUniqueAppBlockName(runtime *common.RuntimeContext, name string) error {
+	pageToken := ""
+	for {
+		params := map[string]interface{}{"page_size": 100}
+		if pageToken != "" {
+			params["page_token"] = pageToken
+		}
+		data, err := baseV3Call(runtime, "GET", baseV3Path(
+			"base_apps", runtime.Str("app-token"),
+			"pages", runtime.Str("page-id"),
+			"blocks",
+		), params, nil)
+		if err != nil {
+			return err
+		}
+		for _, block := range appBlockItems(data) {
+			if strings.EqualFold(strings.TrimSpace(common.GetString(block, "name")), name) {
+				return errs.NewValidationError(
+					errs.SubtypeInvalidArgument,
+					"同一 Page 内组件名称必须唯一，已存在名为 %q 的组件",
+					name,
+				).WithParam("--name")
+			}
+		}
+		hasMore, _ := data["has_more"].(bool)
+		pageToken = firstNonEmpty(common.GetString(data, "page_token"), common.GetString(data, "next_page_token"))
+		if !hasMore || pageToken == "" {
+			return nil
+		}
+	}
+}
+
+func appBlockItems(data map[string]interface{}) []map[string]interface{} {
+	for _, key := range []string{"items", "blocks", "widgets"} {
+		raw, ok := data[key].([]interface{})
+		if !ok {
+			continue
+		}
+		items := make([]map[string]interface{}, 0, len(raw))
+		for _, item := range raw {
+			if block, ok := item.(map[string]interface{}); ok {
+				items = append(items, block)
+			}
+		}
+		return items
+	}
 	return nil
 }
 
