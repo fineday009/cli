@@ -110,7 +110,7 @@ func workspaceCreateBody(runtime *common.RuntimeContext) map[string]interface{} 
 func dryRunWorkspaceEntityList(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
 	params := pagingParams(runtime)
 	if entityType, err := normalizeEntityType(runtime.Str("type")); err == nil && entityType != "" {
-		params["type"] = entityType
+		params["entity_type"] = entityType
 	}
 	return common.NewDryRunAPI().
 		GET("/open-apis/base/v3/workspaces/:workspace_token/entities").
@@ -151,7 +151,7 @@ func executeWorkspaceEntityList(runtime *common.RuntimeContext) error {
 		return err
 	}
 	if entityType != "" {
-		params["type"] = entityType
+		params["entity_type"] = entityType
 	}
 	data, err := baseV3Call(runtime, "GET", baseV3Path("workspaces", runtime.Str("workspace-token"), "entities"), params, nil)
 	if err != nil {
@@ -467,7 +467,7 @@ func validateListBaseWorkspace(runtime *common.RuntimeContext) error {
 	}
 	pageToken := ""
 	for {
-		params := map[string]interface{}{"page_size": 100, "type": "base"}
+		params := map[string]interface{}{"page_size": 100, "entity_type": "base"}
 		if pageToken != "" {
 			params["page_token"] = pageToken
 		}

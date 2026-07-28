@@ -228,7 +228,7 @@ func TestBaseAppBlockCreateUsesWorkspaceIDAsWorkspaceToken(t *testing.T) {
 	})
 	reg.Register(&httpmock.Stub{
 		Method: "GET",
-		URL:    "/open-apis/base/v3/workspaces/ws_x/entities?page_size=100&type=base",
+		URL:    "/open-apis/base/v3/workspaces/ws_x/entities?entity_type=base&page_size=100",
 		Body: map[string]interface{}{
 			"code": 0,
 			"data": map[string]interface{}{

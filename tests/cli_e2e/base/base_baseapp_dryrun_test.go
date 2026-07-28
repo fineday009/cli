@@ -24,7 +24,7 @@ func TestBaseWorkspaceDryRun(t *testing.T) {
 		output := strings.TrimSpace(result.Stdout)
 		assert.Contains(t, output, "/open-apis/base/v3/workspaces/ws_x/entities")
 		assert.Contains(t, output, `"method": "GET"`)
-		assert.Contains(t, output, "baseapp")
+		assert.Contains(t, output, `"entity_type": "baseapp"`)
 	})
 
 	t.Run("move-in", func(t *testing.T) {
