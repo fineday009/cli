@@ -24,7 +24,7 @@ var BaseAppBlockList = common.Shortcut{
 	},
 	Tips: []string{
 		"lark-cli base +app-block-list --app-token <app_token> --page-id <page_id>",
-		"Use the returned block_id for +app-block-get/update; chart blocks also accept it in +app-block-get-data.",
+		"Use block_id for +app-block-get/update. For chart data, pass chart_token to +app-block-get-data --block-id.",
 		"These are page blocks, not dashboard blocks: do not pass a block_id from here to +dashboard-block-get.",
 	},
 	Validate: func(ctx context.Context, runtime *common.RuntimeContext) error {

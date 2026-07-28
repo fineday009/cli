@@ -185,11 +185,11 @@ func TestAppBlockGetDataUsesDashboardPathWithAppHeader(t *testing.T) {
 	rt := newBaseTestRuntime(map[string]string{
 		"app-token":  "app_x",
 		"base-token": "bas_x",
-		"block-id":   "blk_chart",
+		"block-id":   "cht_chart",
 	}, nil, nil)
 
 	appOut := BaseAppBlockGetData.DryRun(ctx, rt).Format()
-	if !strings.Contains(appOut, "GET /open-apis/base/v3/bases/bas_x/dashboards/blocks/blk_chart/data") {
+	if !strings.Contains(appOut, "GET /open-apis/base/v3/bases/bas_x/dashboards/blocks/cht_chart/data") {
 		t.Fatalf("unexpected path:\n%s", appOut)
 	}
 	if !strings.Contains(appOut, appTokenPersistHeader+": app_x") {
@@ -211,6 +211,11 @@ func TestAppBlockGetDataRequiredFlags(t *testing.T) {
 	}
 	if !required["app-token"] || !required["base-token"] || !required["block-id"] {
 		t.Fatalf("required flags=%v want app-token, base-token and block-id", required)
+	}
+	for _, flag := range BaseAppBlockGetData.Flags {
+		if flag.Name == "block-id" && !strings.Contains(flag.Desc, "chart_token") {
+			t.Fatalf("--block-id must describe its chart_token contract: %v", flag)
+		}
 	}
 	for _, flag := range BaseAppBlockGetData.Flags {
 		if flag.Name == "page-id" {

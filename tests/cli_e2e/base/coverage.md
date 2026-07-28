@@ -25,7 +25,7 @@
 | ✓ | base +advperm-enable | shortcut | base_role_workflow_test.go::TestBase_RoleWorkflow | `--base-token` | |
 | ✓ | base +app-block-create | shortcut | base_baseapp_dryrun_test.go::TestAppBlockDryRun/create chart,create list,create rejects an unsupported type,create rejects an invalid chart data_config | `--app-token`; `--page-id`; `--name`; `--type`; `--sub-type`; `--data-config`; dry-run only | request shape and local data_config validation only |
 | ✓ | base +app-block-get | shortcut | base_baseapp_dryrun_test.go::TestAppBlockDryRun/get | `--app-token`; `--page-id`; `--block-id`; dry-run only | request shape only |
-| ✓ | base +app-block-get-data | shortcut | base_baseapp_dryrun_test.go::TestAppBlockGetDataDryRun | `--app-token`; `--base-token`; `--block-id`; App context header | proves dashboard path reuse, required App header, missing flags, and rejection of `--page-id` |
+| ✓ | base +app-block-get-data | shortcut | base_baseapp_dryrun_test.go::TestAppBlockGetDataDryRun | `--app-token`; `--base-token`; `--block-id=<chart_token>`; App context header | proves chart_token path use, required App header, missing flags, and rejection of `--page-id` |
 | ✓ | base +app-block-list | shortcut | base_baseapp_dryrun_test.go::TestAppBlockDryRun/list | `--app-token`; `--page-id`; pagination; dry-run only | request shape only |
 | ✓ | base +app-block-update | shortcut | base_baseapp_dryrun_test.go::TestAppBlockDryRun/update | `--app-token`; `--page-id`; `--block-id`; `--name`; dry-run only | request shape only |
 | ✓ | base +base-block-create | shortcut | base_block_dryrun_test.go::TestBaseBlockDryRun/create | `--base-token`; `--type`; `--name`; `--parent-id`; dry-run only | request shape only |

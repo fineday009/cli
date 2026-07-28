@@ -23,8 +23,8 @@ var BaseAppBlockGet = common.Shortcut{
 	},
 	Tips: []string{
 		"lark-cli base +app-block-get --app-token <app_token> --page-id <page_id> --block-id <block_id>",
-		"Returns WidgetDetail: widget_id, name, type, optional list sub_type, and data_config.",
-		"For the computed chart result use +app-block-get-data, which takes --base-token instead of --app-token.",
+		"Returns WidgetDetail: widget_id, name, type, optional chart_token/list sub_type, and data_config.",
+		"For a chart's computed result, pass its chart_token to +app-block-get-data --block-id together with --app-token and --base-token.",
 		"Read the current data_config here before replacing nested values with +app-block-update.",
 	},
 	DryRun: dryRunAppBlockGet,

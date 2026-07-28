@@ -218,9 +218,9 @@ func TestAppBlockDryRun(t *testing.T) {
 
 func TestAppBlockGetDataDryRun(t *testing.T) {
 	result := runBaseDryRun(t, 0, "base", "+app-block-get-data",
-		"--app-token", "app_x", "--base-token", "bas_x", "--block-id", "blk_chart")
+		"--app-token", "app_x", "--base-token", "bas_x", "--block-id", "cht_chart")
 	output := strings.TrimSpace(result.Stdout)
-	assert.Contains(t, output, "/open-apis/base/v3/bases/bas_x/dashboards/blocks/blk_chart/data")
+	assert.Contains(t, output, "/open-apis/base/v3/bases/bas_x/dashboards/blocks/cht_chart/data")
 	assert.Contains(t, output, `"method": "GET"`)
 	assert.Contains(t, output, `"rpc-persist-x-base-apptoken": "app_x"`)
 
@@ -229,8 +229,8 @@ func TestAppBlockGetDataDryRun(t *testing.T) {
 		args []string
 		want string
 	}{
-		{name: "app token", args: []string{"--base-token", "bas_x", "--block-id", "blk_chart"}, want: "app-token"},
-		{name: "base token", args: []string{"--app-token", "app_x", "--block-id", "blk_chart"}, want: "base-token"},
+		{name: "app token", args: []string{"--base-token", "bas_x", "--block-id", "cht_chart"}, want: "app-token"},
+		{name: "base token", args: []string{"--app-token", "app_x", "--block-id", "cht_chart"}, want: "base-token"},
 		{name: "block id", args: []string{"--app-token", "app_x", "--base-token", "bas_x"}, want: "block-id"},
 	} {
 		t.Run("missing "+tc.name, func(t *testing.T) {
@@ -241,6 +241,6 @@ func TestAppBlockGetDataDryRun(t *testing.T) {
 	}
 
 	unknownPage := runBaseDryRun(t, 2, "base", "+app-block-get-data",
-		"--app-token", "app_x", "--base-token", "bas_x", "--block-id", "blk_chart", "--page-id", "pg_x")
+		"--app-token", "app_x", "--base-token", "bas_x", "--block-id", "cht_chart", "--page-id", "pg_x")
 	assert.Contains(t, unknownPage.Stderr, "unknown flag")
 }

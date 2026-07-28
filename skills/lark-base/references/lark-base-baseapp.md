@@ -12,7 +12,7 @@
 | Page | `page_id` | `+app-page-list/get/create/update/delete` |
 | Block | `block_id` | `+app-block-list/get/create/update` |
 
-页面和组件命令使用 `app_token`；Base 数据命令使用 `base_token`。`+app-block-get-data` 使用 `app_token + base_token + block_id`：请求路径与仪表盘图表数据接口相同，并通过 `rpc-persist-x-base-apptoken` 请求头传递 `app_token`。
+页面和组件命令使用 `app_token`；Base 数据命令使用 `base_token`。`+app-block-get-data` 使用 `app_token + base_token + chart_token`：CLI 参数名仍为 `--block-id`，但必须传组件返回的 `chart_token`，不能传普通 `block_id`。请求路径与仪表盘图表数据接口相同，并通过 `rpc-persist-x-base-apptoken` 请求头传递 `app_token`。
 
 ## 查询应用
 
@@ -71,9 +71,10 @@ lark-cli base +app-create \
 lark-cli base +app-block-get-data \
   --app-token <app_token> \
   --base-token <base_token> \
-  --block-id <block_id>
+  --block-id <chart_token>
 ```
 
+- `--block-id` 的值必须取图表组件摘要中的 `chart_token`，不能使用组件的普通 `block_id`。
 - `base_token` 使用当前图表组件 `data_config.base_token`；一个 App 引用多个 Base 时，不要从 `+app-get ref` 中任意选择一个 key。
 - `page_id` 不参与请求。
 - 返回协议与 `+dashboard-block-get-data` 完全一致。

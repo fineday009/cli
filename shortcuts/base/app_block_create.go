@@ -40,7 +40,7 @@ var BaseAppBlockCreate = common.Shortcut{
 		"Read lark-base-baseapp-block-data-config.md as the SSOT for chart, list and richText config; do not invent data_config from natural language.",
 		"Block type cannot be changed after creation and this phase has no delete command, so a wrong --type can only be fixed in the UI. Confirm the type before creating.",
 		"Widget layout, position, size and display settings are not part of the public create/update protocol; the platform applies product defaults.",
-		"Record the returned block_id; +app-block-update and +app-block-get-data need it.",
+		"Record block_id for +app-block-update. For chart data reads, pass the returned chart_token to +app-block-get-data --block-id.",
 		"Block names must be unique within the page; the CLI checks every existing block before creation.",
 		"Create blocks sequentially; do not parallelize multiple block creates for the same page.",
 	},

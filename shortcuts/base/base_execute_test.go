@@ -262,7 +262,7 @@ func TestBaseAppBlockGetDataSendsAppTokenHeader(t *testing.T) {
 	factory, stdout, reg := newExecuteFactory(t)
 	stub := &httpmock.Stub{
 		Method: "GET",
-		URL:    "/open-apis/base/v3/bases/bas_x/dashboards/blocks/blk_x/data",
+		URL:    "/open-apis/base/v3/bases/bas_x/dashboards/blocks/cht_x/data",
 		Body: map[string]interface{}{
 			"code": 0,
 			"data": map[string]interface{}{"main_data": []interface{}{}},
@@ -274,7 +274,7 @@ func TestBaseAppBlockGetDataSendsAppTokenHeader(t *testing.T) {
 		"+app-block-get-data",
 		"--app-token", "app_x",
 		"--base-token", "bas_x",
-		"--block-id", "blk_x",
+		"--block-id", "cht_x",
 	}, factory, stdout)
 	if err != nil {
 		t.Fatalf("err=%v", err)

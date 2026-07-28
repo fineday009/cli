@@ -24,10 +24,11 @@ var BaseAppBlockGetData = common.Shortcut{
 	Flags: []common.Flag{
 		appTokenFlag(true),
 		baseTokenFlag(true),
-		appBlockIDFlag(true),
+		{Name: "block-id", Desc: "chart_token returned by the App chart component; this endpoint identifies the chart by chart_token", Required: true},
 	},
 	Tips: []string{
-		"lark-cli base +app-block-get-data --app-token <app_token> --base-token <base_token> --block-id <block_id>",
+		"lark-cli base +app-block-get-data --app-token <app_token> --base-token <base_token> --block-id <chart_token>",
+		"Despite the flag name, --block-id must be the chart_token from +app-block-list/get, not the component block_id.",
 		"Read --base-token from the chart block data_config.base_token; do not choose an arbitrary +app-get ref key when the app references multiple Bases.",
 		"The response uses the same computed chart data protocol as +dashboard-block-get-data.",
 		"List and richText blocks have no computed data; use +app-block-get for their metadata instead.",
