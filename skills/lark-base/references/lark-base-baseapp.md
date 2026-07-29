@@ -109,7 +109,20 @@ lark-cli base +app-page-delete --app-token <app_token> --page-id <page_id> --yes
 - 同一 App 内 Page 名称必须唯一。创建或更新名称前，CLI 会读取页面列表；更新时排除当前 Page。
 - 本期 `+app-page-create` 只支持创建顶级 Page，不支持 PageGroup 归属参数。
 - 同一 Page 内组件名称必须唯一。`+app-block-create` 会分页读取该 Page 的全部组件并在创建前检查重名。
-- 本期没有 Page arrange，也没有 Block delete；Block 的 `type/sub_type` 创建后不可修改。
+- 本期没有 Page arrange，也没有 Block delete；Block 的 `type/sub_type` 创建后不可修改。详见[本期不支持的能力](#本期不支持的能力)。
+
+## 本期不支持的能力
+
+下列能力本期不存在。用户提出时，直接说明不支持并给出可选的替代方向，不要用 Dashboard 或其他域的同名能力顶替。
+
+| 用户诉求 | 本期状态 | 正确动作 |
+|---|---|---|
+| 自动排版 / 重新布局 / 美化页面组件 | 没有 App page arrange | 直接告知不支持；不要调用 `+dashboard-arrange` |
+| 删除页面组件 | 没有 App block delete | 直接告知不支持，只能在 UI 处理；不要调用 `+dashboard-block-delete` |
+| 修改组件位置 / 大小 / 置顶 | 布局、位置、尺寸不属于公开 Create/Update 协议 | 直接告知不支持；不要用 `+app-block-update` 做空更新伪装成移动 |
+| 修改已存在 App 的主题 | `--theme-style` 只在 `+app-create` 时生效 | 直接告知不支持；如确有必要，说明只能新建 App 时指定主题 |
+
+`+dashboard-*` 命令只作用于 Base 内的仪表盘，`dashboard_id` 是 `blk` 开头、组件 ID 是 `cht` 开头；AppMode 的 `pge` 页面和 `wgt` 组件不属于它们的作用域。缺少能力时不要用这些命令试探，包括 `--help` 和 `--dry-run`：一次调用就是一次错误的能力归属判断。
 
 ## 列表组件
 
@@ -143,3 +156,4 @@ lark-cli base +app-block-create \
 | 列表 Base 不在同一 Workspace | 用 `+workspace-entity-list` 核对；选择同 Workspace Base |
 | 列表协议校验失败 | 读取组件协议文档；不要推断 title、group_by 数量或 field role |
 | Block 类型选错 | 本期无法删除且类型不可改，只能在 UI 处理后重新创建 |
+| 用户要 arrange / 删组件 / 调位置 / 改主题 | 按[本期不支持的能力](#本期不支持的能力)直接告知不支持；不要改用 `+dashboard-*` 命令 |
