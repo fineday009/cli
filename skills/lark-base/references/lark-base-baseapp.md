@@ -106,6 +106,19 @@ lark-cli drive +delete --file-token <app_token> --type baseapp --yes
 
 ## Page
 
+### 本期不支持的 Page 能力
+
+Page 复制和页面图标均不在本期范围。用户提出复制 Page、复制页面、克隆页面、沿用页面图标、设置或修改页面图标等需求时：
+
+1. 明确说明当前 CLI 不支持该能力，并确认本次没有执行任何写入。
+2. 不得调用 `+app-page-create` 冒充完整复制；空 Page 不包含原 Page 的内容、组件或图标。
+3. 不得尝试使用其他 shortcut 拼装、模拟或声称完成 Page 复制或图标设置。
+4. 在最终答复中将以下替代能力单独成段说明，但不要自动执行：
+
+   > 可用替代能力（本次未执行）：当前 CLI 可以新建一个空 Page，但不会复制原 Page 的内容、组件或图标。如需新建空 Page，请明确告诉我。
+
+只有用户后续明确要求新建空 Page，才可以调用 `+app-page-create`。
+
 ```bash
 lark-cli base +app-page-list --app-token <app_token>
 lark-cli base +app-page-create --app-token <app_token> --name "总览"
