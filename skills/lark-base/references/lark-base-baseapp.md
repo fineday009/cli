@@ -24,6 +24,13 @@ lark-cli base +app-get --app-token <app_token>
 - `ref` 的结构是 `Base token -> 当前组件引用的 Table 名称数组`。需要操作被引用 Base 时，使用 `ref` 的 key 作为 `base_token`。
 - `ref` 只描述当前组件已经引用的数据源；没有被组件引用的 Base 不会出现在其中。
 
+## 复制应用
+
+本期没有 BaseApp 复制命令。遇到复制应用模式的需求时，明确说明当前 CLI 无法完成，不要发起任何复制请求。
+
+- `+base-copy` 只支持 Base，不支持 BaseApp；不得向它传入 `app_token`，也不得把复制出的 Base 描述为应用副本。
+- 不要使用 Drive copy 或其他 Base shortcut 拼装、模拟或冒充 BaseApp 复制。
+
 ## 创建 Workspace
 
 ```bash
