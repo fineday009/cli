@@ -20,10 +20,10 @@ var chartBlockTypes = []string{
 	"funnel", "wordCloud", "area", "combo", "radar", "statistics",
 }
 
-// textBlockTypes are the text-ish block types. "text" is the dashboard
-// spelling, "richText" is the BaseApp page spelling; both carry the same
-// data_config shape ({"text": "..."}).
-var textBlockTypes = []string{"text", "richText"}
+// textBlockTypes are the text-ish block types. Dashboard blocks and BaseApp
+// page blocks share the same spelling "text" and the same data_config shape
+// ({"text": "..."}).
+var textBlockTypes = []string{"text"}
 
 func matchesBlockType(blockType string, candidates []string) bool {
 	trimmed := strings.ToLower(strings.TrimSpace(blockType))
@@ -44,13 +44,13 @@ func isChartBlockType(blockType string) bool { return matchesBlockType(blockType
 func appBlockTypes() []string {
 	types := make([]string, 0, len(chartBlockTypes)+2)
 	types = append(types, chartBlockTypes...)
-	types = append(types, "richText")
+	types = append(types, "text")
 	types = append(types, "list")
 	return types
 }
 
 func isAppBlockType(blockType string) bool {
-	return isChartBlockType(blockType) || matchesBlockType(blockType, []string{"richText", "list"})
+	return isChartBlockType(blockType) || matchesBlockType(blockType, []string{"text", "list"})
 }
 
 // ── data_config normalization & validation ───────────────────────────
@@ -123,7 +123,7 @@ func validateBlockDataConfig(blockType string, cfg map[string]interface{}) []str
 	}
 }
 
-// validateTextDataConfig validates the text/richText data_config shape.
+// validateTextDataConfig validates the text data_config shape.
 func validateTextDataConfig(blockType string, cfg map[string]interface{}) []string {
 	var problems []string
 	if txt, _ := cfg["text"].(string); strings.TrimSpace(txt) == "" {

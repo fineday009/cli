@@ -435,7 +435,7 @@ func TestBaseAppBlockCreateRejectsDuplicateNameAcrossPagination(t *testing.T) {
 		"--app-token", "app_x",
 		"--page-id", "pge_x",
 		"--name", "Cards",
-		"--type", "richText",
+		"--type", "text",
 	}, factory, stdout)
 	assertInvalidArgumentValidation(t, err, "--name", nil, "组件名称必须唯一")
 }

@@ -23,7 +23,7 @@ var BaseAppBlockCreate = common.Shortcut{
 		appTokenFlag(true),
 		pageIDFlag(true),
 		{Name: "name", Desc: "block name", Required: true},
-		{Name: "type", Desc: "block type: chart(column|bar|line|pie|ring|area|combo|scatter|funnel|wordCloud|radar|statistics) | richText | list. Read lark-base-baseapp-block-data-config.md before creating.", Required: true, Enum: appBlockTypes()},
+		{Name: "type", Desc: "block type: chart(column|bar|line|pie|ring|area|combo|scatter|funnel|wordCloud|radar|statistics) | text | list. Read lark-base-baseapp-block-data-config.md before creating.", Required: true, Enum: appBlockTypes()},
 		{Name: "sub-type", Desc: "list subtype: standard|grouped|collapsible|card|detail; defaults to standard", Enum: appListSubTypes},
 		{Name: "data-config", Desc: "data_config JSON object; read lark-base-baseapp-block-data-config.md for the SSOT"},
 		{Name: "no-validate", Type: "bool", Desc: "skip local data_config validation and normalization; send data_config as-is"},
@@ -31,13 +31,13 @@ var BaseAppBlockCreate = common.Shortcut{
 	Tips: []string{
 		`lark-cli base +app-block-create --app-token <app_token> --page-id <page_id> --name "Order Count" --type statistics --data-config '{"base_token":"basxxx","data_sources":[{"table_name":"Orders","count_all":true}]}'`,
 		`lark-cli base +app-block-create --app-token <app_token> --page-id <page_id> --name "Monthly sales" --type column --data-config '{"base_token":"basxxx","data_sources":[{"table_name":"Orders","series":[{"field_name":"Amount","rollup":"SUM"}],"group_by":[{"field_name":"Month","sort":{"type":"group","order":"asc"}}]}]}'`,
-		"Chart blocks use multi-datasource data_config: one top-level base_token shared by all sources, with table_name/series/count_all/group_by/filter inside each data_sources[] element (richText needs none). App block commands carry no --base-token.",
-		`lark-cli base +app-block-create --app-token <app_token> --page-id <page_id> --name "Notes" --type richText --data-config '{"text":"# Sales overview"}'`,
+		"Chart blocks use multi-datasource data_config: one top-level base_token shared by all sources, with table_name/series/count_all/group_by/filter inside each data_sources[] element (text needs none). App block commands carry no --base-token.",
+		`lark-cli base +app-block-create --app-token <app_token> --page-id <page_id> --name "Notes" --type text --data-config '{"text":"# Sales overview"}'`,
 		`lark-cli base +app-block-create --app-token <app_token> --page-id <page_id> --name "Open orders" --type list --sub-type standard --data-config '{"base_token":"basxxx","table_name":"Orders"}'`,
 		"For list creates, omit optional columns/fields to use the product defaults. The CLI sends them only when explicitly provided.",
 		"Before creating data-backed blocks, use +table-list and +field-list to confirm real table and field names.",
 		"A list accepts exactly one base_token, and that Base must be in the same Workspace as the App.",
-		"Read lark-base-baseapp-block-data-config.md as the SSOT for chart, list and richText config; do not invent data_config from natural language.",
+		"Read lark-base-baseapp-block-data-config.md as the SSOT for chart, list and text config; do not invent data_config from natural language.",
 		"Block type cannot be changed after creation and this phase has no delete command, so a wrong --type can only be fixed in the UI. Confirm the type before creating.",
 		"Widget layout, position, size and display settings are not part of the public create/update protocol; the platform applies product defaults.",
 		"Record block_id for +app-block-update. For chart data reads, pass the returned chart_token to +app-block-get-data --block-id.",
@@ -85,7 +85,7 @@ var BaseAppBlockCreate = common.Shortcut{
 		if !strings.EqualFold(blockType, "list") {
 			// Chart blocks use the multi-datasource ChartDataConfig shape
 			// (base_token top-level, table_name/series/count_all/group_by/filter
-			// per data_sources[] element); richText keeps the flat text shape.
+			// per data_sources[] element); text keeps the flat text shape.
 			if isChartBlockType(blockType) {
 				norm = normalizeAppChartDataConfig(cfg)
 			} else {

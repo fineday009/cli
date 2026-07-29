@@ -169,10 +169,10 @@ func TestAppBlockDryRun(t *testing.T) {
 		assert.Contains(t, result.Stderr, "data-config")
 	})
 
-	t.Run("create rich text allows omitted data_config", func(t *testing.T) {
+	t.Run("create text block allows omitted data_config", func(t *testing.T) {
 		result := runBaseDryRun(t, 0, "base", "+app-block-create",
 			"--app-token", "app_x", "--page-id", "pg_1",
-			"--name", "Notes", "--type", "richText")
+			"--name", "Notes", "--type", "text")
 		assert.NotContains(t, result.Stdout, `"data_config"`)
 	})
 

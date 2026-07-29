@@ -162,21 +162,37 @@ func TestDryRunAppBlockOps(t *testing.T) {
 	}
 }
 
-// richText is the CLI-facing alias for the rich-text widget; on the wire the
-// API type is "text", so the request body must carry "text".
-func TestAppRichTextTypeMapsToText(t *testing.T) {
+// The rich-text widget is spelled "text" on both the CLI surface and the wire,
+// matching the dashboard block spelling; nothing is rewritten on send.
+func TestAppTextTypeIsSentVerbatim(t *testing.T) {
 	ctx := context.Background()
 	rt := newBaseTestRuntime(map[string]string{
 		"app-token":   "app_x",
 		"page-id":     "pg_1",
 		"name":        "说明",
-		"type":        "richText",
+		"type":        "text",
 		"data-config": `{"text":"hi"}`,
 	}, nil, nil)
 	dr := dryRunAppBlockCreate(ctx, rt)
 	assertDryRunContains(t, dr, `"type":"text"`, `"text":"hi"`)
 	if out := dr.Format(); strings.Contains(out, `"richText"`) {
-		t.Fatalf("richText must map to the wire type text:\n%s", out)
+		t.Fatalf("richText must not appear anywhere:\n%s", out)
+	}
+}
+
+// richText was the old CLI-only alias; app block types are now spelled exactly
+// like dashboard block types, so it must no longer be accepted.
+func TestAppBlockTypeRejectsRichText(t *testing.T) {
+	if isAppBlockType("richText") {
+		t.Fatal("richText must no longer be a valid app block type")
+	}
+	for _, blockType := range appBlockTypes() {
+		if blockType == "richText" {
+			t.Fatal("richText must not be advertised in the app block type enum")
+		}
+	}
+	if !isAppBlockType("text") {
+		t.Fatal("text must be a valid app block type")
 	}
 }
 
@@ -439,23 +455,19 @@ func TestValidateListDataConfig(t *testing.T) {
 	})
 }
 
-func TestValidateTextDataConfigCoversRichText(t *testing.T) {
-	if problems := validateBlockDataConfig("richText", map[string]interface{}{"text": "# Title"}); len(problems) != 0 {
+func TestValidateTextDataConfigCoversAppAndDashboard(t *testing.T) {
+	if problems := validateBlockDataConfig("text", map[string]interface{}{"text": "# Title"}); len(problems) != 0 {
 		t.Fatalf("problems=%v", problems)
 	}
-	problems := validateBlockDataConfig("richText", map[string]interface{}{})
-	if len(problems) != 1 || !strings.Contains(problems[0], "richText") {
+	// App 与 Dashboard 共用同一个 text 拼写和同一条报错
+	problems := validateBlockDataConfig("text", map[string]interface{}{})
+	if len(problems) != 1 || problems[0] != "text 类型组件缺少必填字段 text" {
 		t.Fatalf("problems=%v", problems)
-	}
-	// dashboard 的 text 类型行为保持不变
-	dashboardProblems := validateBlockDataConfig("text", map[string]interface{}{})
-	if len(dashboardProblems) != 1 || dashboardProblems[0] != "text 类型组件缺少必填字段 text" {
-		t.Fatalf("dashboard text message changed: %v", dashboardProblems)
 	}
 }
 
 func TestValidateAppTextDataConfigIsOptional(t *testing.T) {
-	if problems := validateAppBlockDataConfig("richText", map[string]interface{}{}); len(problems) != 0 {
+	if problems := validateAppBlockDataConfig("text", map[string]interface{}{}); len(problems) != 0 {
 		t.Fatalf("problems=%v", problems)
 	}
 }
@@ -610,7 +622,7 @@ func TestNormalizeAppChartKeepsOptionalSortOrderOmitted(t *testing.T) {
 }
 
 func TestValidateAppTextRejectsUnknownFields(t *testing.T) {
-	problems := validateAppBlockDataConfig("richText", map[string]interface{}{"text": "hello", "style": "bold"})
+	problems := validateAppBlockDataConfig("text", map[string]interface{}{"text": "hello", "style": "bold"})
 	if !strings.Contains(strings.Join(problems, " "), "style") {
 		t.Fatalf("problems=%v", problems)
 	}

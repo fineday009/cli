@@ -58,11 +58,6 @@ func appBlockBody(runtime *common.RuntimeContext, includeType bool) (map[string]
 	}
 	if includeType {
 		if blockType := strings.TrimSpace(runtime.Str("type")); blockType != "" {
-			// The rich-text widget's wire type is "text"; the CLI exposes the
-			// friendlier "richText" alias, so map it back on send.
-			if strings.EqualFold(blockType, "richText") {
-				blockType = "text"
-			}
 			body["type"] = blockType
 		}
 		if strings.EqualFold(strings.TrimSpace(runtime.Str("type")), "list") {

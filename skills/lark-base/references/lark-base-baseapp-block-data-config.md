@@ -5,7 +5,7 @@
 ## 类型映射
 
 - 图表：`--type column|bar|line|pie|ring|area|combo|scatter|funnel|wordCloud|radar|statistics`
-- 富文本：`--type richText`
+- 富文本：`--type text`（与 Dashboard 文本组件同名同义）
 - 列表：`--type list --sub-type standard|grouped|collapsible|card|detail`
 - 列表省略 `--sub-type` 时默认 `standard`
 - `type/sub_type` 创建后不可修改
@@ -69,7 +69,7 @@ lark-cli base +app-block-update \
 
 ## 图表与富文本
 
-**App 图表是多数据源结构（`ChartDataConfig`），与 Dashboard 的扁平单源结构不同。** 顶层用一个 `base_token`（所有数据源共用），`table_name` / `series` / `count_all` / `group_by` / `filter` 下沉到每个 `data_sources[]` 元素里；顶层另有可选的 `data_source_mode` 和 `sort`。每个数据源内部各字段的取值逻辑与 [dashboard-block-data-config.md](dashboard-block-data-config.md) 完全一致（`series[].rollup` 大写、`group_by[].sort` 小写等），CLI 对每个 `data_sources[]` 元素复用同一套规范化与校验。富文本按服务端协议使用 `richText` 配置，无数据源；Create 时可省略 `data_config`，等价于空文本。
+**App 图表是多数据源结构（`ChartDataConfig`），与 Dashboard 的扁平单源结构不同。** 顶层用一个 `base_token`（所有数据源共用），`table_name` / `series` / `count_all` / `group_by` / `filter` 下沉到每个 `data_sources[]` 元素里；顶层另有可选的 `data_source_mode` 和 `sort`。每个数据源内部各字段的取值逻辑与 [dashboard-block-data-config.md](dashboard-block-data-config.md) 完全一致（`series[].rollup` 大写、`group_by[].sort` 小写等），CLI 对每个 `data_sources[]` 元素复用同一套规范化与校验。富文本使用 `--type text`，配置为 `{"text":"..."}`，无数据源；Create 时可省略 `data_config`，等价于空文本。
 
 顶层参数：
 
