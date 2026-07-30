@@ -1,7 +1,7 @@
 ---
 name: lark-base
 version: 1.3.0
-description: "飞书多维表格（Base）操作：建表、字段、记录、视图、统计、公式/lookup、表单、仪表盘、应用模式（BaseApp 页面与组件）、Workspace 目录、workflow、角色权限；遇到 Base/多维表格/bitable 或 /base/ 链接时使用。文件导入转 lark-drive，认证/授权转 lark-shared。"
+description: "飞书多维表格（Base）操作：建表、字段、记录、视图、统计、公式/lookup、表单、仪表盘、应用模式（BaseApp/AppMode 页面与组件）、Workspace 目录、workflow、角色权限；遇到 Base/多维表格/bitable、BaseApp/AppMode，或带 /base/、base/workspace 上下文的 /app/ 链接时使用。BaseApp 不走 lark-apps；文件导入转 lark-drive，认证/授权转 lark-shared。"
 metadata:
   requires:
     bins: ["lark-cli"]
@@ -19,6 +19,7 @@ metadata:
 - 用户要在 Base 内做公式字段、lookup 字段、跨表计算、派生指标、筛选聚合、TopN、统计分析。
 - 用户要管理 Base 表单、仪表盘、workflow、高级权限或角色。
 - 用户要用应用模式（BaseApp）：新建应用、管理应用页面、在页面上加图表/列表/富文本组件，或整理 Workspace 目录。
+- 用户明确提到 BaseApp / AppMode / 应用模式 / Workspace 内应用，或 `/app/` 链接同时带有 `/base/workspace/` 上下文，并要查询页面或组件；这类应用属于 Base，不走 `lark-apps`。
 - 用户要把旧 Base 聚合式命令或旧写法迁移到当前 `lark-cli base +...` shortcut。
 
 不要使用本 skill：
@@ -38,7 +39,7 @@ metadata:
 
 进入任何需要目标 Base 的 shortcut 前，必须先拿到可用的 `base_token`，以及当前任务需要的 `table_id` / `view_id` / `record_id` / `form_id` / `dashboard_id` / `workflow_id` 等真实 ID；不要把完整 URL、wiki token、workspace token 或孤立 raw token 直接当作 `--base-token`。
 
-- 用户输入 URL 或分享链接：先运行 `lark-cli base +url-resolve --url "<url>" --as user`，用返回的 `base_token` 和相关 ID 继续后续命令。
+- 用户输入 URL 或分享链接：先运行 `lark-cli base +url-resolve --url "<url>" --as user`。Base URL 返回 `base_token` 和相关 ID；BaseApp `/app/` URL 返回 `app_token`，并在原链接携带时返回 `workspace_token` 和 `page_id`。
 - 用户输入 Base 标题、关键词或不确定名称：先运行 `lark-cli base +title-resolve --title "<keyword>" --as user`；`--title` 传入标题中的短关键词，不超过 30 个字符；过长标题先取最有区分度的短关键词；多候选时先让用户消歧，不要猜。
 - 文档嵌入 Base 标签：直接读取 `<bitable>` / `<base_refer>` 的 `token` 作为 `--base-token`，`table-id` 作为 `--table-id`，`view-id` 作为 `--view-id`；孤立 raw token 不走 `+url-resolve`。
 - 仍无法定位且用户不是要新建 Base 时，先反问用户要操作哪一个 Base；用户要新建时才用 `+base-create`。
@@ -66,7 +67,7 @@ metadata:
 | 表单题目创建/更新 | `+form-questions-create` / `+form-questions-update` | 读 [lark-base-form-questions-create.md](references/lark-base-form-questions-create.md) / [lark-base-form-questions-update.md](references/lark-base-form-questions-update.md) |
 | 其他表单管理 | `+form-list/get/detail/create/update/delete` / `+form-questions-list/delete` | `+form-detail` 读 [lark-base-form-detail.md](references/lark-base-form-detail.md)；删除前确认目标表单 |
 | 仪表盘与组件 | `+dashboard-*` / `+dashboard-block-*` | 提到图表/看板/block 时先读 [lark-base-dashboard.md](references/lark-base-dashboard.md)；组件 `data_config` 读 [dashboard-block-data-config.md](references/dashboard-block-data-config.md)；读取图表计算结果用 `+dashboard-block-get-data` |
-| 应用模式（BaseApp）与页面组件 | `+app-*` / `+app-page-*` / `+app-block-*` | 提到应用/页面/组件时先读 [lark-base-baseapp.md](references/lark-base-baseapp.md)；组件 `data_config` 读 [lark-base-baseapp-block-data-config.md](references/lark-base-baseapp-block-data-config.md)；`+app-block-get-data` 除 `app_token` 外还需要图表数据源的 `base_token` |
+| 应用模式（BaseApp/AppMode）与页面组件 | `+app-get` / `+app-page-*` / `+app-block-*` | BaseApp/AppMode、Workspace 内应用或带 base/workspace 上下文的 `/app/` 链接直接走本路由，不走 `lark-apps`；没有 `+app-list`，列 Workspace 内应用必须用 `+workspace-entity-list --workspace-token <token> --type baseapp`；先读 [lark-base-baseapp.md](references/lark-base-baseapp.md)。列组件可用 `+app-block-list --type <type>`；组件 `data_config` 读 [lark-base-baseapp-block-data-config.md](references/lark-base-baseapp-block-data-config.md)；`+app-block-get-data` 除 `app_token` 外还需要图表数据源的 `base_token` |
 | 复制应用模式（BaseApp） | 当前不支持 | 明确告诉用户当前 CLI 无法复制 BaseApp；不得调用 `+base-copy`、Drive copy 或其他 Base shortcut 冒充 App 复制 |
 | 复制 Page / 设置页面图标 | 当前不支持 | 不产生任何写入，不得用 `+app-page-create` 冒充完整复制；单独说明“可新建空 Page”仅是替代能力，须等用户明确要求后再执行 |
 | Workspace 目录 | `+workspace-create` / `+workspace-entity-list` / `+workspace-move-in` | 新建 Workspace、列出或移入其中的 Base/应用 |

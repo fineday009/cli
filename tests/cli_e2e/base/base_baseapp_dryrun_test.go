@@ -38,6 +38,15 @@ func TestBaseWorkspaceDryRun(t *testing.T) {
 }
 
 func TestBaseappDryRun(t *testing.T) {
+	t.Run("resolve app URL locally", func(t *testing.T) {
+		result := runBaseDryRun(t, 0, "base", "+url-resolve", "--url",
+			"https://example.larkoffice.com/app/app_x?pre_pathname=%2Fbase%2Fworkspace%2Fws_x&pageId=pg_1")
+		output := strings.TrimSpace(result.Stdout)
+		assert.Contains(t, output, `"resolution": "local"`)
+		assert.Contains(t, output, `"url"`)
+		assert.NotContains(t, output, `"/open-apis/`)
+	})
+
 	t.Run("create", func(t *testing.T) {
 		result := runBaseDryRun(t, 0, "base", "+app-create",
 			"--name", "Sales app", "--workspace-token", "ws_x", "--theme-style", "cloudBlue")
@@ -108,10 +117,18 @@ func TestBaseappPageDryRun(t *testing.T) {
 
 func TestAppBlockDryRun(t *testing.T) {
 	t.Run("list", func(t *testing.T) {
-		result := runBaseDryRun(t, 0, "base", "+app-block-list", "--app-token", "app_x", "--page-id", "pg_1")
+		result := runBaseDryRun(t, 0, "base", "+app-block-list", "--app-token", "app_x", "--page-id", "pg_1", "--type", "statistics")
 		output := strings.TrimSpace(result.Stdout)
 		assert.Contains(t, output, "/open-apis/base/v3/base_apps/app_x/pages/pg_1/blocks")
 		assert.Contains(t, output, `"page_size": 20`)
+		assert.NotContains(t, output, `"type"`, "type filtering is client-side and must not alter the API request")
+	})
+
+	t.Run("list rejects invalid type", func(t *testing.T) {
+		result := runBaseDryRun(t, 2, "base", "+app-block-list",
+			"--app-token", "app_x", "--page-id", "pg_1", "--type", "metric-card")
+		assert.Contains(t, result.Stderr, `"subtype": "invalid_argument"`)
+		assert.Contains(t, result.Stderr, `"param": "--type"`)
 	})
 
 	t.Run("get", func(t *testing.T) {
