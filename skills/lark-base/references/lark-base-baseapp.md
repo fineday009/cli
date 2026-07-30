@@ -14,15 +14,42 @@
 
 页面和组件命令使用 `app_token`；Base 数据命令使用 `base_token`。`+app-block-get-data` 使用 `app_token + base_token + chart_token`：CLI 参数名仍为 `--block-id`，但必须传组件返回的 `chart_token`，不能传普通 `block_id`。请求路径与仪表盘图表数据接口相同，并通过 `rpc-persist-x-base-apptoken` 请求头传递 `app_token`。
 
+BaseApp / AppMode 是 Base 域能力。用户提供 `/app/` 链接时，先用 `+url-resolve`；它会返回 `app_token`，并忠实提取链接实际携带的 `workspace_token` 与 `page_id`。直接使用本指引和 `lark-cli base +...`，不要先尝试 `lark-cli apps`。
+
 ## 查询应用
 
 ```bash
 lark-cli base +app-get --app-token <app_token>
 ```
 
+- 没有 `lark-cli base +app-list`。需要列出某个 Workspace 内的 BaseApp 时，唯一列表入口是：
+
+  ```bash
+  lark-cli base +workspace-entity-list \
+    --workspace-token <workspace_token> \
+    --type baseapp \
+    --page-size 100
+  ```
+
 - 响应中的 `pages` 是页面摘要。
 - `ref` 的结构是 `Base token -> 当前组件引用的 Table 名称数组`。需要操作被引用 Base 时，使用 `ref` 的 key 作为 `base_token`。
 - `ref` 只描述当前组件已经引用的数据源；没有被组件引用的 Base 不会出现在其中。
+
+## 查询页面与组件
+
+```bash
+lark-cli base +app-page-list --app-token <app_token> --page-size 100
+lark-cli base +app-block-list \
+  --app-token <app_token> \
+  --page-id <page_id> \
+  --type statistics \
+  --page-size 100
+```
+
+- `+app-get` 已返回足够的页面摘要时，可直接取得目标 `page_id`；需要完整页面目录或分页确认时再用 `+app-page-list`。
+- `+app-block-list --type <type>` 在客户端过滤当前响应页，支持创建命令使用的全部 BaseApp block 类型；省略 `--type` 时保持完整响应。
+- 类型过滤不会改变 `has_more` 和 `page_token`。只要 `has_more=true`，即使当前过滤后的 `items` 为空，也要携带返回的 `page_token` 继续读取，直到 `has_more=false`。
+- 只需列表摘要时不要逐个调用 `+app-block-get` 复核；仅在用户需要单个组件详情时使用 get。
 
 ## 复制应用
 
