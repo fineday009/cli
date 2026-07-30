@@ -440,30 +440,8 @@ func executeAppBlockList(runtime *common.RuntimeContext) error {
 	if err != nil {
 		return err
 	}
-	filterAppBlockListData(data, strings.TrimSpace(runtime.Str("type")))
 	runtime.Out(data, nil)
 	return nil
-}
-
-func filterAppBlockListData(data map[string]interface{}, blockType string) {
-	blockType = strings.TrimSpace(blockType)
-	if blockType == "" {
-		return
-	}
-	items, ok := data["items"].([]interface{})
-	if !ok {
-		return
-	}
-	filtered := make([]interface{}, 0, len(items))
-	for _, item := range items {
-		block, ok := item.(map[string]interface{})
-		if !ok || !strings.EqualFold(strings.TrimSpace(common.GetString(block, "type")), blockType) {
-			continue
-		}
-		filtered = append(filtered, item)
-	}
-	data["items"] = filtered
-	data["total"] = len(filtered)
 }
 
 func executeAppBlockGet(runtime *common.RuntimeContext) error {
