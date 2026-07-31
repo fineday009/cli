@@ -42,13 +42,10 @@ lark-cli base +app-page-list --app-token <app_token> --page-size 100
 lark-cli base +app-block-list \
   --app-token <app_token> \
   --page-id <page_id> \
-  --type statistics \
   --page-size 100
 ```
 
 - `+app-get` 已返回足够的页面摘要时，可直接取得目标 `page_id`；需要完整页面目录或分页确认时再用 `+app-page-list`。
-- `+app-block-list --type <type>` 在客户端过滤当前响应页，支持创建命令使用的全部 BaseApp block 类型；省略 `--type` 时保持完整响应。
-- 类型过滤不会改变 `has_more` 和 `page_token`。只要 `has_more=true`，即使当前过滤后的 `items` 为空，也要携带返回的 `page_token` 继续读取，直到 `has_more=false`。
 - 只需列表摘要时不要逐个调用 `+app-block-get` 复核；仅在用户需要单个组件详情时使用 get。
 
 ## 复制应用

@@ -117,18 +117,10 @@ func TestBaseappPageDryRun(t *testing.T) {
 
 func TestAppBlockDryRun(t *testing.T) {
 	t.Run("list", func(t *testing.T) {
-		result := runBaseDryRun(t, 0, "base", "+app-block-list", "--app-token", "app_x", "--page-id", "pg_1", "--type", "statistics")
+		result := runBaseDryRun(t, 0, "base", "+app-block-list", "--app-token", "app_x", "--page-id", "pg_1")
 		output := strings.TrimSpace(result.Stdout)
 		assert.Contains(t, output, "/open-apis/base/v3/base_apps/app_x/pages/pg_1/blocks")
 		assert.Contains(t, output, `"page_size": 20`)
-		assert.NotContains(t, output, `"type"`, "type filtering is client-side and must not alter the API request")
-	})
-
-	t.Run("list rejects invalid type", func(t *testing.T) {
-		result := runBaseDryRun(t, 2, "base", "+app-block-list",
-			"--app-token", "app_x", "--page-id", "pg_1", "--type", "metric-card")
-		assert.Contains(t, result.Stderr, `"subtype": "invalid_argument"`)
-		assert.Contains(t, result.Stderr, `"param": "--type"`)
 	})
 
 	t.Run("get", func(t *testing.T) {

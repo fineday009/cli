@@ -19,14 +19,11 @@ var BaseAppBlockList = common.Shortcut{
 	Flags: []common.Flag{
 		appTokenFlag(true),
 		pageIDFlag(true),
-		{Name: "type", Desc: "filter returned blocks by type", Enum: appBlockTypes()},
 		{Name: "page-size", Type: "int", Default: "20", Desc: "page size; must be positive"},
 		{Name: "page-token", Desc: "pagination token"},
 	},
 	Tips: []string{
 		"lark-cli base +app-block-list --app-token <app_token> --page-id <page_id>",
-		"Filter one block type: lark-cli base +app-block-list --app-token <app_token> --page-id <page_id> --type statistics",
-		"--type filters each returned page locally. Continue with page_token while has_more=true to cover the whole page.",
 		"Use block_id for +app-block-get/update. For chart data, pass chart_token to +app-block-get-data --block-id.",
 		"These are page blocks, not dashboard blocks: do not pass a block_id from here to +dashboard-block-get.",
 	},
