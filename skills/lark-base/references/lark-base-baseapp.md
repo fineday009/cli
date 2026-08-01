@@ -2,6 +2,14 @@
 
 > 先读 [`../lark-shared/SKILL.md`](../../lark-shared/SKILL.md)。接口和组件字段以服务端返回和校验为准；不要从组件名称推断额外约束。
 
+## 复制应用：停止边界
+
+本期没有 BaseApp 复制命令。用户要复制或克隆既有 BaseApp 时，直接说明当前 CLI 无法完成并停止；不要继续探索浏览器、OpenAPI 或创建类命令等替代通道，也不要发起任何写请求。
+
+- `+base-copy` 只支持 Base，不支持 BaseApp；不得向它传入 `app_token`，也不得把复制出的 Base 描述为应用副本。
+- `+app-create` 只创建全新空 BaseApp，不复制既有页面和组件。
+- 不要使用 Drive copy 或其他 Base shortcut 拼装、模拟或冒充 BaseApp 复制。
+
 ## Token 与命令
 
 | 对象 | 标识 | 命令 |
