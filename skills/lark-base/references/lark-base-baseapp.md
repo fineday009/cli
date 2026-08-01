@@ -2,13 +2,19 @@
 
 > 先读 [`../lark-shared/SKILL.md`](../../lark-shared/SKILL.md)。接口和组件字段以服务端返回和校验为准；不要从组件名称推断额外约束。
 
-## 复制应用：停止边界
+## 不支持能力：先判断并停止
+
+### 复制 BaseApp
 
 本期没有 BaseApp 复制命令。用户要复制或克隆既有 BaseApp 时，直接说明当前 CLI 无法完成并停止；不要继续探索浏览器、OpenAPI 或创建类命令等替代通道，也不要发起任何写请求。
 
 - `+base-copy` 只支持 Base，不支持 BaseApp；不得向它传入 `app_token`，也不得把复制出的 Base 描述为应用副本。
 - `+app-create` 只创建全新空 BaseApp，不复制既有页面和组件。
 - 不要使用 Drive copy 或其他 Base shortcut 拼装、模拟或冒充 BaseApp 复制。
+
+### 创建或归属 PageGroup
+
+本期只支持顶级 Page，不支持创建 PageGroup、设置 PageGroup 归属或把现有 Page 移入页面组。用户命中这些诉求时，直接说明当前 CLI 无法完成并停止；不要继续探索浏览器、OpenAPI 或普通 Page 命令等替代通道，也不要读取页面后声称能完成分组或发起任何写请求。
 
 ## Token 与命令
 
@@ -159,7 +165,6 @@ lark-cli base +app-page-delete --app-token <app_token> --page-id <page_id> --yes
 ```
 
 - 同一 App 内 Page 名称必须唯一。创建或更新名称前，CLI 会读取页面列表；更新时排除当前 Page。
-- 本期 `+app-page-create` 只支持创建顶级 Page，不支持 PageGroup 归属参数。
 - 同一 Page 内组件名称必须唯一。`+app-block-create` 会分页读取该 Page 的全部组件并在创建前检查重名。
 - 本期没有 Page arrange，也没有 Block delete；Block 的 `type/sub_type` 创建后不可修改。详见[本期不支持的能力](#本期不支持的能力)。
 
