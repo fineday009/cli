@@ -14,7 +14,9 @@
 
 ### 创建或归属 PageGroup
 
-本期只支持顶级 Page，不支持创建 PageGroup、设置 PageGroup 归属或把现有 Page 移入页面组。用户命中这些诉求时，直接说明当前 CLI 无法完成并停止；不要继续探索浏览器、OpenAPI 或普通 Page 命令等替代通道，也不要读取页面后声称能完成分组或发起任何写请求。
+当前第一阶段的页面层级能力只支持顶级 Page 节点。PageGroup 的创建、归属设置，以及把现有 Page 移入页面组均不支持。
+
+最终答复必须同时说明上述正向支持范围和负向限制，不能只说 PageGroup 不支持。用户命中这些诉求时，直接说明当前 CLI 无法完成并停止；不要继续探索浏览器、OpenAPI 或普通 Page 命令等替代通道，也不要读取页面后声称能完成分组或发起任何写请求。
 
 ## Token 与命令
 
@@ -61,13 +63,6 @@ lark-cli base +app-block-list \
 
 - `+app-get` 已返回足够的页面摘要时，可直接取得目标 `page_id`；需要完整页面目录或分页确认时再用 `+app-page-list`。
 - 只需列表摘要时不要逐个调用 `+app-block-get` 复核；仅在用户需要单个组件详情时使用 get。
-
-## 复制应用
-
-本期没有 BaseApp 复制命令。遇到复制应用模式的需求时，明确说明当前 CLI 无法完成，不要发起任何复制请求。
-
-- `+base-copy` 只支持 Base，不支持 BaseApp；不得向它传入 `app_token`，也不得把复制出的 Base 描述为应用副本。
-- 不要使用 Drive copy 或其他 Base shortcut 拼装、模拟或冒充 BaseApp 复制。
 
 ## 创建 Workspace
 
