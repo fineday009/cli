@@ -12,6 +12,8 @@ import (
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
 )
 
+const baseTokenQueryParam = "base_token"
+
 const appTokenPersistHeader = "rpc-persist-x-base-apptoken"
 
 var BaseAppBlockGetData = common.Shortcut{
@@ -24,11 +26,11 @@ var BaseAppBlockGetData = common.Shortcut{
 	Flags: []common.Flag{
 		appTokenFlag(true),
 		baseTokenFlag(true),
-		{Name: "block-id", Desc: "chart_token returned by the App chart component; this endpoint identifies the chart by chart_token", Required: true},
+		{Name: "block-id", Desc: "chart_token (cht… prefix) returned by +app-block-create, +app-block-list, or +app-block-get", Required: true},
 	},
 	Tips: []string{
 		"lark-cli base +app-block-get-data --app-token <app_token> --base-token <base_token> --block-id <chart_token>",
-		"Despite the flag name, --block-id must be the chart_token from +app-block-list/get, not the component block_id.",
+		"--block-id must be a chart_token, not a widget_id.",
 		"Read --base-token from the chart block data_config.base_token; do not choose an arbitrary +app-get ref key when the app references multiple Bases.",
 		"The response uses the same computed chart data protocol as +dashboard-block-get-data.",
 		"List and text blocks have no computed data; use +app-block-get for their metadata instead.",
@@ -43,16 +45,20 @@ var BaseAppBlockGetData = common.Shortcut{
 
 func dryRunAppBlockGetData(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
 	return common.NewDryRunAPI().
-		GET("/open-apis/base/v3/bases/:base_token/dashboards/blocks/:block_id/data").
-		Set("base_token", runtime.Str("base-token")).
+		GET("/open-apis/base/v3/base_apps/:app_token/blocks/:block_id/data").
+		Set("app_token", runtime.Str("app-token")).
 		Set("block_id", runtime.Str("block-id")).
+		Params(map[string]interface{}{baseTokenQueryParam: strings.TrimSpace(runtime.Str("base-token"))}).
 		Header(appTokenPersistHeader, strings.TrimSpace(runtime.Str("app-token")))
 }
 
 func executeAppBlockGetData(runtime *common.RuntimeContext) error {
+	queryParams := larkcore.QueryParams{}
+	queryParams.Set(baseTokenQueryParam, strings.TrimSpace(runtime.Str("base-token")))
 	req := &larkcore.ApiReq{
-		HttpMethod: "GET",
-		ApiPath:    baseV3Path("bases", runtime.Str("base-token"), "dashboards", "blocks", runtime.Str("block-id"), "data"),
+		HttpMethod:  "GET",
+		ApiPath:     baseV3Path("base_apps", runtime.Str("app-token"), "blocks", runtime.Str("block-id"), "data"),
+		QueryParams: queryParams,
 	}
 	resp, err := runtime.DoAPI(req, larkcore.WithHeaders(http.Header{
 		appTokenPersistHeader: []string{strings.TrimSpace(runtime.Str("app-token"))},

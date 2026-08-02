@@ -229,7 +229,7 @@ func TestAppBlockGetDataDryRun(t *testing.T) {
 	result := runBaseDryRun(t, 0, "base", "+app-block-get-data",
 		"--app-token", "app_x", "--base-token", "bas_x", "--block-id", "cht_chart")
 	output := strings.TrimSpace(result.Stdout)
-	assert.Contains(t, output, "/open-apis/base/v3/bases/bas_x/dashboards/blocks/cht_chart/data")
+	assert.Contains(t, output, "/open-apis/base/v3/base_apps/app_x/blocks/cht_chart/data")
 	assert.Contains(t, output, `"method": "GET"`)
 	assert.Contains(t, output, `"rpc-persist-x-base-apptoken": "app_x"`)
 
