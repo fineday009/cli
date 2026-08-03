@@ -77,6 +77,18 @@ func TestAppCreateFlags(t *testing.T) {
 	}
 }
 
+func TestBaseAppCopyBoundaryInShortcutHelp(t *testing.T) {
+	copyHelp := BaseBaseCopy.Description + " " + strings.Join(BaseBaseCopy.Tips, " ")
+	if !strings.Contains(copyHelp, "not a BaseApp") || !strings.Contains(copyHelp, "BaseApp/AppMode copy is unsupported") {
+		t.Fatalf("+base-copy help must reject BaseApp copy substitution: %q", copyHelp)
+	}
+
+	createHelp := BaseAppCreate.Description + " " + strings.Join(BaseAppCreate.Tips, " ")
+	if !strings.Contains(createHelp, "not a copy") || !strings.Contains(createHelp, "does not copy an existing BaseApp") {
+		t.Fatalf("+app-create help must reject BaseApp copy substitution: %q", createHelp)
+	}
+}
+
 func TestDryRunBaseappPageOps(t *testing.T) {
 	ctx := context.Background()
 
