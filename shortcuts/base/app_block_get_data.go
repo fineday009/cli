@@ -34,7 +34,7 @@ var BaseAppBlockGetData = common.Shortcut{
 		"--block-id must be a chart_token, not a widget_id.",
 		"Read --base-token from the chart block data_config.base_token; do not choose an arbitrary +app-get ref key when the app references multiple Bases.",
 		"The response uses the same computed chart data protocol as +dashboard-block-get-data.",
-		"List and text blocks have no computed data; use +app-block-get for their metadata instead.",
+		"List and text blocks have no computed data; use +app-block-get for their metadata instead. For text specifically, +app-block-get returns the Markdown content in data_config.text.",
 	},
 	DryRun: func(ctx context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
 		return dryRunAppBlockGetData(ctx, runtime)
