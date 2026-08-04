@@ -63,6 +63,7 @@ lark-cli base +app-block-list \
 
 - `+app-get` 已返回足够的页面摘要时，可直接取得目标 `page_id`；需要完整页面目录或分页确认时再用 `+app-page-list`。
 - 只需列表摘要时不要逐个调用 `+app-block-get` 复核；仅在用户需要单个组件详情时使用 get。
+- `+app-block-list` 返回 `type=unsupported` 的组件时，只能通过列表摘要识别它的存在。当前 CLI 不支持读取详情、读取计算数据或修改此类组件；不要调用 `+app-block-get`、`+app-block-get-data` 或 `+app-block-update`，这些请求会报错。
 
 ## 创建 Workspace
 
@@ -173,6 +174,7 @@ lark-cli base +app-page-delete --app-token <app_token> --page-id <page_id> --yes
 | 删除页面组件 | 没有 App block delete | 直接告知不支持，只能在 UI 处理；不要调用 `+dashboard-block-delete` |
 | 修改组件位置 / 大小 / 置顶 | 布局、位置、尺寸不属于公开 Create/Update 协议 | 直接告知不支持；不要用 `+app-block-update` 做空更新伪装成移动 |
 | 修改已存在 App 的主题 | `--theme-style` 只在 `+app-create` 时生效 | 直接告知不支持；如确有必要，说明只能新建 App 时指定主题 |
+| 读取或修改 `type=unsupported` 的组件 | 列表仅用于识别该组件存在，详情读取、计算数据读取和修改均不支持 | 直接告知不支持；不要调用 `+app-block-get`、`+app-block-get-data` 或 `+app-block-update`，这些请求会报错 |
 
 `+dashboard-*` 命令只作用于 Base 内的仪表盘，`dashboard_id` 是 `blk` 开头、组件 ID 是 `cht` 开头；AppMode 的 `pge` 页面和 `wgt` 组件不属于它们的作用域。缺少能力时不要用这些命令试探，包括 `--help` 和 `--dry-run`：一次调用就是一次错误的能力归属判断。
 

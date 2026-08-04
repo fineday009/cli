@@ -252,6 +252,20 @@ func TestAppBlockGetDataRequiredFlags(t *testing.T) {
 	}
 }
 
+func TestAppUnsupportedBlockTips(t *testing.T) {
+	for _, shortcut := range []common.Shortcut{
+		BaseAppBlockList,
+		BaseAppBlockGet,
+		BaseAppBlockGetData,
+		BaseAppBlockUpdate,
+	} {
+		help := strings.Join(shortcut.Tips, "\n")
+		if !strings.Contains(help, "type=unsupported") || !strings.Contains(help, "will return an error") {
+			t.Fatalf("%s must explain that unsupported blocks cannot be read or updated: %q", shortcut.Command, help)
+		}
+	}
+}
+
 // The app and dashboard command spaces must not cross: dashboard commands never
 // take --app-token, and app block commands never take --dashboard-id.
 func TestAppAndDashboardCommandSpacesDoNotCross(t *testing.T) {
