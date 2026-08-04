@@ -34,7 +34,7 @@ var BaseAppBlockUpdate = common.Shortcut{
 		"Do not call this command for a component whose +app-block-list result has type=unsupported; the API will return an error.",
 		"Read lark-base-baseapp-block-data-config.md as the SSOT; do not invent data_config from natural language.",
 		"Use +app-block-get first to inspect the current data_config before replacing nested values.",
-		"Block type cannot be changed, and this phase has no delete command; a wrong type can only be fixed in the UI.",
+		"The type and sub_type of an existing Block are immutable after creation and are not part of data_config; +app-block-update accepts only the name and data_config fields. If a user asks to change type/sub_type, read the current Block and always state this constraint in the final answer, even when it already matches and no write is needed; if it differs, it can only be fixed in the UI.",
 		"Only explicitly provided data_config fields are sent; omitted fields stay unchanged. For charts, passing data_sources replaces the whole ordered array, and changing base_token requires sending the full data_sources.",
 		"Widget layout, position, size and display settings are not part of the public create/update protocol.",
 	},
