@@ -231,4 +231,5 @@ fi
 export LARKSUITE_CLI_NO_UPDATE_NOTIFIER="${LARKSUITE_CLI_NO_UPDATE_NOTIFIER:-1}"
 export LARKSUITE_CLI_NO_SKILLS_NOTIFIER="${LARKSUITE_CLI_NO_SKILLS_NOTIFIER:-1}"
 
-exec codex -C "$repo_root" -c shell_environment_policy.inherit=all "${codex_args[@]}"
+# bash 3.2 (macOS) treats "${arr[@]}" on an empty array as unbound under `set -u`
+exec codex -C "$repo_root" -c shell_environment_policy.inherit=all ${codex_args[@]+"${codex_args[@]}"}
