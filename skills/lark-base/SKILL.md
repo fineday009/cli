@@ -71,7 +71,7 @@ metadata:
 | 查询 BaseApp 与关联 Base | `+url-resolve` → `+app-get` → `+base-get` | 只把 `/app/` URL 传给 `+url-resolve`，不要把 `/base/workspace/` URL 传给它；用 `+app-get ref` 的 key 作为 `base_token` 再调用 `+base-get`。最终答复忠实保留应用 `name` / `app_token`，以及每个关联 Base 的 `name` / `base_token` |
 | 管理应用模式（BaseApp/AppMode）页面与组件 | `+app-page-*` / `+app-block-*` | BaseApp/AppMode、Workspace 内应用或带 base/workspace 上下文的 `/app/` 链接直接走本路由，不走 `lark-apps`；没有 `+app-list`，列 Workspace 内应用必须用 `+workspace-entity-list --workspace-token <token> --type baseapp`；先读 [lark-base-baseapp.md](references/lark-base-baseapp.md)。组件 `data_config` 读 [lark-base-baseapp-block-data-config.md](references/lark-base-baseapp-block-data-config.md)；`+app-block-get-data` 除 `app_token` 外还需要图表数据源的 `base_token` |
 | 复制 Page / 设置页面图标 | 当前不支持 | 不产生任何写入，不得用 `+app-page-create` 冒充完整复制；单独说明“可新建空 Page”仅是替代能力，须等用户明确要求后再执行 |
-| Workspace 目录 | `+workspace-create` / `+workspace-entity-list` / `+workspace-move-in` | 新建 Workspace、列出或移入其中的 Base/应用 |
+| Workspace 目录 | `+workspace-create` / `+workspace-entity-list` / `+workspace-move-in` | 新建 Workspace、列出或移入其中的 Base/应用；移出或移除请求必须先用 `+workspace-entity-list` 只读定位并忠实报告实际名称，再按 [lark-base-baseapp.md](references/lark-base-baseapp.md) 说明不支持并停止；`drive +move` 不改变 Workspace 归属 |
 | Workflow | `+workflow-*` | 创建/更新或理解 steps 时读入口 [lark-base-workflow-guide.md](references/lark-base-workflow-guide.md) 和 steps JSON SSOT [lark-base-workflow-schema.md](references/lark-base-workflow-schema.md)；list/get/enable/disable 只处理 workflow ID 与启停状态 |
 | 高级权限与角色 | `+advperm-*` / `+role-*` | 角色操作先读入口 [lark-base-role-guide.md](references/lark-base-role-guide.md)；角色 create/update 或解读完整配置再读权限 JSON SSOT [role-config.md](references/role-config.md)；系统角色不可删除；关闭高级权限会影响自定义角色 |
 
