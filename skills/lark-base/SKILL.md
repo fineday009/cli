@@ -41,6 +41,7 @@ metadata:
 进入任何需要目标 Base 的 shortcut 前，必须先拿到可用的 `base_token`，以及当前任务需要的 `table_id` / `view_id` / `record_id` / `form_id` / `dashboard_id` / `workflow_id` 等真实 ID；不要把完整 URL、wiki token、workspace token 或孤立 raw token 直接当作 `--base-token`。
 
 - 用户输入 URL 或分享链接：先运行 `lark-cli base +url-resolve --url "<url>" --as user`。Base URL 返回 `base_token` 和相关 ID；BaseApp `/app/` URL 返回 `app_token`，并在原链接携带时返回 `workspace_token` 和 `page_id`。
+- 用户要查询既有 BaseApp，但当前输入和当前会话可信命令返回中都没有真实 `/app/` 链接或 `app_token`，也没有可供 `+workspace-entity-list --type baseapp` 定位的 `workspace_token`，且用户未明确要求读取含这些标识的当前文件：无需调用任何工具；先明确说明当前任务没有提供应用链接或 Workspace 信息、无法可靠定位目标 BaseApp，再请用户补充并停止。不要在此前后调用 `lark-apps`、`+title-resolve`、Drive 搜索、浏览器或其他全局名称发现，不要默认选择同名候选，也不要把 `base_token` 当作 `app_token`。
 - 用户输入 Base 标题、关键词或不确定名称：先运行 `lark-cli base +title-resolve --title "<keyword>" --as user`；`--title` 传入标题中的短关键词，不超过 30 个字符；过长标题先取最有区分度的短关键词；多候选时先让用户消歧，不要猜。
 - 文档嵌入 Base 标签：直接读取 `<bitable>` / `<base_refer>` 的 `token` 作为 `--base-token`，`table-id` 作为 `--table-id`，`view-id` 作为 `--view-id`；孤立 raw token 不走 `+url-resolve`。
 - 仍无法定位且用户不是要新建 Base 时，先反问用户要操作哪一个 Base；用户要新建时才用 `+base-create`。
