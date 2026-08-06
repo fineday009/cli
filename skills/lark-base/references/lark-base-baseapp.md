@@ -18,6 +18,17 @@
 
 最终答复必须同时说明上述正向支持范围和负向限制，不能只说 PageGroup 不支持。用户命中这些诉求时，直接说明当前 CLI 无法完成并停止；不要继续探索浏览器、OpenAPI 或普通 Page 命令等替代通道，也不要读取页面后声称能完成分组或发起任何写请求。
 
+### 从 Workspace 移出或移除资源
+
+当前 CLI 只支持用 `+workspace-move-in` 把 Base 或 BaseApp 移入 Workspace，不支持从 Workspace 移出或移除资源，也没有 `workspace move-out` / `workspace remove` 命令。这类请求必须先完成只读定位，再说明限制并停止，顺序不可调换：
+
+1. Workspace URL 含 `/base/workspace/<workspace_token>` 时，提取其中的真实 `workspace_token`，不要把完整 URL 当作命令参数。
+2. 在同一轮立即执行 `lark-cli base +workspace-entity-list --workspace-token <workspace_token> --page-size 100 --as user`；若 `has_more=true`，继续分页直到完整。该查询是必要的只读定位步骤，不要把它留成等待用户再次选择的可选项，也不要用 `--help` 代替真实查询。
+3. 用服务端返回的 `entities[].name`、`entity_type`、`token` 和 `url` 忠实判断目标。名称完全匹配时报告真实对象；没有完全匹配时明确说明不存在精确同名实体，并原样列出可能相关的候选。不得自动去掉或补齐前后缀，也不得仅凭名称相似就声称已经定位目标。用户直接给出 token 时仍要忠实报告该 token 对应的实际名称。
+4. 定位结果报告完后，明确说明当前 CLI 无法执行 Workspace 移出/移除，并停止，不要发起任何写请求。用户在任一步骤中取消时立即停止，取消后不再调用工具。
+
+`lark-cli drive +move` 只改变 Base 或 BaseApp 在云盘中的目录位置，不改变其 Workspace 归属，不能作为移出 Workspace 的替代方案。不要继续探索 Drive move/delete、另一个 Workspace 的 `+workspace-move-in`、浏览器、OpenAPI 或源码来拼装或冒充该操作；只有用户后续明确提出另一项受支持的操作时，才执行新的写入。
+
 ## Token 与命令
 
 | 对象 | 标识 | 命令 |
