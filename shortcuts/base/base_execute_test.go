@@ -184,6 +184,31 @@ func TestBaseWorkspaceEntityListOutputIncludesURL(t *testing.T) {
 	}
 }
 
+func TestBaseWorkspaceMoveInReturnsServerDataWithoutSyntheticSuccess(t *testing.T) {
+	factory, stdout, reg := newExecuteFactory(t)
+	reg.Register(&httpmock.Stub{
+		Method: "POST",
+		URL:    "/open-apis/base/v3/workspaces/ws_x/move_in",
+		Body: map[string]interface{}{
+			"code": 0,
+			"data": map[string]interface{}{
+				"entity_token": "bas_x",
+			},
+		},
+	})
+	if err := runShortcut(t, BaseWorkspaceMoveIn, []string{"+workspace-move-in", "--workspace-token", "ws_x", "--entity-token", "bas_x"}, factory, stdout); err != nil {
+		t.Fatalf("err=%v", err)
+	}
+
+	data := decodeBaseEnvelope(t, stdout)
+	if data["entity_token"] != "bas_x" {
+		t.Fatalf("data=%#v, want server move-in data", data)
+	}
+	if _, exists := data["moved_in"]; exists {
+		t.Fatalf("data=%#v, must not contain synthetic moved_in", data)
+	}
+}
+
 func TestBaseWorkspaceExecuteCreate(t *testing.T) {
 	factory, stdout, reg := newExecuteFactory(t)
 	stderr, _ := factory.IOStreams.ErrOut.(*bytes.Buffer)

@@ -164,7 +164,7 @@ func executeWorkspaceMoveIn(runtime *common.RuntimeContext) error {
 	if err != nil {
 		return err
 	}
-	runtime.Out(map[string]interface{}{"entity": data, "moved_in": true}, nil)
+	runtime.Out(data, nil)
 	return nil
 }
 
