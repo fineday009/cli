@@ -112,6 +112,15 @@ func TestDryRunBaseappPageOps(t *testing.T) {
 	assertDryRunContains(t, dryRunBaseappPageDelete(ctx, deleteRT), "DELETE /open-apis/base/v3/base_apps/app_x/pages/pg_1")
 }
 
+func TestBaseAppPageListExplainsEmptyNamePermission(t *testing.T) {
+	tips := strings.Join(BaseAppPageList.Tips, "\n")
+	for _, want := range []string{`name=""`, "no permission", "untitled page"} {
+		if !strings.Contains(tips, want) {
+			t.Fatalf("+app-page-list tips must explain empty-name permission semantics; missing %q in:\n%s", want, tips)
+		}
+	}
+}
+
 func TestDryRunAppBlockOps(t *testing.T) {
 	ctx := context.Background()
 

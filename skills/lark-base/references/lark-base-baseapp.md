@@ -62,6 +62,7 @@ lark-cli base +app-block-list \
 ```
 
 - `+app-get` 已返回足够的页面摘要时，可直接取得目标 `page_id`；需要完整页面目录或分页确认时再用 `+app-page-list`。
+- `+app-page-list` 返回的某个 Page 若 `name` 为空字符串，表示当前用户对该 Page 无权限，不表示 Page 没有标题。报告该权限状态，不要将其 `page_id` 用于后续页面或组件读写。
 - 只需列表摘要时不要逐个调用 `+app-block-get` 复核；仅在用户需要单个组件详情时使用 get。
 - `+app-block-list` 返回 `type=unsupported` 的组件时，只能通过列表摘要识别它的存在。当前 CLI 不支持读取详情、读取计算数据或修改此类组件；不要调用 `+app-block-get`、`+app-block-get-data` 或 `+app-block-update`，这些请求会报错。
 
