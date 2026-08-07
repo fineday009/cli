@@ -207,7 +207,7 @@ lark-cli base +app-block-create \
 
 - `data_config.base_token` 是单值：每个列表最多选择一个 Base。
 - Base 必须在当前 App 的同一个 Workspace；CLI 写入前校验。
-- 完整字段协议读 [lark-base-baseapp-block-data-config.md](lark-base-baseapp-block-data-config.md)。
+- 完整字段协议读 [lark-base-app-block-data-config.md](lark-base-app-block-data-config.md)。
 
 ## 更新组件
 
