@@ -217,7 +217,7 @@ func TestAppBlockTypeRejectsRichText(t *testing.T) {
 	}
 }
 
-func TestAppBlockGetDataUsesDashboardPathWithAppHeader(t *testing.T) {
+func TestAppBlockGetDataUsesAppPathWithAppHeader(t *testing.T) {
 	ctx := context.Background()
 	rt := newBaseTestRuntime(map[string]string{
 		"app-token":  "app_x",
@@ -226,7 +226,7 @@ func TestAppBlockGetDataUsesDashboardPathWithAppHeader(t *testing.T) {
 	}, nil, nil)
 
 	appOut := BaseAppBlockGetData.DryRun(ctx, rt).Format()
-	if !strings.Contains(appOut, "GET /open-apis/base/v3/bases/bas_x/dashboards/blocks/cht_chart/data") {
+	if !strings.Contains(appOut, "GET /open-apis/base/v3/base_apps/app_x/blocks/cht_chart/data?base_token=bas_x") {
 		t.Fatalf("unexpected path:\n%s", appOut)
 	}
 	if !strings.Contains(appOut, appTokenPersistHeader+": app_x") {

@@ -287,7 +287,7 @@ func TestBaseAppBlockGetDataSendsAppTokenHeader(t *testing.T) {
 	factory, stdout, reg := newExecuteFactory(t)
 	stub := &httpmock.Stub{
 		Method: "GET",
-		URL:    "/open-apis/base/v3/bases/bas_x/dashboards/blocks/cht_x/data",
+		URL:    "/open-apis/base/v3/base_apps/app_x/blocks/cht_x/data?base_token=bas_x",
 		Body: map[string]interface{}{
 			"code": 0,
 			"data": map[string]interface{}{"main_data": []interface{}{}},
