@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 func TestBaseWorkspaceDryRun(t *testing.T) {
@@ -221,7 +223,10 @@ func TestAppBlockDryRun(t *testing.T) {
 	t.Run("update requires name or data_config", func(t *testing.T) {
 		result := runBaseDryRun(t, 2, "base", "+app-block-update",
 			"--app-token", "app_x", "--page-id", "pg_1", "--block-id", "wid_1")
-		assert.Contains(t, result.Stderr, "至少提供一个")
+		require.Equal(t, "validation", gjson.Get(result.Stderr, "error.type").String(), result.Stderr)
+		require.Equal(t, "invalid_argument", gjson.Get(result.Stderr, "error.subtype").String(), result.Stderr)
+		require.Equal(t, "--name", gjson.Get(result.Stderr, "error.param").String(), result.Stderr)
+		require.Contains(t, gjson.Get(result.Stderr, "error.message").String(), "至少提供一个", result.Stderr)
 	})
 }
 

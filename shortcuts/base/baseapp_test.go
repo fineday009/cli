@@ -656,6 +656,31 @@ func TestNormalizeAppChartKeepsOptionalSortOrderOmitted(t *testing.T) {
 	}
 }
 
+func TestNormalizeAppChartDefaultsGroupAndViewSortOrder(t *testing.T) {
+	for _, sortType := range []string{"group", "view"} {
+		t.Run(sortType, func(t *testing.T) {
+			normalized := normalizeAppChartDataConfig(map[string]interface{}{
+				"base_token": "basx",
+				"data_sources": []interface{}{
+					map[string]interface{}{
+						"table_name": "Orders",
+						"group_by": []interface{}{
+							map[string]interface{}{
+								"field_name": "Month",
+								"sort":       map[string]interface{}{"type": sortType},
+							},
+						},
+					},
+				},
+			})
+			sortConfig := normalized["data_sources"].([]interface{})[0].(map[string]interface{})["group_by"].([]interface{})[0].(map[string]interface{})["sort"].(map[string]interface{})
+			if sortConfig["order"] != "asc" {
+				t.Fatalf("sort=%v, want default order asc", sortConfig)
+			}
+		})
+	}
+}
+
 func TestValidateAppTextRejectsUnknownFields(t *testing.T) {
 	problems := validateAppBlockDataConfig("text", map[string]interface{}{"text": "hello", "style": "bold"})
 	if !strings.Contains(strings.Join(problems, " "), "style") {

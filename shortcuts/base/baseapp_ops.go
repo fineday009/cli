@@ -136,7 +136,12 @@ func executeWorkspaceCreate(runtime *common.RuntimeContext) error {
 		return err
 	}
 	out := map[string]interface{}{"workspace": data, "created": true}
-	augmentWorkspaceCreateOutput(runtime, out, data)
+	if workspaceToken := strings.TrimSpace(common.GetString(data, "workspace_token")); workspaceToken != "" {
+		out["workspace_token"] = workspaceToken
+	}
+	if workspaceURL := strings.TrimSpace(common.GetString(data, "url")); workspaceURL != "" {
+		out["url"] = workspaceURL
+	}
 	runtime.Out(out, nil)
 	return nil
 }
@@ -454,7 +459,7 @@ func executeAppBlockGet(runtime *common.RuntimeContext) error {
 }
 
 func executeAppBlockCreate(runtime *common.RuntimeContext) error {
-	if err := ensureUniqueAppBlockName(runtime, strings.TrimSpace(runtime.Str("name"))); err != nil {
+	if err := ensureUniqueAppBlockName(runtime, strings.TrimSpace(runtime.Str("name")), ""); err != nil {
 		return err
 	}
 	if strings.EqualFold(strings.TrimSpace(runtime.Str("type")), "list") {
@@ -474,7 +479,7 @@ func executeAppBlockCreate(runtime *common.RuntimeContext) error {
 	return nil
 }
 
-func ensureUniqueAppBlockName(runtime *common.RuntimeContext, name string) error {
+func ensureUniqueAppBlockName(runtime *common.RuntimeContext, name, excludeBlockID string) error {
 	pageToken := ""
 	for {
 		params := map[string]interface{}{"page_size": 100}
@@ -490,6 +495,10 @@ func ensureUniqueAppBlockName(runtime *common.RuntimeContext, name string) error
 			return err
 		}
 		for _, block := range appBlockItems(data) {
+			blockID := firstNonEmpty(common.GetString(block, "block_id"), common.GetString(block, "id"), common.GetString(block, "widget_id"))
+			if excludeBlockID != "" && strings.TrimSpace(blockID) == excludeBlockID {
+				continue
+			}
 			if strings.EqualFold(strings.TrimSpace(common.GetString(block, "name")), name) {
 				return errs.NewValidationError(
 					errs.SubtypeInvalidArgument,
@@ -600,11 +609,29 @@ func workspaceContainsBase(data map[string]interface{}, baseToken string) bool {
 }
 
 func executeAppBlockUpdate(runtime *common.RuntimeContext) error {
+	blockID := strings.TrimSpace(runtime.Str("block-id"))
+	if name := strings.TrimSpace(runtime.Str("name")); name != "" {
+		if err := ensureUniqueAppBlockName(runtime, name, blockID); err != nil {
+			return err
+		}
+	}
+	if strings.TrimSpace(runtime.Str("data-config")) != "" {
+		current, err := baseV3Call(runtime, "GET", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks", blockID), nil, nil)
+		if err != nil {
+			return err
+		}
+		blockType := firstNonEmpty(common.GetString(current, "type"), common.GetString(current, "block_type"))
+		if strings.EqualFold(strings.TrimSpace(blockType), "list") {
+			if err := validateListBaseWorkspace(runtime); err != nil {
+				return err
+			}
+		}
+	}
 	body, err := appBlockBody(runtime, false)
 	if err != nil {
 		return err
 	}
-	data, err := baseV3Call(runtime, "PATCH", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks", runtime.Str("block-id")), nil, body)
+	data, err := baseV3Call(runtime, "PATCH", baseV3Path("base_apps", runtime.Str("app-token"), "pages", runtime.Str("page-id"), "blocks", blockID), nil, body)
 	if err != nil {
 		return err
 	}

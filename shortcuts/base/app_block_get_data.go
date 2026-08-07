@@ -5,11 +5,9 @@ package base
 
 import (
 	"context"
-	"net/http"
 	"strings"
 
 	"github.com/larksuite/cli/shortcuts/common"
-	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
 )
 
 const baseTokenQueryParam = "base_token"
@@ -45,29 +43,22 @@ var BaseAppBlockGetData = common.Shortcut{
 }
 
 func dryRunAppBlockGetData(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {
+	appToken := strings.TrimSpace(runtime.Str("app-token"))
+	blockID := strings.TrimSpace(runtime.Str("block-id"))
 	return common.NewDryRunAPI().
 		GET("/open-apis/base/v3/base_apps/:app_token/blocks/:block_id/data").
-		Set("app_token", runtime.Str("app-token")).
-		Set("block_id", runtime.Str("block-id")).
-		Params(map[string]interface{}{baseTokenQueryParam: strings.TrimSpace(runtime.Str("base-token"))}).
-		Header(appTokenPersistHeader, strings.TrimSpace(runtime.Str("app-token")))
+		Set("app_token", appToken).
+		Set("block_id", blockID).
+		Params(map[string]interface{}{baseTokenQueryParam: strings.TrimSpace(runtime.Str("base-token"))})
 }
 
 func executeAppBlockGetData(runtime *common.RuntimeContext) error {
-	queryParams := larkcore.QueryParams{}
-	queryParams.Set(baseTokenQueryParam, strings.TrimSpace(runtime.Str("base-token")))
-	req := &larkcore.ApiReq{
-		HttpMethod:  "GET",
-		ApiPath:     baseV3Path("base_apps", runtime.Str("app-token"), "blocks", runtime.Str("block-id"), "data"),
-		QueryParams: queryParams,
+	appToken := strings.TrimSpace(runtime.Str("app-token"))
+	blockID := strings.TrimSpace(runtime.Str("block-id"))
+	params := map[string]interface{}{
+		baseTokenQueryParam: strings.TrimSpace(runtime.Str("base-token")),
 	}
-	resp, err := runtime.DoAPI(req, larkcore.WithHeaders(http.Header{
-		appTokenPersistHeader: []string{strings.TrimSpace(runtime.Str("app-token"))},
-	}))
-	if err != nil {
-		return err
-	}
-	data, err := runtime.ClassifyAPIResponse(resp)
+	data, err := runtime.CallAPITyped("GET", baseV3Path("base_apps", appToken, "blocks", blockID, "data"), params, nil)
 	if err != nil {
 		return err
 	}

@@ -49,16 +49,22 @@ var BaseAppBlockCreate = common.Shortcut{
 		if !isAppBlockType(blockType) {
 			return errs.NewValidationError(errs.SubtypeInvalidArgument, "--type %q 不在支持的 block 类型内: %s", blockType, strings.Join(appBlockTypes(), ", ")).WithParam("--type")
 		}
+		raw := strings.TrimSpace(runtime.Str("data-config"))
+		noValidate := runtime.Bool("no-validate")
+		var cfg map[string]interface{}
+		if raw != "" && !noValidate {
+			var err error
+			cfg, err = parseJSONObject(newParseCtx(runtime), raw, "data-config")
+			if err != nil {
+				return err
+			}
+		}
 		if strings.EqualFold(blockType, "list") {
 			subType, ok := normalizeAppListSubType(runtime.Str("sub-type"))
 			if !ok {
 				return errs.NewValidationError(errs.SubtypeInvalidArgument, "--sub-type 仅支持 %s", strings.Join(appListSubTypes, "|")).WithParam("--sub-type")
 			}
-			if raw := strings.TrimSpace(runtime.Str("data-config")); raw != "" && !runtime.Bool("no-validate") {
-				cfg, err := parseJSONObject(newParseCtx(runtime), raw, "data-config")
-				if err != nil {
-					return err
-				}
+			if cfg != nil {
 				if problems := validateAppListDataConfig(subType, cfg); len(problems) > 0 {
 					return formatDataConfigErrors(problems)
 				}
@@ -66,20 +72,14 @@ var BaseAppBlockCreate = common.Shortcut{
 		} else if strings.TrimSpace(runtime.Str("sub-type")) != "" {
 			return errs.NewValidationError(errs.SubtypeInvalidArgument, "--sub-type 仅适用于 list 类型组件").WithParam("--sub-type")
 		}
-		pc := newParseCtx(runtime)
-		raw := strings.TrimSpace(runtime.Str("data-config"))
 		if raw == "" {
 			if strings.EqualFold(blockType, "list") || isChartBlockType(blockType) {
 				return errs.NewValidationError(errs.SubtypeInvalidArgument, "%s 类型组件必须提供 data-config", blockType).WithParam("--data-config")
 			}
 			return nil
 		}
-		if runtime.Bool("no-validate") {
+		if noValidate {
 			return nil
-		}
-		cfg, err := parseJSONObject(pc, raw, "data-config")
-		if err != nil {
-			return err
 		}
 		norm := cfg
 		if !strings.EqualFold(blockType, "list") {

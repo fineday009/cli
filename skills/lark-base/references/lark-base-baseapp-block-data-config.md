@@ -59,7 +59,7 @@ lark-cli base +app-block-create \
 ```bash
 lark-cli base +app-block-update \
   --app-token <app_token> --page-id <page_id> --block-id <block_id> \
-  --data-config '{"filter":{"conjunction":"and","conditions":[]}}'
+  --data-config '{"filter":{"conjunction":"and","conditions":[{"field_name":"状态","operator":"is","value":"已完成"}]}}'
 ```
 
 - CLI 只发送用户显式传入的字段。

@@ -249,34 +249,7 @@ func normalizeAppChartDataConfig(cfg map[string]interface{}) map[string]interfac
 		normalized := make([]interface{}, len(sources))
 		for i, s := range sources {
 			if m, ok := s.(map[string]interface{}); ok {
-				source := cloneMap(m)
-				if series, ok := source["series"].([]interface{}); ok {
-					for _, raw := range series {
-						if item, ok := raw.(map[string]interface{}); ok {
-							if rollup, ok := item["rollup"].(string); ok {
-								item["rollup"] = strings.ToUpper(strings.TrimSpace(rollup))
-							}
-						}
-					}
-				}
-				if groups, ok := source["group_by"].([]interface{}); ok {
-					for _, raw := range groups {
-						if group, ok := raw.(map[string]interface{}); ok {
-							if mode, ok := group["mode"].(string); ok {
-								group["mode"] = strings.ToLower(strings.TrimSpace(mode))
-							}
-							if sortConfig, ok := group["sort"].(map[string]interface{}); ok {
-								if sortType, ok := sortConfig["type"].(string); ok {
-									sortConfig["type"] = strings.ToLower(strings.TrimSpace(sortType))
-								}
-								if order, ok := sortConfig["order"].(string); ok {
-									sortConfig["order"] = strings.ToLower(strings.TrimSpace(order))
-								}
-							}
-						}
-					}
-				}
-				normalized[i] = source
+				normalized[i] = normalizeDataConfig(cloneMap(m))
 			} else {
 				normalized[i] = s
 			}

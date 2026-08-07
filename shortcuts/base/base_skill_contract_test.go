@@ -4,15 +4,16 @@
 package base
 
 import (
-	"os"
 	"strings"
 	"testing"
+
+	"github.com/larksuite/cli/internal/vfs"
 )
 
 const larkBaseSkillDoc = "../../skills/lark-base/SKILL.md"
 
 func TestBaseSkillContract_ReusedBlockConfigPreservesExplicitIntent(t *testing.T) {
-	raw, err := os.ReadFile(larkBaseSkillDoc)
+	raw, err := vfs.ReadFile(larkBaseSkillDoc)
 	if err != nil {
 		t.Fatalf("read skill doc %s: %v", larkBaseSkillDoc, err)
 	}
