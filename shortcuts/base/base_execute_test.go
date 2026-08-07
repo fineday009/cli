@@ -303,10 +303,11 @@ func TestBaseAppBlockGetDataReturnsTypedAPIErrors(t *testing.T) {
 
 	t.Run("transport failure", func(t *testing.T) {
 		factory, stdout, reg := newExecuteFactory(t)
+		cause := errors.New("connection reset")
 		reg.Register(&httpmock.Stub{
 			Method: "GET",
 			URL:    "/open-apis/base/v3/base_apps/app_x/blocks/cht_x/data?base_token=bas_x",
-			Error:  errors.New("connection reset"),
+			Error:  cause,
 		})
 
 		err := runShortcut(t, BaseAppBlockGetData, []string{
@@ -316,8 +317,11 @@ func TestBaseAppBlockGetDataReturnsTypedAPIErrors(t *testing.T) {
 			"--block-id", "cht_x",
 		}, factory, stdout)
 		problem, ok := errs.ProblemOf(err)
-		if !ok || problem.Category != errs.CategoryNetwork {
+		if !ok || problem.Category != errs.CategoryNetwork || problem.Subtype != errs.SubtypeNetworkTransport {
 			t.Fatalf("problem=%#v, want typed network error", problem)
+		}
+		if !errors.Is(err, cause) {
+			t.Fatalf("err=%v, want wrapped cause %v", err, cause)
 		}
 	})
 }
