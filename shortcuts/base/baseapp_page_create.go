@@ -14,7 +14,7 @@ var BaseAppPageCreate = common.Shortcut{
 	Command:     "+app-page-create",
 	Description: "Create a page in a BaseApp",
 	Risk:        "write",
-	Scopes:      []string{"base:appmode_page:create"},
+	Scopes:      []string{"base:appmode_page:create", "base:appmode_page:read"},
 	AuthTypes:   authTypes(),
 	Flags: []common.Flag{
 		appTokenFlag(true),

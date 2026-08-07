@@ -620,6 +620,9 @@ func executeAppBlockUpdate(runtime *common.RuntimeContext) error {
 		if err != nil {
 			return err
 		}
+		if err := validateAppBlockUpdateForCurrentBlock(runtime, current); err != nil {
+			return err
+		}
 		blockType := firstNonEmpty(common.GetString(current, "type"), common.GetString(current, "block_type"))
 		if strings.EqualFold(strings.TrimSpace(blockType), "list") {
 			if err := validateListBaseWorkspace(runtime); err != nil {
@@ -637,4 +640,40 @@ func executeAppBlockUpdate(runtime *common.RuntimeContext) error {
 	}
 	runtime.Out(map[string]interface{}{"block": data, "updated": true}, nil)
 	return nil
+}
+
+func validateAppBlockUpdateForCurrentBlock(runtime *common.RuntimeContext, current map[string]interface{}) error {
+	if runtime.Bool("no-validate") {
+		return nil
+	}
+	patch, err := parseJSONObject(newParseCtx(runtime), strings.TrimSpace(runtime.Str("data-config")), "data-config")
+	if err != nil {
+		return err
+	}
+	currentConfig := common.GetMap(current, "data_config")
+	merged := cloneMap(currentConfig)
+	if merged == nil {
+		merged = map[string]interface{}{}
+	}
+	for key, value := range patch {
+		merged[key] = value
+	}
+
+	blockType := strings.TrimSpace(firstNonEmpty(common.GetString(current, "type"), common.GetString(current, "block_type")))
+	var problems []string
+	switch {
+	case strings.EqualFold(blockType, "list"):
+		subType, ok := normalizeAppListSubType(firstNonEmpty(common.GetString(current, "sub_type"), common.GetString(current, "subType")))
+		if !ok {
+			return errs.NewValidationError(errs.SubtypeFailedPrecondition, "当前列表组件 sub_type 不受 CLI 支持: %s", subType).WithParam("--data-config")
+		}
+		problems = validateAppListDataConfig(subType, merged)
+	case isTextBlockType(blockType):
+		problems = validateAppBlockDataConfig(blockType, merged)
+	case isChartBlockType(blockType):
+		problems = validateAppBlockDataConfig(blockType, normalizeAppChartDataConfig(merged))
+	default:
+		return errs.NewValidationError(errs.SubtypeFailedPrecondition, "当前组件类型 %q 不支持通过 CLI 更新 data_config", blockType).WithParam("--data-config")
+	}
+	return formatDataConfigErrors(problems)
 }

@@ -18,7 +18,7 @@ var BaseAppBlockUpdate = common.Shortcut{
 	Command:     "+app-block-update",
 	Description: "Update a block on a BaseApp page",
 	Risk:        "write",
-	Scopes:      []string{"base:appmode_block:update"},
+	Scopes:      []string{"base:appmode_block:update", "base:appmode_block:read"},
 	AuthTypes:   authTypes(),
 	Flags: []common.Flag{
 		appTokenFlag(true),
@@ -58,6 +58,9 @@ var BaseAppBlockUpdate = common.Shortcut{
 		if containsJSONNull(cfg) {
 			return formatDataConfigErrors([]string{"Update 不接受 null 作为清空标记"})
 		}
+		if problems := validateAppBlockUpdateTopLevelFields(cfg); len(problems) > 0 {
+			return formatDataConfigErrors(problems)
+		}
 		// update 不传 type，无法做强类型校验；按多数据源图表结构归一化
 		// （data_sources[] 存在时逐项归一化，否则原样透传）。
 		norm := normalizeAppChartDataConfig(cfg)
@@ -89,6 +92,25 @@ var BaseAppBlockUpdate = common.Shortcut{
 	Execute: func(ctx context.Context, runtime *common.RuntimeContext) error {
 		return executeAppBlockUpdate(runtime)
 	},
+}
+
+func validateAppBlockUpdateTopLevelFields(cfg map[string]interface{}) []string {
+	allowed := map[string]bool{
+		// Chart.
+		"base_token": true, "data_sources": true, "data_source_mode": true, "sort": true,
+		// List.
+		"table_name": true, "filter": true, "sort_by": true, "columns": true,
+		"group_by": true, "fields": true, "card_config": true, "detail_config": true,
+		// Text.
+		"text": true,
+	}
+	var problems []string
+	for key := range cfg {
+		if !allowed[key] {
+			problems = append(problems, fmt.Sprintf("data_config 不支持字段 %s", key))
+		}
+	}
+	return problems
 }
 
 func containsJSONNull(value interface{}) bool {

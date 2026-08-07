@@ -14,7 +14,7 @@ var BaseAppPageRename = common.Shortcut{
 	Command:     "+app-page-update",
 	Description: "Rename a BaseApp page",
 	Risk:        "write",
-	Scopes:      []string{"base:appmode_page:update"},
+	Scopes:      []string{"base:appmode_page:update", "base:appmode_page:read"},
 	AuthTypes:   authTypes(),
 	Flags: []common.Flag{
 		appTokenFlag(true),

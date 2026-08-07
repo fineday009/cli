@@ -228,6 +228,16 @@ func TestAppBlockDryRun(t *testing.T) {
 		require.Equal(t, "--name", gjson.Get(result.Stderr, "error.param").String(), result.Stderr)
 		require.Contains(t, gjson.Get(result.Stderr, "error.message").String(), "至少提供一个", result.Stderr)
 	})
+
+	t.Run("update rejects unknown data_config field", func(t *testing.T) {
+		result := runBaseDryRun(t, 2, "base", "+app-block-update",
+			"--app-token", "app_x", "--page-id", "pg_1", "--block-id", "wid_1",
+			"--data-config", `{"bogus":1}`)
+		require.Equal(t, "validation", gjson.Get(result.Stderr, "error.type").String(), result.Stderr)
+		require.Equal(t, "invalid_argument", gjson.Get(result.Stderr, "error.subtype").String(), result.Stderr)
+		require.Equal(t, "--data-config", gjson.Get(result.Stderr, "error.param").String(), result.Stderr)
+		require.Contains(t, gjson.Get(result.Stderr, "error.message").String(), "bogus", result.Stderr)
+	})
 }
 
 func TestAppBlockGetDataDryRun(t *testing.T) {

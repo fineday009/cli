@@ -310,6 +310,18 @@ func TestBaseappRisksAndScopes(t *testing.T) {
 	if got := strings.Join(BaseAppBlockCreate.Scopes, ","); got != "base:appmode_block:create,base:appmode_block:read" {
 		t.Errorf("+app-block-create scopes=%v", BaseAppBlockCreate.Scopes)
 	}
+	for name, tc := range map[string]struct {
+		shortcut common.Shortcut
+		want     string
+	}{
+		"+app-page-create":  {BaseAppPageCreate, "base:appmode_page:create,base:appmode_page:read"},
+		"+app-page-update":  {BaseAppPageRename, "base:appmode_page:update,base:appmode_page:read"},
+		"+app-block-update": {BaseAppBlockUpdate, "base:appmode_block:update,base:appmode_block:read"},
+	} {
+		if got := strings.Join(tc.shortcut.Scopes, ","); got != tc.want {
+			t.Errorf("%s scopes=%v want=%s", name, tc.shortcut.Scopes, tc.want)
+		}
+	}
 	for name, tc := range cases {
 		if tc.shortcut.Risk != tc.risk {
 			t.Errorf("%s risk=%q want=%q", name, tc.shortcut.Risk, tc.risk)

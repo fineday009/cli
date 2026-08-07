@@ -390,6 +390,35 @@ func TestBaseAppBlockUpdateRejectsListBaseOutsideWorkspace(t *testing.T) {
 	assertInvalidArgumentValidation(t, err, "--data-config", nil, "不在当前 Workspace")
 }
 
+func TestBaseAppBlockUpdateRejectsFieldForCurrentBlockType(t *testing.T) {
+	factory, stdout, reg := newExecuteFactory(t)
+	reg.Register(&httpmock.Stub{
+		Method: "GET",
+		URL:    "/open-apis/base/v3/base_apps/app_x/pages/pge_x/blocks/blk_current",
+		Body: map[string]interface{}{
+			"code": 0,
+			"data": map[string]interface{}{
+				"block_id": "blk_current",
+				"type":     "list",
+				"sub_type": "standard",
+				"data_config": map[string]interface{}{
+					"base_token": "bas_x",
+					"table_name": "Orders",
+				},
+			},
+		},
+	})
+
+	err := runShortcut(t, BaseAppBlockUpdate, []string{
+		"+app-block-update",
+		"--app-token", "app_x",
+		"--page-id", "pge_x",
+		"--block-id", "blk_current",
+		"--data-config", `{"text":"not valid for a list"}`,
+	}, factory, stdout)
+	assertInvalidArgumentValidation(t, err, "--data-config", nil, "standard 列表不支持字段 text")
+}
+
 func TestBaseAppBlockCreateUsesWorkspaceIDAsWorkspaceToken(t *testing.T) {
 	factory, stdout, reg := newExecuteFactory(t)
 	registerEmptyAppBlockList(reg, "app_x", "pge_x")
