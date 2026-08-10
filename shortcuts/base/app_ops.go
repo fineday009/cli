@@ -95,11 +95,7 @@ func dryRunWorkspaceCreate(_ context.Context, runtime *common.RuntimeContext) *c
 }
 
 func workspaceCreateBody(runtime *common.RuntimeContext) map[string]interface{} {
-	body := map[string]interface{}{"name": strings.TrimSpace(runtime.Str("name"))}
-	if icon := strings.TrimSpace(runtime.Str("icon")); icon != "" {
-		body["icon"] = icon
-	}
-	return body
+	return map[string]interface{}{"name": strings.TrimSpace(runtime.Str("name"))}
 }
 
 func dryRunWorkspaceEntityList(_ context.Context, runtime *common.RuntimeContext) *common.DryRunAPI {

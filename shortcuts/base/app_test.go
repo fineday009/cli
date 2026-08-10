@@ -14,8 +14,8 @@ import (
 func TestDryRunWorkspaceOps(t *testing.T) {
 	ctx := context.Background()
 
-	createRT := newBaseTestRuntime(map[string]string{"name": "Growth", "icon": "icon_1"}, nil, nil)
-	assertDryRunContains(t, dryRunWorkspaceCreate(ctx, createRT), "POST /open-apis/base/v3/workspaces", `"name":"Growth"`, `"icon":"icon_1"`)
+	createRT := newBaseTestRuntime(map[string]string{"name": "Growth"}, nil, nil)
+	assertDryRunContains(t, dryRunWorkspaceCreate(ctx, createRT), "POST /open-apis/base/v3/workspaces", `"name":"Growth"`)
 
 	listRT := newBaseTestRuntime(map[string]string{"workspace-token": "ws_x", "type": "BaseApp"}, nil, map[string]int{"page-size": 50})
 	assertDryRunContains(t, dryRunWorkspaceEntityList(ctx, listRT), "GET /open-apis/base/v3/workspaces/ws_x/entities", "page_size=50", "entity_type=baseapp")

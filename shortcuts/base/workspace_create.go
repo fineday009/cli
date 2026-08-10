@@ -18,7 +18,6 @@ var BaseWorkspaceCreate = common.Shortcut{
 	AuthTypes:   authTypes(),
 	Flags: []common.Flag{
 		{Name: "name", Desc: "workspace name", Required: true},
-		{Name: "icon", Desc: "workspace icon key; omit to use the platform default"},
 	},
 	Tips: []string{
 		`lark-cli base +workspace-create --name "Growth team"`,

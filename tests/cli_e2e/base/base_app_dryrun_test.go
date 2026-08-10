@@ -21,6 +21,11 @@ func TestBaseWorkspaceDryRun(t *testing.T) {
 		assert.Contains(t, output, `"name": "Growth"`)
 	})
 
+	t.Run("create rejects unsupported icon", func(t *testing.T) {
+		result := runBaseDryRun(t, 2, "base", "+workspace-create", "--name", "Growth", "--icon", "icon_1")
+		assert.Contains(t, result.Stderr, "unknown flag")
+	})
+
 	t.Run("entity-list", func(t *testing.T) {
 		result := runBaseDryRun(t, 0, "base", "+workspace-entity-list", "--workspace-token", "ws_x", "--type", "baseapp")
 		output := strings.TrimSpace(result.Stdout)
